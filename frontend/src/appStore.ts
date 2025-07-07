@@ -6,6 +6,14 @@
  */
 import { create } from 'zustand';
 
+/** Connection port available on a component. */
+export interface Port {
+  /** Port identifier, fixed to either 'input' or 'output'. */
+  id: 'input' | 'output';
+  /** Defines whether the port accepts or emits connections. */
+  type: 'in' | 'out';
+}
+
 /**
  * Representation of a single component instance placed on the canvas.
  */
@@ -20,6 +28,8 @@ export interface CanvasComponent {
   x: number;
   /** Vertical position on the canvas. */
   y: number;
+  /** Connection ports available on the component. */
+  ports: Port[];
 }
 
 /**
@@ -28,10 +38,10 @@ export interface CanvasComponent {
 export interface Link {
   /** Unique identifier for this link. */
   id: string;
-  /** Source component identifier. */
-  sourceId: string;
-  /** Target component identifier. */
-  targetId: string;
+  /** Source component and port. */
+  source: { componentId: string; portId: 'output' };
+  /** Target component and port. */
+  target: { componentId: string; portId: 'input' };
 }
 
 /**
@@ -56,7 +66,12 @@ interface AppState {
     delta: { x: number; y: number }
   ) => void;
   /** Register a new link between two components. */
-  addLink: (link: { sourceId: string; targetId: string }) => void;
+  addLink: (
+    link: {
+      source: { componentId: string; portId: 'output' };
+      target: { componentId: string; portId: 'input' };
+    }
+  ) => void;
 }
 
 /**
@@ -75,6 +90,10 @@ export const useAppStore = create<AppState>((set) => ({
         type: componentType,
         x: 100,
         y: 100,
+        ports: [
+          { id: 'input', type: 'in' },
+          { id: 'output', type: 'out' },
+        ],
       };
       return {
         canvasComponents: [...state.canvasComponents, newComponent],
@@ -94,22 +113,22 @@ export const useAppStore = create<AppState>((set) => ({
           : component
       ),
     })),
-  addLink: ({ sourceId, targetId }) =>
+  addLink: ({ source, target }) =>
     set((state) => {
       const linkExists = state.links.some(
         (l) =>
-          (l.sourceId === sourceId && l.targetId === targetId) ||
-          (l.sourceId === targetId && l.targetId === sourceId)
+          l.source.componentId === source.componentId &&
+          l.target.componentId === target.componentId
       );
 
-      if (linkExists || sourceId === targetId) {
+      if (linkExists || source.componentId === target.componentId) {
         return {};
       }
 
       const newLink: Link = {
-        id: `link_${sourceId}_${targetId}`,
-        sourceId,
-        targetId,
+        id: `link_${source.componentId}_${target.componentId}`,
+        source,
+        target,
       };
       return { links: [...state.links, newLink] };
     }),

@@ -10,22 +10,26 @@ import { useAppStore } from '../appStore';
 /**
  * Determine the center coordinates of a component card DOM element.
  */
-const getComponentCenter = (id: string): { x: number; y: number } | null => {
-  const element = document.getElementById(id);
-  if (!element) return null;
-  const rect = element.getBoundingClientRect();
-  const parentRect = element.parentElement?.getBoundingClientRect();
-  if (!parentRect) return null;
+const getPortPosition = (
+  componentId: string,
+  portId: string
+): { x: number; y: number } | null => {
+  const portElement = document.getElementById(`port_${componentId}_${portId}`);
+  if (!portElement) return null;
+  const canvasArea = portElement.closest('.canvas-area-container');
+  if (!canvasArea) return null;
+  const canvasRect = canvasArea.getBoundingClientRect();
+  const portRect = portElement.getBoundingClientRect();
   return {
-    x: rect.left - parentRect.left + rect.width / 2,
-    y: rect.top - parentRect.top + rect.height / 2,
+    x: portRect.left - canvasRect.left + portRect.width / 2,
+    y: portRect.top - canvasRect.top + portRect.height / 2,
   };
 };
 
 /** Props for the {@link LinkLayer} component. */
 interface LinkLayerProps {
   /** Information on the link currently being drawn. */
-  pendingLink: { sourceId: string } | null;
+  pendingLink: { sourceId: string; portId: 'output' } | null;
   /** Current mouse coordinates within the canvas. */
   mousePos: { x: number; y: number };
 }
@@ -43,8 +47,8 @@ const LinkLayer: React.FC<LinkLayerProps> = ({ pendingLink, mousePos }) => {
 
   const renderedLinks = links
     .map((link) => {
-      const sourcePos = getComponentCenter(`component-card-${link.sourceId}`);
-      const targetPos = getComponentCenter(`component-card-${link.targetId}`);
+      const sourcePos = getPortPosition(link.source.componentId, link.source.portId);
+      const targetPos = getPortPosition(link.target.componentId, link.target.portId);
       if (!sourcePos || !targetPos) {
         return null;
       }
@@ -63,7 +67,7 @@ const LinkLayer: React.FC<LinkLayerProps> = ({ pendingLink, mousePos }) => {
 
   let pendingLinkLine: React.ReactNode = null;
   if (pendingLink) {
-    const sourcePos = getComponentCenter(`component-card-${pendingLink.sourceId}`);
+    const sourcePos = getPortPosition(pendingLink.sourceId, pendingLink.portId);
     if (sourcePos) {
       pendingLinkLine = (
         <line

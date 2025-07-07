@@ -11,16 +11,45 @@ import {
   useDraggable,
   DragEndEvent,
 } from '@dnd-kit/core';
-import { useAppStore, CanvasComponent } from '../appStore';
+import { useAppStore, CanvasComponent, Port } from '../appStore';
 import PropertiesPanel from './PropertiesPanel';
 import LinkLayer from './LinkLayer';
 import clsx from 'clsx';
 
 /** A component card rendered on the canvas with a connection handle */
+const PortHandle: React.FC<{
+  componentId: string;
+  port: Port;
+  onMouseDown: (componentId: string, portId: Port['id'], e: React.MouseEvent) => void;
+  onMouseUp: (componentId: string, portId: Port['id'], e: React.MouseEvent) => void;
+}> = ({ componentId, port, onMouseDown, onMouseUp }) => {
+  const isInput = port.type === 'in';
+  return (
+    <div
+      id={`port_${componentId}_${port.id}`}
+      onMouseDown={(e) => {
+        e.stopPropagation();
+        onMouseDown(componentId, port.id, e);
+      }}
+      onMouseUp={(e) => {
+        e.stopPropagation();
+        onMouseUp(componentId, port.id, e);
+      }}
+      className={clsx(
+        'absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border-2 border-white cursor-crosshair',
+        {
+          ' -left-2 bg-green-400': isInput,
+          ' -right-2 bg-red-400': !isInput,
+        }
+      )}
+    />
+  );
+};
+
 const CanvasCard: React.FC<{
   component: CanvasComponent;
-  onStartLink: (sourceId: string, e: React.MouseEvent) => void;
-  onEndLink: (targetId: string, e: React.MouseEvent) => void;
+  onStartLink: (sourceId: string, portId: Port['id'], e: React.MouseEvent) => void;
+  onEndLink: (targetId: string, portId: Port['id'], e: React.MouseEvent) => void;
 }> = ({ component, onStartLink, onEndLink }) => {
   const { selectedComponentId, selectComponent } = useAppStore();
   const isSelected = selectedComponentId === component.id;
@@ -30,10 +59,13 @@ const CanvasCard: React.FC<{
     id: component.id,
   });
 
-  // Apply drag transform if available, otherwise use stored position
-  const style = transform
-    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
-    : { top: component.y, left: component.x };
+  // Apply transform during drag while keeping absolute positioning
+  const style = {
+    top: component.y,
+    left: component.x,
+    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+    position: 'absolute' as const,
+  };
 
   return (
     <div
@@ -53,17 +85,15 @@ const CanvasCard: React.FC<{
     >
       <span className="text-sm font-bold">{component.name}</span>
       <span className="text-xs text-gray-500">{component.type}</span>
-      <div
-        onMouseDown={(e) => {
-          e.stopPropagation();
-          onStartLink(component.id, e);
-        }}
-        onMouseUp={(e) => {
-          e.stopPropagation();
-          onEndLink(component.id, e);
-        }}
-        className="absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-red-400 rounded-full border-2 border-white cursor-crosshair"
-      ></div>
+      {component.ports.map((port) => (
+        <PortHandle
+          key={port.id}
+          componentId={component.id}
+          port={port}
+          onMouseDown={onStartLink}
+          onMouseUp={onEndLink}
+        />
+      ))}
     </div>
   );
 };
@@ -72,8 +102,8 @@ const CanvasCard: React.FC<{
 const CanvasArea: React.FC<{
   onMouseMove: (e: React.MouseEvent) => void;
   onMouseUp: () => void;
-  onStartLink: (sourceId: string, e: React.MouseEvent) => void;
-  onEndLink: (targetId: string, e: React.MouseEvent) => void;
+  onStartLink: (sourceId: string, portId: Port['id'], e: React.MouseEvent) => void;
+  onEndLink: (targetId: string, portId: Port['id'], e: React.MouseEvent) => void;
 }> = ({ onMouseMove, onMouseUp, onStartLink, onEndLink }) => {
   const { setNodeRef } = useDroppable({ id: 'canvas-area' });
   const components = useAppStore((state) => state.canvasComponents);
@@ -84,7 +114,7 @@ const CanvasArea: React.FC<{
         ref={setNodeRef}
         onMouseMove={onMouseMove}
         onMouseUp={onMouseUp}
-        className="w-full h-full border-2 border-dashed border-gray-300 rounded-lg"
+        className="canvas-area-container w-full h-full border-2 border-dashed border-gray-300 rounded-lg"
       >
         {components.map((comp) => (
           <CanvasCard
@@ -108,7 +138,7 @@ const Resizer: React.FC = () => (
 /** Primary workspace container */
 const Workspace: React.FC = () => {
   const { addComponent, updateComponentPosition, addLink } = useAppStore();
-  const [pendingLink, setPendingLink] = useState<{ sourceId: string } | null>(null);
+  const [pendingLink, setPendingLink] = useState<{ sourceId: string; portId: 'output' } | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -128,13 +158,18 @@ const Workspace: React.FC = () => {
     }
   };
 
-  const handleStartLink = (sourceId: string) => {
-    setPendingLink({ sourceId });
+  const handleStartLink = (sourceId: string, portId: Port['id']) => {
+    if (portId === 'output') {
+      setPendingLink({ sourceId, portId });
+    }
   };
 
-  const handleEndLink = (targetId: string) => {
-    if (pendingLink) {
-      addLink({ sourceId: pendingLink.sourceId, targetId });
+  const handleEndLink = (targetId: string, portId: Port['id']) => {
+    if (pendingLink && portId === 'input') {
+      addLink({
+        source: { componentId: pendingLink.sourceId, portId: pendingLink.portId },
+        target: { componentId: targetId, portId: 'input' },
+      });
     }
     setPendingLink(null);
   };
