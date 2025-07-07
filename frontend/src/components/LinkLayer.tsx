@@ -1,8 +1,9 @@
 /**
  * File: frontend/src/components/LinkLayer.tsx
- * Renders SVG lines for all connections between components.
+ * Renders SVG lines for all connections and the pending link.
  * Computes line positions from DOM element centers and observes state changes.
- */
+ * Shows a temporary "rubber band" line while the user is connecting ports.
+*/
 import React, { useLayoutEffect, useState } from 'react';
 import { useAppStore } from '../appStore';
 
@@ -21,8 +22,16 @@ const getComponentCenter = (id: string): { x: number; y: number } | null => {
   };
 };
 
+/** Props for the {@link LinkLayer} component. */
+interface LinkLayerProps {
+  /** Information on the link currently being drawn. */
+  pendingLink: { sourceId: string } | null;
+  /** Current mouse coordinates within the canvas. */
+  mousePos: { x: number; y: number };
+}
+
 /** Overlay drawing lines between linked components. */
-const LinkLayer: React.FC = () => {
+const LinkLayer: React.FC<LinkLayerProps> = ({ pendingLink, mousePos }) => {
   const links = useAppStore((state) => state.links);
   const components = useAppStore((state) => state.canvasComponents);
   // Force a re-render after layout to pick up element positions
@@ -52,9 +61,26 @@ const LinkLayer: React.FC = () => {
     })
     .filter(Boolean);
 
+  let pendingLinkLine: React.ReactNode = null;
+  if (pendingLink) {
+    const sourcePos = getComponentCenter(`component-card-${pendingLink.sourceId}`);
+    if (sourcePos) {
+      pendingLinkLine = (
+        <line
+          x1={sourcePos.x}
+          y1={sourcePos.y}
+          x2={mousePos.x}
+          y2={mousePos.y}
+          className="stroke-blue-500 stroke-2 stroke-dasharray-4"
+        />
+      );
+    }
+  }
+
   return (
     <svg className="absolute top-0 left-0 w-full h-full pointer-events-none">
       {renderedLinks as React.ReactNode[]}
+      {pendingLinkLine}
     </svg>
   );
 };
