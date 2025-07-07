@@ -1,0 +1,22 @@
+# This file is for compatibility with tools that do not use pyproject.toml.
+# For development, please use `poetry install`.
+# To generate this file from the current poetry lock file, run:
+# poetry export -f requirements.txt --output requirements.txt
+
+fastapi==0.109
+uvicorn==0.29.0
+pydantic[email]==2.7.1
+SQLAlchemy==2.0.29
+psycopg2-binary==2.9.9
+redis==5.0.4
+temporalio==1.5.0
+pgvector==0.5
+llama-index==0.10.34
+spacy==3.7.4
+sentence-transformers==2.7.0
+opencv-python==4.9.0.80
+mlmd==0.2
+structlog==24.1.0
+python-dotenv==1.0.1
+tenacity==8.2.3
+deprecated==1.2.14

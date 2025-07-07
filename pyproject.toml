@@ -1,0 +1,44 @@
+[tool.poetry]
+name = "originflow"
+version = "0.1.0"
+description = "A scalable platform for engineering design, starting with a browser-based environment for creating schematics and bills-of-materials."
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.13"
+fastapi = "^0.109"
+uvicorn = "^0.29.0"
+pydantic = {version = "^2.7.1", extras = ["email"]}
+SQLAlchemy = "^2.0.29"
+psycopg2-binary = "^2.9.9"
+redis = "^5.0.4"
+temporalio = "^1.5.0"
+# AI & ML Dependencies
+
+llama-index = "^0.10.34"
+spacy = "^3.7.4"
+
+#sentence-transformers = "^2.7.0"
+
+# opencv-python = "^4.9.0.80"
+
+# Shared Utilities
+structlog = "^24.1.0"
+python-dotenv = "^1.0.1"
+tenacity = "^8.2.3"
+deprecated = "^1.2.14"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.2.0"
+pytest-asyncio = "^0.23.6"
+flake8 = "^7.0.0"
+pyright = "^1.1.366"
+pre-commit = "^3.7.0"
+mkdocs = "^1.6.0"
+alembic = "^1.13.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
