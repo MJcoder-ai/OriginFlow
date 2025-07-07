@@ -5,23 +5,42 @@
  * Handles component selection and highlights the active element.
 */
 import React from 'react';
-import { DndContext, useDroppable, DragEndEvent } from '@dnd-kit/core';
+import {
+  DndContext,
+  useDroppable,
+  useDraggable,
+  DragEndEvent,
+} from '@dnd-kit/core';
 import { useAppStore, CanvasComponent } from '../appStore';
 import PropertiesPanel from './PropertiesPanel';
 import LinkLayer from './LinkLayer';
 import clsx from 'clsx';
 
-/** A component card rendered on the canvas */
+/** A component card rendered on the canvas with a connection handle */
 const CanvasCard: React.FC<{ component: CanvasComponent }> = ({ component }) => {
   const { selectedComponentId, selectComponent } = useAppStore();
   const isSelected = selectedComponentId === component.id;
 
+  // Enable dragging of the card itself
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({
+    id: component.id,
+  });
+
+  // Apply drag transform if available, otherwise use stored position
+  const style = transform
+    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
+    : { top: component.y, left: component.x };
+
   return (
     <div
       id={`component-card-${component.id}`}
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
       onClick={() => selectComponent(component.id)}
       className={clsx(
-        'h-24 w-32 bg-white border-2 rounded-lg shadow-sm flex flex-col items-center justify-center p-2 cursor-pointer relative',
+        'h-24 w-32 bg-white border-2 rounded-lg shadow-sm flex flex-col items-center justify-center p-2 cursor-grab active:cursor-grabbing absolute',
         {
           'border-blue-500 ring-2 ring-blue-500': isSelected,
           'border-gray-300': !isSelected,
@@ -42,18 +61,17 @@ const CanvasArea: React.FC = () => {
   const selectComponent = useAppStore((state) => state.selectComponent);
 
   return (
-    // Added relative positioning to be the anchor for the absolute SVG layer
     <div className="flex-grow h-full relative" onClick={() => selectComponent(null)}>
-      <LinkLayer /> {/* Add the link layer here */}
+      <LinkLayer />
       <div
         ref={setNodeRef}
-        className="w-full h-full border-2 border-dashed border-gray-300 rounded-lg p-4 flex flex-wrap gap-4 content-start"
+        className="w-full h-full border-2 border-dashed border-gray-300 rounded-lg relative"
       >
         {components.length > 0 ? (
           components.map((comp) => <CanvasCard key={comp.id} component={comp} />)
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-             <span className="text-gray-400">Drop components here</span>
+            <span className="text-gray-400">Drop components here</span>
           </div>
         )}
       </div>
@@ -69,14 +87,22 @@ const Resizer: React.FC = () => (
 
 /** Primary workspace container */
 const Workspace: React.FC = () => {
-  const addComponent = useAppStore((state) => state.addComponent);
+  const { addComponent, updateComponentPosition } = useAppStore();
 
   const handleDragEnd = (event: DragEndEvent) => {
-    if (event.over && event.over.id === 'canvas-area') {
-      const componentType = event.active.data.current?.type;
-      if (componentType) {
-        addComponent(componentType);
+    const { active, over, delta } = event;
+
+    if (over && over.id === 'canvas-area') {
+      if (String(active.id).startsWith('palette-')) {
+        const componentType = active.data.current?.type;
+        if (componentType) {
+          addComponent(componentType);
+        }
+      } else {
+        updateComponentPosition(active.id as string, delta);
       }
+    } else if (!String(active.id).startsWith('palette-')) {
+      updateComponentPosition(active.id as string, delta);
     }
   };
 

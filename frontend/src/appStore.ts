@@ -1,7 +1,7 @@
 /**
  * File: frontend/src/appStore.ts
- * Defines the central Zustand store for application state.
- * Manages canvas components, links, and user selections.
+ * Central Zustand store for application state management.
+ * Tracks canvas components, links, and current selection.
  * Exposed via the `useAppStore` hook for React components.
  */
 import { create } from 'zustand';
@@ -16,6 +16,10 @@ export interface CanvasComponent {
   name: string;
   /** Component type used for palette lookup. */
   type: string;
+  /** Horizontal position on the canvas. */
+  x: number;
+  /** Vertical position on the canvas. */
+  y: number;
 }
 
 /**
@@ -46,6 +50,11 @@ interface AppState {
   addComponent: (componentType: string) => void;
   /** Update a component's name by id. */
   updateComponentName: (componentId: string, newName: string) => void;
+  /** Offset a component's position by drag delta. */
+  updateComponentPosition: (
+    componentId: string,
+    delta: { x: number; y: number }
+  ) => void;
   /** Register a new link between two components. */
   addLink: (link: { sourceId: string; targetId: string }) => void;
 }
@@ -64,6 +73,8 @@ export const useAppStore = create<AppState>((set) => ({
         id: `component_${Date.now()}`,
         name: `${componentType} ${state.canvasComponents.length + 1}`,
         type: componentType,
+        x: 100,
+        y: 100,
       };
       return {
         canvasComponents: [...state.canvasComponents, newComponent],
@@ -73,6 +84,14 @@ export const useAppStore = create<AppState>((set) => ({
     set((state) => ({
       canvasComponents: state.canvasComponents.map((component) =>
         component.id === componentId ? { ...component, name: newName } : component
+      ),
+    })),
+  updateComponentPosition: (componentId, delta) =>
+    set((state) => ({
+      canvasComponents: state.canvasComponents.map((component) =>
+        component.id === componentId
+          ? { ...component, x: component.x + delta.x, y: component.y + delta.y }
+          : component
       ),
     })),
   addLink: ({ sourceId, targetId }) =>
