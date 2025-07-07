@@ -1,7 +1,7 @@
 /**
  * File: frontend/src/appStore.ts
- * Defines a small Zustand store for global UI state.
- * Manages canvas components and the user selection logic.
+ * Defines the central Zustand store for application state.
+ * Manages canvas components, links, and user selections.
  * Exposed via the `useAppStore` hook for React components.
  */
 import { create } from 'zustand';
@@ -19,11 +19,25 @@ export interface CanvasComponent {
 }
 
 /**
+ * Representation of a connection between two canvas components.
+ */
+export interface Link {
+  /** Unique identifier for this link. */
+  id: string;
+  /** Source component identifier. */
+  sourceId: string;
+  /** Target component identifier. */
+  targetId: string;
+}
+
+/**
  * Shape of the global application state managed by Zustand.
  */
 interface AppState {
   /** Components currently placed on the canvas. */
   canvasComponents: CanvasComponent[];
+  /** Links connecting components on the canvas. */
+  links: Link[];
   /** The id of the currently selected component. */
   selectedComponentId: string | null;
   /** Update which component is selected. */
@@ -32,6 +46,8 @@ interface AppState {
   addComponent: (componentType: string) => void;
   /** Update a component's name by id. */
   updateComponentName: (componentId: string, newName: string) => void;
+  /** Register a new link between two components. */
+  addLink: (link: { sourceId: string; targetId: string }) => void;
 }
 
 /**
@@ -39,6 +55,7 @@ interface AppState {
  */
 export const useAppStore = create<AppState>((set) => ({
   canvasComponents: [],
+  links: [],
   selectedComponentId: null,
   selectComponent: (id) => set({ selectedComponentId: id }),
   addComponent: (componentType) =>
@@ -58,5 +75,24 @@ export const useAppStore = create<AppState>((set) => ({
         component.id === componentId ? { ...component, name: newName } : component
       ),
     })),
+  addLink: ({ sourceId, targetId }) =>
+    set((state) => {
+      const linkExists = state.links.some(
+        (l) =>
+          (l.sourceId === sourceId && l.targetId === targetId) ||
+          (l.sourceId === targetId && l.targetId === sourceId)
+      );
+
+      if (linkExists || sourceId === targetId) {
+        return {};
+      }
+
+      const newLink: Link = {
+        id: `link_${sourceId}_${targetId}`,
+        sourceId,
+        targetId,
+      };
+      return { links: [...state.links, newLink] };
+    }),
 }));
 
