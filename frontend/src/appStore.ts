@@ -30,6 +30,8 @@ interface AppState {
   selectComponent: (id: string | null) => void;
   /** Add a component to the canvas using its type. */
   addComponent: (componentType: string) => void;
+  /** Update a component's name by id. */
+  updateComponentName: (componentId: string, newName: string) => void;
 }
 
 /**
@@ -50,5 +52,11 @@ export const useAppStore = create<AppState>((set) => ({
         canvasComponents: [...state.canvasComponents, newComponent],
       };
     }),
+  updateComponentName: (componentId, newName) =>
+    set((state) => ({
+      canvasComponents: state.canvasComponents.map((component) =>
+        component.id === componentId ? { ...component, name: newName } : component
+      ),
+    })),
 }));
 
