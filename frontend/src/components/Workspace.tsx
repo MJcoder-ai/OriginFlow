@@ -2,28 +2,46 @@
  * File: frontend/src/components/Workspace.tsx
  * Central workspace housing the canvas, properties panel, and drag-and-drop logic.
  * Implements panel resizing and component placement on the canvas.
- */
+ * Handles component selection and highlights the active element.
+*/
 import React, { useState, useEffect, useCallback } from 'react';
 import { DndContext, useDroppable, DragEndEvent } from '@dnd-kit/core';
 import { useAppStore, CanvasComponent } from '../appStore';
 import PropertiesPanel from './PropertiesPanel';
+import clsx from 'clsx';
 
-/** A component card rendered on the canvas. */
-const CanvasCard: React.FC<{ component: CanvasComponent }> = ({ component }) => (
-  <div className="h-24 w-32 bg-white border border-gray-300 rounded-lg shadow-sm flex flex-col items-center justify-center p-2">
-    <span className="text-sm font-bold">{component.name}</span>
-    <span className="text-xs text-gray-500">{component.type}</span>
-  </div>
-);
+/** A component card rendered on the canvas */
+const CanvasCard: React.FC<{ component: CanvasComponent }> = ({ component }) => {
+  const { selectedComponentId, selectComponent } = useAppStore();
+  const isSelected = selectedComponentId === component.id;
+
+  return (
+    <div
+      onClick={() => selectComponent(component.id)}
+      className={clsx(
+        'h-24 w-32 bg-white border-2 rounded-lg shadow-sm flex flex-col items-center justify-center p-2 cursor-pointer',
+        {
+          'border-blue-500 ring-2 ring-blue-500': isSelected,
+          'border-gray-300': !isSelected,
+        }
+      )}
+    >
+      <span className="text-sm font-bold">{component.name}</span>
+      <span className="text-xs text-gray-500">{component.type}</span>
+    </div>
+  );
+};
 
 /** The main canvas area that acts as a droppable target. */
 const CanvasArea: React.FC = () => {
   const { setNodeRef } = useDroppable({ id: 'canvas-area' });
   const components = useAppStore((state) => state.canvasComponents);
+  const selectComponent = useAppStore((state) => state.selectComponent);
 
   return (
     <div
       ref={setNodeRef}
+      onClick={() => selectComponent(null)}
       className="flex-grow h-full border-2 border-dashed border-gray-300 rounded-lg p-4 flex flex-wrap gap-4 content-start"
     >
       {components.length > 0 ? (
