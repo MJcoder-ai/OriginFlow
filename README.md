@@ -73,6 +73,9 @@ npm install
 npm run dev
 ```
 
+The dev server expects `index.html` in the frontend project root. Ensure
+`@vitejs/plugin-react` is listed in `devDependencies`.
+
 ---
 
 ## 5. Configuration
