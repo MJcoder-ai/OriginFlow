@@ -10,7 +10,7 @@
 ---
 
 ## 2. Key Features
-- **Engineering Canvas**: A drag-and-drop interface for creating and editing schematics with AI-driven auto-completion, industry-standard naming, WebGL rendering, and CRDT-based offline sync.
+- **Engineering Canvas**: A drag-and-drop interface for creating and editing schematics with AI-driven auto-completion, industry-standard naming, WebGL rendering, CRDT-based offline sync, and port-based connections between components.
 - **Customer Project Wizard**: A guided interface for non-technical users to plan projects with AI suggestions and cost estimation.
 - **AI-Driven Datasheet Processing**: Extracts and validates data from uploaded datasheets with multi-agent validation and error fallbacks.
 - **Media Management**: Upload or capture component images/videos, validated by AI with Octopart API integration.
