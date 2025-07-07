@@ -66,6 +66,13 @@ curl -X POST -H "Authorization: Bearer $EMERGENCY_TOKEN" \
   https://api.originflow.com/emergency_shutdown
 ```
 
+### 4.4 UI Development
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
 ---
 
 ## 5. Configuration
@@ -215,3 +222,4 @@ BSD License (pending legal review).
 - **Docs**: [https://docs.originflow.dev](https://docs.originflow.dev).
 
 Happy designing! 🚀
+# <codex-marker>

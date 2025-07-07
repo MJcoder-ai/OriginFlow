@@ -1,0 +1,23 @@
+/*
+ * File: frontend/src/index.css
+ * Entry point for global styles and Tailwind imports for OriginFlow UI.
+ * Sets default body styles and layout grid area helpers.
+ */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-800;
+  }
+}
+
+/* Custom CSS to define the grid areas for our layout */
+.grid-areas-layout-desktop {
+  grid-template-areas:
+    "sidebar topbar"
+    "sidebar action-bar"
+    "sidebar workspace"
+    "sidebar statusbar";
+}
