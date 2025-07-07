@@ -18,6 +18,7 @@
 - **Workflow Orchestration**: Self-hosted Temporal.io for reliable execution of complex workflows, including Saga Pattern for rollbacks.
 - **Extensibility**: Plug-in framework for components, AI models, and workflows via Component Pack Studio and marketplace.
 - **Observability**: Grafana dashboards, OpenTelemetry traces, and Workflow Visibility Dashboard for monitoring.
+- **Properties Panel with AI Chat**: Manage components via a drag-and-drop palette and collaborate with an AI assistant.
 - **AI Governance**: MLMD for model versioning and drift detection.
 - **Performance Benchmarks**:
   | **Nodes** | **CPU (cores)** | **RAM (GB)** |
