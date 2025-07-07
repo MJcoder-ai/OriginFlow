@@ -232,3 +232,4 @@ frontend/src/appStore.ts
 frontend/src/components/Workspace.tsx
 frontend/src/components/PropertiesPanel.tsx
 frontend/src/components/LinkLayer.tsx
+frontend/src/components/ChatPanel.tsx
