@@ -48,9 +48,9 @@ export interface Link {
 /**
  * Shape of the global application state managed by Zustand.
  */
+type AppStatus = 'loading' | 'ready' | 'error' | 'saving' | string;
+
 interface AppState {
-  /** Flag indicating whether data is being loaded from the API. */
-  isLoading: boolean;
   /** Components currently placed on the canvas. */
   canvasComponents: CanvasComponent[];
   /** Links connecting components on the canvas. */
@@ -58,6 +58,8 @@ interface AppState {
   /** The id of the currently selected component. */
   selectedComponentId: string | null;
   /** Update which component is selected. */
+  /** The current status message for the UI. */
+  status: AppStatus;
   selectComponent: (id: string | null) => void;
   /** Fetch the entire project from the backend API. */
   fetchProject: () => Promise<void>;
@@ -83,13 +85,13 @@ interface AppState {
  * Create a Zustand store with basic component management helpers.
  */
 export const useAppStore = create<AppState>((set, get) => ({
-  isLoading: true,
   canvasComponents: [],
   links: [],
   selectedComponentId: null,
+  status: 'loading',
   selectComponent: (id) => set({ selectedComponentId: id }),
   async fetchProject() {
-    set({ isLoading: true });
+    set({ status: 'loading' });
     try {
       const [components, linksFromApi] = await Promise.all([
         api.getComponents(),
@@ -107,10 +109,10 @@ export const useAppStore = create<AppState>((set, get) => ({
         source: { componentId: l.source_id, portId: 'output' as const },
         target: { componentId: l.target_id, portId: 'input' as const },
       }));
-      set({ canvasComponents: enrichedComponents, links, isLoading: false });
+      set({ canvasComponents: enrichedComponents, links, status: 'ready' });
     } catch (error) {
       console.error('Failed to load project:', error);
-      set({ isLoading: false });
+      set({ status: 'Error: Could not load project' });
     }
   },
   async addComponent(componentType) {
@@ -121,6 +123,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       x: 100,
       y: 100,
     };
+    set({ status: `Adding ${componentType}...` });
     try {
       const saved = await api.createComponent(newComponentData);
       const component: CanvasComponent = {
@@ -132,9 +135,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       };
       set((state) => ({
         canvasComponents: [...state.canvasComponents, component],
+        status: `Component ${saved.name} added`,
       }));
     } catch (error) {
       console.error('Failed to add component:', error);
+      set({ status: 'Error: Could not add component' });
     }
   },
   updateComponentName: (componentId, newName) =>
@@ -160,6 +165,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (linkExists || source.componentId === target.componentId) {
       return;
     }
+    set({ status: 'Creating link...' });
     try {
       const saved = await api.createLink({
         source_id: source.componentId,
@@ -170,9 +176,10 @@ export const useAppStore = create<AppState>((set, get) => ({
         source: { componentId: saved.source_id, portId: 'output' },
         target: { componentId: saved.target_id, portId: 'input' },
       };
-      set((state) => ({ links: [...state.links, newLink] }));
+      set((state) => ({ links: [...state.links, newLink], status: 'Link created' }));
     } catch (error) {
       console.error('Failed to add link:', error);
+      set({ status: 'Error: Could not create link' });
     }
   },
 }));

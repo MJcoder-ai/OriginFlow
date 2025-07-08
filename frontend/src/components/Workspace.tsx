@@ -144,7 +144,7 @@ const Resizer: React.FC = () => (
 
 /** Primary workspace container */
 const Workspace: React.FC = () => {
-  const { addComponent, updateComponentPosition, addLink, fetchProject, isLoading } = useAppStore();
+  const { addComponent, updateComponentPosition, addLink, fetchProject } = useAppStore();
   useEffect(() => {
     fetchProject();
   }, [fetchProject]);
@@ -196,13 +196,7 @@ const Workspace: React.FC = () => {
     setPendingLink(null);
   };
 
-  if (isLoading) {
-    return (
-      <main className="[grid-area:workspace] flex items-center justify-center">
-        <div className="text-gray-500">Loading Project...</div>
-      </main>
-    );
-  }
+
 
   return (
     <DndContext onDragEnd={handleDragEnd}>
