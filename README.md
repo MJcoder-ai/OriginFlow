@@ -30,7 +30,7 @@
 ---
 
 ## 3. Supported Technologies
-- **Frontend**: React 18.2, TypeScript 5.3, react-flow 11.10, Tailwind CSS 3.4, Zustand 4.5, @dnd-kit/core 6.0, clsx 2.1, shadcn/ui 0.8, React Joyride 2.7, react-tooltip 5.2
+- **Frontend**: React 18.2, TypeScript 5.3, react-flow 11.10, Tailwind CSS 3.4, Zustand 4.5, @dnd-kit/core 6.0, clsx 2.1, shadcn/ui 0.8, React Joyride 2.7, react-tooltip 5.2, lucide-react 0.371
 - **Backend**: FastAPI 0.109, Python 3.11, PostgreSQL 16, Redis 7.2
 - **AI Services**: pgvector 0.5, LlamaIndex, spaCy, sentence-transformers/all-MiniLM-L6-v2, YOLOv8, OpenCV, MLMD 0.2
 - **Workflow Orchestration**: Temporal.io 1.22 (self-hosted)
@@ -73,6 +73,8 @@ cd frontend
 npm install
 npm run dev
 ```
+
+The UI uses `lucide-react` for icons. Run `npm install` after pulling updates to ensure the package is installed.
 
 The dev server expects `index.html` in the frontend project root. Ensure
 `@vitejs/plugin-react` is listed in `devDependencies`.

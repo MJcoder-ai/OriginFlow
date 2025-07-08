@@ -20,12 +20,16 @@ const Layout: React.FC = () => {
   return (
     <div
       className={`grid h-screen transition-all duration-200 \
-        ${isNavCollapsed ? 'grid-cols-[60px_1fr]' : 'grid-cols-[180px_1fr]'} \
-        ${isActionCollapsed ? 'grid-rows-[48px_0_1fr_40px]' : 'grid-rows-[48px_48px_1fr_40px]'}
+        ${isNavCollapsed ? 'grid-cols-[80px_1fr]' : 'grid-cols-[240px_1fr]'} \
+        ${isActionCollapsed ? 'grid-rows-[60px_0_1fr_40px]' : 'grid-rows-[60px_48px_1fr_40px]'}
         grid-areas-layout-desktop`}
     >
-      <Sidebar isCollapsed={isNavCollapsed} toggleCollapse={() => setIsNavCollapsed(!isNavCollapsed)} />
-      <Header toggleActionCollapse={() => setIsActionCollapsed(!isActionCollapsed)} />
+      <Sidebar isCollapsed={isNavCollapsed} />
+      <Header
+        isNavCollapsed={isNavCollapsed}
+        toggleNavCollapse={() => setIsNavCollapsed(!isNavCollapsed)}
+        toggleActionCollapse={() => setIsActionCollapsed(!isActionCollapsed)}
+      />
       <ActionBar isCollapsed={isActionCollapsed} />
       <Workspace />
       <StatusBar />
