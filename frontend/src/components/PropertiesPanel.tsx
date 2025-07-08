@@ -56,12 +56,20 @@ const PropertiesEditor: React.FC = () => {
 /** Container for palette and chat sections. */
 const PropertiesPanel: React.FC = () => {
   return (
+    // Main container uses flex column and fills available height
     <div className="w-full h-full bg-white border-l border-gray-200 flex flex-col">
-      <ComponentPalette />
-      <PropertiesEditor />
+      {/* Palette should not grow so the chat panel gets remaining space */}
+      <div className="flex-shrink-0">
+        <ComponentPalette />
+      </div>
 
-      {/* Allow the chat panel to use remaining space and scroll correctly */}
-      <div className="flex-grow min-h-0 border-t">
+      {/* Properties editor also has fixed height */}
+      <div className="flex-shrink-0 border-y">
+        <PropertiesEditor />
+      </div>
+
+      {/* The chat wrapper grows and enables scrolling for the chat history */}
+      <div className="flex-grow min-h-0">
         <ChatPanel />
       </div>
     </div>
