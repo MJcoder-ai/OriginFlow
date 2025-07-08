@@ -61,15 +61,17 @@ const ChatPanel: React.FC = () => {
   };
 
   return (
-    <div className="flex-grow flex flex-col p-2 overflow-hidden">
-      {/* Chat History */}
-      <div className="flex-grow space-y-3 overflow-y-auto p-2 flex flex-col">
+    // Fill the parent container to keep the overall panel height fixed
+    <div className="w-full h-full flex flex-col p-2">
+      {/* Chat History: grows and becomes scrollable when content overflows */}
+      <div className="flex-grow space-y-3 overflow-y-auto p-2">
         {messages.map((msg) => (
           <ChatMessage key={msg.id} message={msg} />
         ))}
       </div>
-      {/* Chat Input */}
-      <div className="mt-2">
+
+      {/* Chat Input pinned to the bottom */}
+      <div className="mt-2 flex-shrink-0">
         <input
           type="text"
           placeholder="Type a message..."
