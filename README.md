@@ -171,9 +171,10 @@ Access Grafana at `http://localhost:3000`.
 
 ### 6.7 Troubleshooting Drag-and-Drop
 If dragging new components onto the canvas stops working after customizations,
-ensure that event handlers await asynchronous store actions.
-For example, `handleDragEnd` should be declared `async` and `await` the
-`addComponent` call.
+ensure that drag-and-drop handlers execute **synchronously**. Libraries such as
+`dnd-kit` expect handlers like `handleDragEnd` to finish immediately so they can
+perform cleanup. Call asynchronous store actions (e.g. `addComponent`) without
+`await` inside these handlers.
 
 If the application serves an outdated build, run `npm run build` and check for
 TypeScript errors. A common issue is calling `api.createLink` with `source_id`
