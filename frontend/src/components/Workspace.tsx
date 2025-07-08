@@ -151,14 +151,15 @@ const Workspace: React.FC = () => {
   const [pendingLink, setPendingLink] = useState<{ sourceId: string; portId: 'output' } | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
-  const handleDragEnd = async (event: DragEndEvent) => {
+  const handleDragEnd = (event: DragEndEvent) => {
     const { active, over, delta } = event;
 
     if (over && over.id === 'canvas-area') {
       if (String(active.id).startsWith('palette-')) {
         const componentType = active.data.current?.type;
         if (componentType) {
-          await addComponent(componentType);
+          // Fire-and-forget to keep dnd-kit synchronous
+          addComponent(componentType);
         }
       } else {
         updateComponentPosition(active.id as string, delta);
