@@ -1,2 +1,4 @@
 .venv/
 __pycache__/
+originflow.db
+alembic/versions/__pycache__/
