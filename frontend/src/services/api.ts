@@ -5,21 +5,11 @@
  */
 import { CanvasComponent, Link } from '../appStore';
 
-/** Raw link object as returned by the backend API. */
-interface LinkAPI {
-  id: string;
-  source_id: string;
-  target_id: string;
-}
-
 const API_BASE_URL = 'http://localhost:8000/api/v1';
 
 export type ComponentCreateDTO = Omit<CanvasComponent, 'id' | 'ports'>;
 /** Payload for creating a link via the backend API. */
-export interface LinkCreateDTO {
-  source_id: string;
-  target_id: string;
-}
+export type LinkCreateDTO = Omit<Link, 'id'>;
 
 export const api = {
   async getComponents(): Promise<CanvasComponent[]> {
@@ -28,7 +18,7 @@ export const api = {
     return response.json();
   },
 
-  async getLinks(): Promise<LinkAPI[]> {
+  async getLinks(): Promise<Link[]> {
     const response = await fetch(`${API_BASE_URL}/links/`);
     if (!response.ok) throw new Error('Failed to fetch links');
     return response.json();
@@ -44,7 +34,7 @@ export const api = {
     return response.json();
   },
 
-  async createLink(linkData: LinkCreateDTO): Promise<LinkAPI> {
+  async createLink(linkData: LinkCreateDTO): Promise<Link> {
     const response = await fetch(`${API_BASE_URL}/links/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

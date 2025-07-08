@@ -6,7 +6,7 @@ Defines request and response models for FastAPI component and link endpoints.
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class ComponentBase(BaseModel):
     """Shared attributes for a component."""
@@ -27,8 +27,7 @@ class Component(ComponentBase):
 
     id: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class LinkBase(BaseModel):
@@ -49,5 +48,4 @@ class Link(LinkBase):
 
     id: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
