@@ -230,6 +230,7 @@ BSD License (pending legal review).
 Happy designing! 🚀
 # <codex-marker>
 frontend/package.json
+frontend/src/services/api.ts
 frontend/src/appStore.ts
 frontend/src/components/Workspace.tsx
 frontend/src/components/PropertiesPanel.tsx
