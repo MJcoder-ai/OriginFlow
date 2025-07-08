@@ -151,14 +151,14 @@ const Workspace: React.FC = () => {
   const [pendingLink, setPendingLink] = useState<{ sourceId: string; portId: 'output' } | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over, delta } = event;
 
     if (over && over.id === 'canvas-area') {
       if (String(active.id).startsWith('palette-')) {
         const componentType = active.data.current?.type;
         if (componentType) {
-          addComponent(componentType);
+          await addComponent(componentType);
         }
       } else {
         updateComponentPosition(active.id as string, delta);
@@ -174,9 +174,9 @@ const Workspace: React.FC = () => {
     }
   };
 
-  const handleEndLink = (targetId: string, portId: Port['id']) => {
+  const handleEndLink = async (targetId: string, portId: Port['id']) => {
     if (pendingLink && portId === 'input' && pendingLink.sourceId !== targetId) {
-      addLink({
+      await addLink({
         source: { componentId: pendingLink.sourceId, portId: pendingLink.portId },
         target: { componentId: targetId, portId: 'input' },
       });

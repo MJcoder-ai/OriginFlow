@@ -169,6 +169,12 @@ docker compose -f docker-compose.yml -f docker-compose.observability.yml up
 ```
 Access Grafana at `http://localhost:3000`.
 
+### 6.7 Troubleshooting Drag-and-Drop
+If dragging new components onto the canvas stops working after customizations,
+ensure that event handlers await asynchronous store actions.
+For example, `handleDragEnd` should be declared `async` and `await` the
+`addComponent` call.
+
 ---
 
 ## 7. Architecture & Design
