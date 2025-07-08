@@ -175,6 +175,11 @@ ensure that event handlers await asynchronous store actions.
 For example, `handleDragEnd` should be declared `async` and `await` the
 `addComponent` call.
 
+If the application serves an outdated build, run `npm run build` and check for
+TypeScript errors. A common issue is calling `api.createLink` with `source_id`
+and `target_id` fields. The `LinkCreateDTO` expects `source` and `target`
+objects, so ensure the call matches that structure before rebuilding.
+
 ---
 
 ## 7. Architecture & Design
