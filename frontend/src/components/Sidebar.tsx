@@ -19,7 +19,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleCollapse }) => {
     <aside className="[grid-area:sidebar] bg-white border-r border-gray-200 p-2 flex flex-col">
       <button onClick={toggleCollapse} className="bg-gray-100 rounded-md h-8 w-full mb-3 text-gray-600">☰</button>
       <div className={`h-10 bg-gray-100 rounded-md mb-4 flex items-center justify-center transition-opacity ${isCollapsed ? 'opacity-0' : 'opacity-100'}`}>Logo_1</div>
-      <nav className="flex-grow">
+      {/* Ensure navigation items scroll if they exceed the sidebar height */}
+      <nav className="flex-grow overflow-y-auto min-h-0">
         {Array.from({ length: 7 }).map((_, i) => (
           <div key={i} className={`h-9 bg-gray-100 rounded-md mb-2 flex items-center justify-center transition-opacity ${isCollapsed ? 'opacity-0' : 'opacity-100'}`}>{`NavItem_${i + 1}`}</div>
         ))}

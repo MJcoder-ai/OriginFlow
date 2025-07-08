@@ -59,7 +59,9 @@ const PropertiesPanel: React.FC = () => {
     <div className="w-full h-full bg-white border-l border-gray-200 flex flex-col">
       <ComponentPalette />
       <PropertiesEditor />
-      <div className="border-t mt-auto">
+
+      {/* Allow the chat panel to use remaining space and scroll correctly */}
+      <div className="flex-grow min-h-0 border-t">
         <ChatPanel />
       </div>
     </div>
