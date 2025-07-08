@@ -50,11 +50,19 @@ def read_component(component_id: str, db: Session = Depends(get_db)) -> schemas.
 def create_link(link: schemas.LinkCreate, db: Session = Depends(get_db)) -> schemas.Link:
     """Create and persist a link between components."""
 
-    db_link = Link(id=f"link_{uuid.uuid4()}", **link.model_dump())
+    db_link = Link(
+        id=f"link_{uuid.uuid4()}",
+        source_id=link.source_id,
+        target_id=link.target_id,
+    )
     db.add(db_link)
     db.commit()
     db.refresh(db_link)
-    return schemas.Link.model_validate(db_link)
+    return schemas.Link(
+        id=db_link.id,
+        source=link.source,
+        target=link.target,
+    )
 
 
 @router.get("/links/", response_model=List[schemas.Link])
@@ -62,7 +70,10 @@ def read_links(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)) -
     """Return a paginated list of links."""
 
     links = db.query(Link).offset(skip).limit(limit).all()
-    return [schemas.Link.model_validate(l) for l in links]
+    return [
+        schemas.Link(id=l.id, source={"componentId": l.source_id, "portId": "output"}, target={"componentId": l.target_id, "portId": "input"})
+        for l in links
+    ]
 
 
 @router.get("/links/{link_id}", response_model=schemas.Link)
@@ -72,4 +83,8 @@ def read_link(link_id: str, db: Session = Depends(get_db)) -> schemas.Link:
     db_link = db.query(Link).filter(Link.id == link_id).first()
     if db_link is None:
         raise HTTPException(status_code=404, detail="Link not found")
-    return schemas.Link.model_validate(db_link)
+    return schemas.Link(
+        id=db_link.id,
+        source={"componentId": db_link.source_id, "portId": "output"},
+        target={"componentId": db_link.target_id, "portId": "input"},
+    )

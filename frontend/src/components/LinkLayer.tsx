@@ -47,8 +47,8 @@ const LinkLayer: React.FC<LinkLayerProps> = ({ pendingLink, mousePos }) => {
 
   const renderedLinks = links
     .map((link) => {
-      const sourcePos = getPortPosition(link.source_id, 'output');
-      const targetPos = getPortPosition(link.target_id, 'input');
+      const sourcePos = getPortPosition(link.source.componentId, link.source.portId);
+      const targetPos = getPortPosition(link.target.componentId, link.target.portId);
       if (!sourcePos || !targetPos) {
         return null;
       }
