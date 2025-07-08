@@ -39,10 +39,10 @@ export interface CanvasComponent {
 export interface Link {
   /** Unique identifier for this link. */
   id: string;
-  /** Source component identifier. */
-  source_id: string;
-  /** Target component identifier. */
-  target_id: string;
+  /** Source component and port. */
+  source: { componentId: string; portId: 'output' };
+  /** Target component and port. */
+  target: { componentId: string; portId: 'input' };
 }
 
 /**
@@ -153,7 +153,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     })),
   async addLink({ source, target }) {
     const linkExists = get().links.some(
-      (l) => l.source_id === source.componentId && l.target_id === target.componentId
+      (l) =>
+        l.source.componentId === source.componentId &&
+        l.target.componentId === target.componentId
     );
     if (linkExists || source.componentId === target.componentId) {
       return;
@@ -163,6 +165,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       const saved = await api.createLink({
         source_id: source.componentId,
         target_id: target.componentId,
+        source,
+        target,
       });
       set((state) => ({ links: [...state.links, saved], status: 'Link created' }));
     } catch (error) {

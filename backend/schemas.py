@@ -33,14 +33,15 @@ class Component(ComponentBase):
 class LinkBase(BaseModel):
     """Shared attributes for a link between components."""
 
-    source_id: str
-    target_id: str
+    source: dict
+    target: dict
 
 
 class LinkCreate(LinkBase):
     """Schema for creating a link."""
 
-    pass
+    source_id: str
+    target_id: str
 
 
 class Link(LinkBase):

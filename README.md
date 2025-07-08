@@ -187,15 +187,17 @@ Endpoints that fetch a specific resource (e.g., `/api/v1/components/{component_i
 will return a `404 Not Found` error if the resource does not exist. The UI status
 bar will surface these and other API communication errors.
 
-`source_id` and `target_id` fields which map directly to the frontend `Link`
-interface, so no conversion step is required when loading links.
+Links returned from the API now include nested `source` and `target` objects
+representing each endpoint of the connection. The payload for creating a link
+still requires `source_id` and `target_id`, allowing backward compatibility
+with existing database records.
 
 ### 6.9 UI-Backend Connection (CORS Errors)
 If API requests fail with `CORS` errors in the browser console, ensure the back
 end allows the frontend's origin. The default development configuration permits
 `http://localhost:5173`. If running the frontend on a different host or port,
-update the `origins` list in `backend/main.py`. The CORS middleware is
-configured via the `middleware` parameter when the FastAPI app is created.
+update the `origins` list in `backend/main.py`. The CORS middleware is added
+via `app.add_middleware` during application setup.
 
 ---
 
