@@ -190,6 +190,12 @@ bar will surface these and other API communication errors.
 `source_id` and `target_id` fields, so convert them to the `source` and
 `target` objects expected by the UI.
 
+### 6.9 UI-Backend Connection (CORS Errors)
+If API requests fail with `CORS` errors in the browser console, ensure the back
+end allows the frontend's origin. The default development configuration permits
+`http://localhost:5173`. If running the frontend on a different host or port,
+update the `origins` list in `backend/main.py`.
+
 ---
 
 ## 7. Architecture & Design
