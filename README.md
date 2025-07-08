@@ -194,7 +194,8 @@ bar will surface these and other API communication errors.
 If API requests fail with `CORS` errors in the browser console, ensure the back
 end allows the frontend's origin. The default development configuration permits
 `http://localhost:5173`. If running the frontend on a different host or port,
-update the `origins` list in `backend/main.py`.
+update the `origins` list in `backend/main.py`. The CORS middleware is
+configured via the `middleware` parameter when the FastAPI app is created.
 
 ---
 
