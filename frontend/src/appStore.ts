@@ -91,7 +91,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   async fetchProject() {
     set({ isLoading: true });
     try {
-      const [components, links] = await Promise.all([
+      const [components, linksFromApi] = await Promise.all([
         api.getComponents(),
         api.getLinks(),
       ]);
@@ -101,6 +101,11 @@ export const useAppStore = create<AppState>((set, get) => ({
           { id: 'input', type: 'in' },
           { id: 'output', type: 'out' },
         ],
+      }));
+      const links = linksFromApi.map((l) => ({
+        id: l.id,
+        source: { componentId: l.source_id, portId: 'output' as const },
+        target: { componentId: l.target_id, portId: 'input' as const },
       }));
       set({ canvasComponents: enrichedComponents, links, isLoading: false });
     } catch (error) {
@@ -157,13 +162,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     try {
       const saved = await api.createLink({
-        source,
-        target,
+        source_id: source.componentId,
+        target_id: target.componentId,
       });
       const newLink: Link = {
         id: saved.id,
-        source,
-        target,
+        source: { componentId: saved.source_id, portId: 'output' },
+        target: { componentId: saved.target_id, portId: 'input' },
       };
       set((state) => ({ links: [...state.links, newLink] }));
     } catch (error) {

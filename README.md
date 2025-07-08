@@ -175,11 +175,14 @@ ensure that drag-and-drop handlers execute **synchronously**. Libraries such as
 `dnd-kit` expect handlers like `handleDragEnd` to finish immediately so they can
 perform cleanup. Call asynchronous store actions (e.g. `addComponent`) without
 `await` inside these handlers.
+If newly dropped components disappear, verify that `addComponent` adds the
+frontend-only `ports` array before storing the component.
 
 If the application serves an outdated build, run `npm run build` and check for
-TypeScript errors. A common issue is calling `api.createLink` with `source_id`
-and `target_id` fields. The `LinkCreateDTO` expects `source` and `target`
-objects, so ensure the call matches that structure before rebuilding.
+TypeScript errors. Ensure newly created components include the `ports` array
+added in the frontend store. When working with links, the backend API uses
+`source_id` and `target_id` fields, so convert them to the `source` and
+`target` objects expected by the UI.
 
 ---
 
