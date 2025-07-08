@@ -181,6 +181,12 @@ frontend-only `ports` array before storing the component.
 If the application serves an outdated build, run `npm run build` and check for
 TypeScript errors. Ensure newly created components include the `ports` array
 added in the frontend store. When working with links, the backend API uses
+
+### 6.8 API Error Handling
+Endpoints that fetch a specific resource (e.g., `/api/v1/components/{component_id}`)
+will return a `404 Not Found` error if the resource does not exist. The UI status
+bar will surface these and other API communication errors.
+
 `source_id` and `target_id` fields, so convert them to the `source` and
 `target` objects expected by the UI.
 
