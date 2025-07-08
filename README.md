@@ -187,8 +187,8 @@ Endpoints that fetch a specific resource (e.g., `/api/v1/components/{component_i
 will return a `404 Not Found` error if the resource does not exist. The UI status
 bar will surface these and other API communication errors.
 
-`source_id` and `target_id` fields, so convert them to the `source` and
-`target` objects expected by the UI.
+`source_id` and `target_id` fields which map directly to the frontend `Link`
+interface, so no conversion step is required when loading links.
 
 ### 6.9 UI-Backend Connection (CORS Errors)
 If API requests fail with `CORS` errors in the browser console, ensure the back

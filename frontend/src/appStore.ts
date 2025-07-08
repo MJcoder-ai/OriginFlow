@@ -39,10 +39,10 @@ export interface CanvasComponent {
 export interface Link {
   /** Unique identifier for this link. */
   id: string;
-  /** Source component and port. */
-  source: { componentId: string; portId: 'output' };
-  /** Target component and port. */
-  target: { componentId: string; portId: 'input' };
+  /** Source component identifier. */
+  source_id: string;
+  /** Target component identifier. */
+  target_id: string;
 }
 
 /**
@@ -104,12 +104,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           { id: 'output', type: 'out' },
         ],
       }));
-      const links = linksFromApi.map((l) => ({
-        id: l.id,
-        source: { componentId: l.source_id, portId: 'output' as const },
-        target: { componentId: l.target_id, portId: 'input' as const },
-      }));
-      set({ canvasComponents: enrichedComponents, links, status: 'ready' });
+      set({ canvasComponents: enrichedComponents, links: linksFromApi, status: 'ready' });
     } catch (error) {
       console.error('Failed to load project:', error);
       set({ status: 'Error: Could not load project' });
@@ -158,9 +153,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     })),
   async addLink({ source, target }) {
     const linkExists = get().links.some(
-      (l) =>
-        l.source.componentId === source.componentId &&
-        l.target.componentId === target.componentId
+      (l) => l.source_id === source.componentId && l.target_id === target.componentId
     );
     if (linkExists || source.componentId === target.componentId) {
       return;
@@ -171,12 +164,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         source_id: source.componentId,
         target_id: target.componentId,
       });
-      const newLink: Link = {
-        id: saved.id,
-        source: { componentId: saved.source_id, portId: 'output' },
-        target: { componentId: saved.target_id, portId: 'input' },
-      };
-      set((state) => ({ links: [...state.links, newLink], status: 'Link created' }));
+      set((state) => ({ links: [...state.links, saved], status: 'Link created' }));
     } catch (error) {
       console.error('Failed to add link:', error);
       set({ status: 'Error: Could not create link' });
