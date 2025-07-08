@@ -5,6 +5,7 @@
  * Exposed via the `useAppStore` hook for React components.
  */
 import { create } from 'zustand';
+import { api } from './services/api';
 
 /** Connection port available on a component. */
 export interface Port {
@@ -48,6 +49,8 @@ export interface Link {
  * Shape of the global application state managed by Zustand.
  */
 interface AppState {
+  /** Flag indicating whether data is being loaded from the API. */
+  isLoading: boolean;
   /** Components currently placed on the canvas. */
   canvasComponents: CanvasComponent[];
   /** Links connecting components on the canvas. */
@@ -56,8 +59,10 @@ interface AppState {
   selectedComponentId: string | null;
   /** Update which component is selected. */
   selectComponent: (id: string | null) => void;
+  /** Fetch the entire project from the backend API. */
+  fetchProject: () => Promise<void>;
   /** Add a component to the canvas using its type. */
-  addComponent: (componentType: string) => void;
+  addComponent: (componentType: string) => Promise<void>;
   /** Update a component's name by id. */
   updateComponentName: (componentId: string, newName: string) => void;
   /** Offset a component's position by drag delta. */
@@ -71,34 +76,62 @@ interface AppState {
       source: { componentId: string; portId: 'output' };
       target: { componentId: string; portId: 'input' };
     }
-  ) => void;
+  ) => Promise<void>;
 }
 
 /**
  * Create a Zustand store with basic component management helpers.
  */
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>((set, get) => ({
+  isLoading: true,
   canvasComponents: [],
   links: [],
   selectedComponentId: null,
   selectComponent: (id) => set({ selectedComponentId: id }),
-  addComponent: (componentType) =>
-    set((state) => {
-      const newComponent: CanvasComponent = {
-        id: `component_${Date.now()}`,
-        name: `${componentType} ${state.canvasComponents.length + 1}`,
-        type: componentType,
-        x: 100,
-        y: 100,
+  async fetchProject() {
+    set({ isLoading: true });
+    try {
+      const [components, links] = await Promise.all([
+        api.getComponents(),
+        api.getLinks(),
+      ]);
+      const enrichedComponents = components.map((c) => ({
+        ...c,
+        ports: [
+          { id: 'input', type: 'in' },
+          { id: 'output', type: 'out' },
+        ],
+      }));
+      set({ canvasComponents: enrichedComponents, links, isLoading: false });
+    } catch (error) {
+      console.error('Failed to load project:', error);
+      set({ isLoading: false });
+    }
+  },
+  async addComponent(componentType) {
+    const newComponentData = {
+      name: `${componentType} ${get().canvasComponents.length + 1}`,
+      type: componentType,
+      standard_code: `CODE-${Date.now()}`,
+      x: 100,
+      y: 100,
+    };
+    try {
+      const saved = await api.createComponent(newComponentData);
+      const component: CanvasComponent = {
+        ...saved,
         ports: [
           { id: 'input', type: 'in' },
           { id: 'output', type: 'out' },
         ],
       };
-      return {
-        canvasComponents: [...state.canvasComponents, newComponent],
-      };
-    }),
+      set((state) => ({
+        canvasComponents: [...state.canvasComponents, component],
+      }));
+    } catch (error) {
+      console.error('Failed to add component:', error);
+    }
+  },
   updateComponentName: (componentId, newName) =>
     set((state) => ({
       canvasComponents: state.canvasComponents.map((component) =>
@@ -113,24 +146,29 @@ export const useAppStore = create<AppState>((set) => ({
           : component
       ),
     })),
-  addLink: ({ source, target }) =>
-    set((state) => {
-      const linkExists = state.links.some(
-        (l) =>
-          l.source.componentId === source.componentId &&
-          l.target.componentId === target.componentId
-      );
-
-      if (linkExists || source.componentId === target.componentId) {
-        return {};
-      }
-
+  async addLink({ source, target }) {
+    const linkExists = get().links.some(
+      (l) =>
+        l.source.componentId === source.componentId &&
+        l.target.componentId === target.componentId
+    );
+    if (linkExists || source.componentId === target.componentId) {
+      return;
+    }
+    try {
+      const saved = await api.createLink({
+        source_id: source.componentId,
+        target_id: target.componentId,
+      });
       const newLink: Link = {
-        id: `link_${source.componentId}_${target.componentId}`,
+        id: saved.id,
         source,
         target,
       };
-      return { links: [...state.links, newLink] };
-    }),
+      set((state) => ({ links: [...state.links, newLink] }));
+    } catch (error) {
+      console.error('Failed to add link:', error);
+    }
+  },
 }));
 

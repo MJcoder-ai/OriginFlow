@@ -2,7 +2,7 @@
  * File: frontend/src/components/Workspace.tsx
  * Central workspace with fixes for component dragging, selection, and port connections.
 */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   DndContext,
   useDroppable,
@@ -144,7 +144,10 @@ const Resizer: React.FC = () => (
 
 /** Primary workspace container */
 const Workspace: React.FC = () => {
-  const { addComponent, updateComponentPosition, addLink } = useAppStore();
+  const { addComponent, updateComponentPosition, addLink, fetchProject, isLoading } = useAppStore();
+  useEffect(() => {
+    fetchProject();
+  }, [fetchProject]);
   const [pendingLink, setPendingLink] = useState<{ sourceId: string; portId: 'output' } | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
@@ -191,6 +194,14 @@ const Workspace: React.FC = () => {
   const handleCanvasMouseUp = () => {
     setPendingLink(null);
   };
+
+  if (isLoading) {
+    return (
+      <main className="[grid-area:workspace] flex items-center justify-center">
+        <div className="text-gray-500">Loading Project...</div>
+      </main>
+    );
+  }
 
   return (
     <DndContext onDragEnd={handleDragEnd}>
