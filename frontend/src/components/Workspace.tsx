@@ -4,12 +4,13 @@
  * Implements component placement and selection highlighting.
  * Handles component selection and highlights the active element.
 */
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   DndContext,
   useDroppable,
   useDraggable,
   DragEndEvent,
+  DragStartEvent,
 } from '@dnd-kit/core';
 import { useAppStore, CanvasComponent, Port } from '../appStore';
 import PropertiesPanel from './PropertiesPanel';
@@ -50,7 +51,8 @@ const CanvasCard: React.FC<{
   component: CanvasComponent;
   onStartLink: (sourceId: string, portId: Port['id'], e: React.MouseEvent) => void;
   onEndLink: (targetId: string, portId: Port['id'], e: React.MouseEvent) => void;
-}> = ({ component, onStartLink, onEndLink }) => {
+  isDragging: boolean;
+}> = ({ component, onStartLink, onEndLink, isDragging }) => {
   const { selectedComponentId, selectComponent } = useAppStore();
   const isSelected = selectedComponentId === component.id;
 
@@ -74,12 +76,17 @@ const CanvasCard: React.FC<{
       style={style}
       {...listeners}
       {...attributes}
-      onClick={() => selectComponent(component.id)}
+      onMouseUp={() => {
+        if (!isDragging) {
+          selectComponent(component.id);
+        }
+      }}
       className={clsx(
-        'h-24 w-32 bg-white border-2 rounded-lg shadow-sm flex flex-col items-center justify-center p-2 cursor-grab active:cursor-grabbing absolute',
+        'h-24 w-32 bg-white border-2 rounded-lg shadow-sm flex flex-col items-center justify-center p-2 cursor-grab',
         {
           'border-blue-500 ring-2 ring-blue-500': isSelected,
           'border-gray-300': !isSelected,
+          'cursor-grabbing': isDragging,
         }
       )}
     >
@@ -100,11 +107,10 @@ const CanvasCard: React.FC<{
 
 /** The main canvas area that is a droppable target */
 const CanvasArea: React.FC<{
-  onMouseMove: (e: React.MouseEvent) => void;
-  onMouseUp: () => void;
   onStartLink: (sourceId: string, portId: Port['id'], e: React.MouseEvent) => void;
   onEndLink: (targetId: string, portId: Port['id'], e: React.MouseEvent) => void;
-}> = ({ onMouseMove, onMouseUp, onStartLink, onEndLink }) => {
+  isDragging: boolean;
+}> = ({ onStartLink, onEndLink, isDragging }) => {
   const { setNodeRef } = useDroppable({ id: 'canvas-area' });
   const components = useAppStore((state) => state.canvasComponents);
 
@@ -112,8 +118,6 @@ const CanvasArea: React.FC<{
     <div className="flex-grow h-full relative">
       <div
         ref={setNodeRef}
-        onMouseMove={onMouseMove}
-        onMouseUp={onMouseUp}
         className="canvas-area-container w-full h-full border-2 border-dashed border-gray-300 rounded-lg"
       >
         {components.map((comp) => (
@@ -122,6 +126,7 @@ const CanvasArea: React.FC<{
             component={comp}
             onStartLink={onStartLink}
             onEndLink={onEndLink}
+            isDragging={isDragging}
           />
         ))}
       </div>
@@ -140,8 +145,16 @@ const Workspace: React.FC = () => {
   const { addComponent, updateComponentPosition, addLink } = useAppStore();
   const [pendingLink, setPendingLink] = useState<{ sourceId: string; portId: 'output' } | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [isDraggingCard, setIsDraggingCard] = useState(false);
+
+  const handleDragStart = (event: DragStartEvent) => {
+    if (!String(event.active.id).startsWith('palette-')) {
+      setIsDraggingCard(true);
+    }
+  };
 
   const handleDragEnd = (event: DragEndEvent) => {
+    setIsDraggingCard(false);
     const { active, over, delta } = event;
 
     if (over && over.id === 'canvas-area') {
@@ -174,21 +187,37 @@ const Workspace: React.FC = () => {
     setPendingLink(null);
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    const canvas = document.querySelector('.canvas-area-container');
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
     setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-  };
+  }, []);
+
+  const handleMouseUp = useCallback(() => {
+    setPendingLink(null);
+  }, []);
+
+  useEffect(() => {
+    if (pendingLink) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [pendingLink, handleMouseMove, handleMouseUp]);
 
   return (
-    <DndContext onDragEnd={handleDragEnd}>
+    <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <main className="[grid-area:workspace] bg-gray-50 p-4 flex overflow-auto">
         <div className="flex-grow h-full relative">
           <LinkLayer pendingLink={pendingLink} mousePos={mousePos} />
           <CanvasArea
-            onMouseMove={handleMouseMove}
-            onMouseUp={() => setPendingLink(null)}
             onStartLink={handleStartLink}
             onEndLink={handleEndLink}
+            isDragging={isDraggingCard}
           />
         </div>
         <Resizer />
