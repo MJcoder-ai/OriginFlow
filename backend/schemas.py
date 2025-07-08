@@ -1,7 +1,7 @@
 # backend/schemas.py
 """Pydantic schemas for API validation.
 
-Defines request and response models for FastAPI endpoints.
+Defines request and response models for FastAPI component and link endpoints.
 """
 
 from __future__ import annotations
@@ -24,6 +24,28 @@ class ComponentCreate(ComponentBase):
 
 class Component(ComponentBase):
     """Schema returned from the API."""
+
+    id: str
+
+    class Config:
+        from_attributes = True
+
+
+class LinkBase(BaseModel):
+    """Shared attributes for a link between components."""
+
+    source_id: str
+    target_id: str
+
+
+class LinkCreate(LinkBase):
+    """Schema for creating a link."""
+
+    pass
+
+
+class Link(LinkBase):
+    """Schema returned from the API for a link."""
 
     id: str
 
