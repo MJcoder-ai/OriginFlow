@@ -105,7 +105,7 @@ See `.env.example` for required environment variables:
 ### 6.1 Run OriginFlow
 ```bash
 # Run backend
-poetry run uvicorn backend.main:app --reload
+poetry run originflow-backend
 
 # Run frontend
 npm run start
@@ -235,3 +235,12 @@ frontend/src/components/Workspace.tsx
 frontend/src/components/PropertiesPanel.tsx
 frontend/src/components/LinkLayer.tsx
 frontend/src/components/ChatPanel.tsx
+backend/__init__.py
+backend/api/__init__.py
+backend/api/endpoints.py
+backend/models/__init__.py
+backend/models/data_models.py
+backend/database.py
+backend/schemas.py
+backend/main.py
+setup.cfg

@@ -42,3 +42,6 @@ alembic = "^1.13.1"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+originflow-backend = "backend.main:main"
