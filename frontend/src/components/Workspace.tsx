@@ -16,14 +16,16 @@ import clsx from 'clsx';
 
 /** A component card rendered on the canvas with a connection handle */
 const PortHandle: React.FC<{
+  id: string;
   port: Port;
   isPending: boolean;
   onMouseDown: (portId: Port['id'], e: React.MouseEvent) => void;
   onMouseUp: (portId: Port['id'], e: React.MouseEvent) => void;
-}> = ({ port, isPending, onMouseDown, onMouseUp }) => {
+}> = ({ id, port, isPending, onMouseDown, onMouseUp }) => {
   const isInput = port.type === 'in';
   return (
     <div
+      id={id}
       onMouseDown={(e) => {
         // Stop the card drag from starting when beginning a link
         e.stopPropagation();
@@ -92,14 +94,14 @@ const CanvasCard: React.FC<{
 
       {/* Render ports */}
       {component.ports.map((port) => (
-        <div key={port.id} id={`port_${component.id}_${port.id}`}>
-          <PortHandle
-            port={port}
-            isPending={isPendingLinkSource && port.id === 'output'}
-            onMouseDown={(portId) => onStartLink(component.id, portId)}
-            onMouseUp={(portId) => onEndLink(component.id, portId)}
-          />
-        </div>
+        <PortHandle
+          key={port.id}
+          id={`port_${component.id}_${port.id}`}
+          port={port}
+          isPending={isPendingLinkSource && port.id === 'output'}
+          onMouseDown={(portId) => onStartLink(component.id, portId)}
+          onMouseUp={(portId) => onEndLink(component.id, portId)}
+        />
       ))}
     </div>
   );
