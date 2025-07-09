@@ -95,7 +95,9 @@ ai_services:
 
 See `.env.example` for required environment variables:
 - `API_KEY`: API key for external services (e.g., Octopart).
-- `DATABASE_URL`: URL for PostgreSQL connection.
+- `DATABASE_URL`: Database connection string. If omitted, the backend uses a
+  local SQLite file (`sqlite:///./originflow.db`) with a configuration that
+  allows concurrent API requests.
 - `TEMPORAL_HOST`: Host for self-hosted Temporal.io.
 
 ---
