@@ -45,8 +45,8 @@ class ComponentUpdate(BaseModel):
 class LinkBase(BaseModel):
     """Shared attributes for a link between components."""
 
-    source: dict
-    target: dict
+    source_id: str
+    target_id: str
 
 
 class LinkCreate(LinkBase):

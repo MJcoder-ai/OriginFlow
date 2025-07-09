@@ -207,8 +207,8 @@ const Workspace: React.FC = () => {
   const handleEndLink = async (targetId: string, portId: Port['id']) => {
     if (pendingLink && portId === 'input' && pendingLink.sourceId !== targetId) {
       await addLink({
-        source: { componentId: pendingLink.sourceId, portId: pendingLink.portId },
-        target: { componentId: targetId, portId: 'input' },
+        source_id: pendingLink.sourceId,
+        target_id: targetId,
       });
     }
     setPendingLink(null);
