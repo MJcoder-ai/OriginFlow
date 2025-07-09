@@ -197,7 +197,8 @@ Links returned from the API now include `source_id` and `target_id` fields
 referencing the connected components. Use the same flat structure when creating
 a new link via `POST /api/v1/links/`.
 
-Deleting a component via `DELETE /api/v1/components/{component_id}` returns a
+Partial updates to a component should be sent via
+`PATCH /api/v1/components/{component_id}`. Deleting a component returns a
 `204 No Content` response on success.
 
 ### 6.9 UI-Backend Connection (CORS Errors)

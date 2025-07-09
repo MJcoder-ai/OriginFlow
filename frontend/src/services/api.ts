@@ -48,7 +48,7 @@ export const api = {
     updateData: Partial<ComponentCreateDTO>
   ): Promise<CanvasComponent> {
     const response = await fetch(`${API_BASE_URL}/components/${id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updateData),
     });
