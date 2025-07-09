@@ -180,6 +180,10 @@ perform cleanup. Call asynchronous store actions (e.g. `addComponent`) without
 If newly dropped components disappear, verify that `addComponent` adds the
 frontend-only `ports` array before storing the component.
 
+If linking two components causes the card itself to move, ensure the drag handle
+is separate from the port elements. The UI expects only the transparent card
+overlay to be draggable while the ports handle linking exclusively.
+
 If the application serves an outdated build, run `npm run build` and check for
 TypeScript errors. Ensure newly created components include the `ports` array
 added in the frontend store. When working with links, the backend API uses
