@@ -207,8 +207,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ status: 'Creating link...' });
     try {
       const saved = await api.createLink({
-        source_id: source.componentId,
-        target_id: target.componentId,
         source,
         target,
       });

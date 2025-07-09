@@ -85,16 +85,16 @@ def create_link(link: schemas.LinkCreate, db: Session = Depends(get_db)) -> sche
 
     db_link = Link(
         id=f"link_{uuid.uuid4()}",
-        source_id=link.source_id,
-        target_id=link.target_id,
+        source_id=link.source["componentId"],
+        target_id=link.target["componentId"],
     )
     db.add(db_link)
     db.commit()
     db.refresh(db_link)
     return schemas.Link(
         id=db_link.id,
-        source=link.source,
-        target=link.target,
+        source={"componentId": db_link.source_id, "portId": "output"},
+        target={"componentId": db_link.target_id, "portId": "input"},
     )
 
 
