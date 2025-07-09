@@ -33,8 +33,12 @@ class Link(Base):
     __tablename__ = "links"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, index=True)
-    source_id: Mapped[str] = mapped_column(String, ForeignKey("components.id"))
-    target_id: Mapped[str] = mapped_column(String, ForeignKey("components.id"))
+    source_id: Mapped[str] = mapped_column(
+        String, ForeignKey("components.id", ondelete="CASCADE")
+    )
+    target_id: Mapped[str] = mapped_column(
+        String, ForeignKey("components.id", ondelete="CASCADE")
+    )
 
     source: Mapped[Component] = relationship("Component", foreign_keys=[source_id])
     target: Mapped[Component] = relationship("Component", foreign_keys=[target_id])

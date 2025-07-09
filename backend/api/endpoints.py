@@ -46,6 +46,37 @@ def read_component(component_id: str, db: Session = Depends(get_db)) -> schemas.
     return schemas.Component.model_validate(db_component)
 
 
+@router.put("/components/{component_id}", response_model=schemas.Component, tags=["Components"])
+def update_component(
+    component_id: str,
+    component: schemas.ComponentUpdate,
+    db: Session = Depends(get_db),
+) -> schemas.Component:
+    db_component = db.query(Component).filter(Component.id == component_id).first()
+    if db_component is None:
+        raise HTTPException(status_code=404, detail="Component not found")
+
+    update_data = component.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_component, key, value)
+
+    db.add(db_component)
+    db.commit()
+    db.refresh(db_component)
+    return schemas.Component.model_validate(db_component)
+
+
+@router.delete("/components/{component_id}", status_code=204, tags=["Components"])
+def delete_component(component_id: str, db: Session = Depends(get_db)) -> None:
+    db_component = db.query(Component).filter(Component.id == component_id).first()
+    if db_component is None:
+        raise HTTPException(status_code=404, detail="Component not found")
+
+    db.delete(db_component)
+    db.commit()
+    return None
+
+
 @router.post("/links/", response_model=schemas.Link)
 def create_link(link: schemas.LinkCreate, db: Session = Depends(get_db)) -> schemas.Link:
     """Create and persist a link between components."""

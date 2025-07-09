@@ -53,7 +53,7 @@ const CanvasCard: React.FC<{
   onStartLink: (componentId: string, portId: Port['id']) => void;
   onEndLink: (componentId: string, portId: Port['id']) => void;
 }> = ({ component, isPendingLinkSource, onStartLink, onEndLink }) => {
-  const { selectedComponentId, selectComponent } = useAppStore();
+  const { selectedComponentId, selectComponent, deleteComponent } = useAppStore();
   const isSelected = selectedComponentId === component.id;
 
   // Enable dragging of the card itself
@@ -74,7 +74,17 @@ const CanvasCard: React.FC<{
       id={`component-card-${component.id}`}
       ref={setNodeRef}
       style={style}
+      {...listeners}
+      {...attributes}
       onClick={() => selectComponent(component.id)}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        if (
+          window.confirm(`Are you sure you want to delete "${component.name}"?`)
+        ) {
+          deleteComponent(component.id);
+        }
+      }}
       className={clsx(
         'absolute h-24 w-32 bg-white border-2 rounded-lg shadow-sm flex flex-col items-center justify-center p-2 cursor-grab',
         {
@@ -83,9 +93,6 @@ const CanvasCard: React.FC<{
         }
       )}
     >
-      {/* The main draggable area */}
-      <div {...listeners} {...attributes} className="w-full h-full" />
-
       {/* Static content inside */}
       <div className="absolute top-0 left-0 w-full h-full flex flex-col items-center justify-center pointer-events-none">
         <span className="text-sm font-bold">{component.name}</span>
@@ -144,28 +151,45 @@ const Resizer: React.FC = () => (
 
 /** Primary workspace container */
 const Workspace: React.FC = () => {
-  const { addComponent, updateComponentPosition, addLink, fetchProject } = useAppStore();
+  const {
+    addComponent,
+    updateComponentPosition,
+    addLink,
+    fetchProject,
+    selectedComponentId,
+    deleteComponent,
+  } = useAppStore();
   useEffect(() => {
     fetchProject();
   }, [fetchProject]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        (event.key === 'Delete' || event.key === 'Backspace') &&
+        selectedComponentId
+      ) {
+        deleteComponent(selectedComponentId);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedComponentId, deleteComponent]);
   const [pendingLink, setPendingLink] = useState<{ sourceId: string; portId: 'output' } | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over, delta } = event;
 
-    if (over && over.id === 'canvas-area') {
-      if (String(active.id).startsWith('palette-')) {
-        const componentType = active.data.current?.type;
-        if (componentType) {
-          // Fire-and-forget to keep dnd-kit synchronous
-          addComponent(componentType);
-        }
-      } else {
+    if (active.id && over && delta.x !== 0 && delta.y !== 0) {
+      if (
+        over.id === 'canvas-area' &&
+        String(active.id).startsWith('palette-')
+      ) {
+        addComponent(active.data.current?.type);
+      } else if (!String(active.id).startsWith('palette-')) {
         updateComponentPosition(active.id as string, delta);
       }
-    } else if (!String(active.id).startsWith('palette-')) {
-      updateComponentPosition(active.id as string, delta);
     }
   };
 

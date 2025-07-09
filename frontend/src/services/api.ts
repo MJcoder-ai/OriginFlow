@@ -42,4 +42,24 @@ export const api = {
     if (!response.ok) throw new Error('Failed to create link');
     return response.json();
   },
+
+  async updateComponent(
+    id: string,
+    updateData: Partial<ComponentCreateDTO>
+  ): Promise<CanvasComponent> {
+    const response = await fetch(`${API_BASE_URL}/components/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updateData),
+    });
+    if (!response.ok) throw new Error('Failed to update component');
+    return response.json();
+  },
+
+  async deleteComponent(id: string): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/components/${id}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) throw new Error('Failed to delete component');
+  },
 };
