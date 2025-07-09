@@ -501,5 +501,23 @@ OriginFlow/
 - Mask secrets in logs with `***`.
 - Use `@compliance_tag` for auditable actions (e.g., component creation, workflow execution).
 - Validate schemas against `retention_policy` in `DataModels`.
-
 ---
+## Agent Contracts (v2)
+
+| Agent name        | Responsibility                             | Function(s) it may call            | Deterministic Output Schema |
+|-------------------|--------------------------------------------|------------------------------------|-----------------------------|
+| `router_agent`    | Classify a user command and choose **one‒or‒more** specialist agents to satisfy it. | `route_to_agent(agent_names: string[])` | `{ agent_names: string[] }` |
+| `component_agent` | Parse commands that create, modify or delete components. | `add_component(ComponentCreate)`<br>`remove_component(id: string)` | `AiAction` `addComponent | removeComponent` |
+| `link_agent`      | Parse commands that create or remove links between components. | `add_link(LinkCreate)`<br>`remove_link(id: string)` | `AiAction` `addLink | removeLink` |
+| `layout_agent`    | (future) Arrange components on the canvas for optimal readability. | `set_position(id: string, x:int, y:int)` | `AiAction` `updatePosition` |
+
+### Deterministic guarantee
+* All agents **must** use OpenAI or Anthropic *function‑calling* with `temperature=0`.
+* The JSON returned **must validate** against the Pydantic schema `schemas.ai.AiAction`.
+* Version every output (`version` field) to support future migrations.
+
+### Registration
+```python
+from backend.agents.registry import register
+register(ComponentAgent())  # done at import
+```

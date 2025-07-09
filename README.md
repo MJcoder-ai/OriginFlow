@@ -100,6 +100,22 @@ See `.env.example` for required environment variables:
   allows concurrent API requests.
 - `TEMPORAL_HOST`: Host for self-hosted Temporal.io.
 
+### ⚡ Quick-start (AI subsystem)
+```bash
+# 1. clone + install
+git clone https://github.com/<org>/originflow.git
+cd originflow
+poetry install
+cp .env.example .env           # fill in OPENAI_API_KEY & DATABASE_URL
+
+# 2. run DB migrations
+alembic upgrade head
+
+# 3. start backend + frontend
+poetry run uvicorn backend.main:app --reload --host 0.0.0.0
+npm --prefix frontend run dev -- --port 5173 --strictPort
+```
+
 ---
 
 ## 6. Usage Examples
@@ -286,10 +302,17 @@ frontend/src/components/LinkLayer.tsx
 frontend/src/components/ChatPanel.tsx
 backend/__init__.py
 backend/api/__init__.py
-backend/api/endpoints.py
-backend/models/__init__.py
-backend/models/data_models.py
-backend/database.py
-backend/schemas.py
+backend/api/routes/components.py
+backend/api/routes/links.py
+backend/api/routes/ai.py
+backend/agents/router_agent.py
+backend/agents/component_agent.py
+backend/config.py
+backend/database/session.py
+backend/models/component.py
+backend/models/link.py
+backend/schemas/component.py
+backend/schemas/link.py
+backend/schemas/ai.py
 backend/main.py
 setup.cfg

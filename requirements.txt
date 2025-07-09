@@ -5,6 +5,9 @@
 
 fastapi==0.109
 uvicorn==0.29.0
+pydantic-settings==2.1.0
+openai==1.23.6
+slowapi==0.1.8
 pydantic[email]==2.7.1
 SQLAlchemy==2.0.29
 psycopg2-binary==2.9.9
@@ -18,5 +21,4 @@ opencv-python==4.9.0.80
 mlmd==0.2
 structlog==24.1.0
 python-dotenv==1.0.1
-tenacity==8.2.3
-deprecated==1.2.14
+tenacity==8.2.3deprecated==1.2.14

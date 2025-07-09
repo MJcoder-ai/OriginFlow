@@ -1,40 +1,31 @@
 # backend/main.py
-"""FastAPI application for OriginFlow.
-
-Exposes the API router and optional CLI entry point for development.
-"""
-
+"""FastAPI application startup for OriginFlow."""
 from __future__ import annotations
 
 import uvicorn
 from fastapi import FastAPI
-from starlette.middleware.cors import CORSMiddleware
+from fastapi.middleware.cors import CORSMiddleware
 
-from .api import endpoints
-
-# <codex-marker> - CORS configuration
-# Allow frontend running on common dev ports to access the API during development
-origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:8082",
-    "http://127.0.0.1:8082",
-]
+from backend.config import settings
+from backend.api.routes import components, links, ai
 
 app = FastAPI(title="OriginFlow API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origin_regex=settings.cors_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-app.include_router(endpoints.router, prefix="/api/v1", tags=["components"])
+app.include_router(components.router, prefix=settings.api_prefix)
+app.include_router(links.router, prefix=settings.api_prefix)
+app.include_router(ai.router, prefix=settings.api_prefix)
+
 
 @app.get("/")
-def read_root() -> dict[str, str]:
+async def read_root() -> dict[str, str]:
     """Health check endpoint."""
 
     return {"message": "Welcome to the OriginFlow API"}
@@ -46,5 +37,5 @@ def main() -> None:
     uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)
 
 
-if __name__ == "__main__":  # pragma: no cover - manual invocation
+if __name__ == "__main__":  # pragma: no cover
     main()
