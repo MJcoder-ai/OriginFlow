@@ -193,11 +193,16 @@ still requires `source_id` and `target_id`, allowing backward compatibility
 with existing database records.
 
 ### 6.9 UI-Backend Connection (CORS Errors)
-If API requests fail with `CORS` errors in the browser console, ensure the back
-end allows the frontend's origin. The default development configuration permits
-`http://localhost:5173`. If running the frontend on a different host or port,
-update the `origins` list in `backend/main.py`. The CORS middleware is added
-via `app.add_middleware` during application setup.
+If API requests fail with `CORS` errors in the browser console, ensure the backend allows the frontend's origin. The default development configuration permits the following common development URLs:
+
+```
+http://localhost:5173
+http://127.0.0.1:5173
+http://localhost:8082
+http://127.0.0.1:8082
+```
+
+If running the frontend on a different host or port, update the `origins` list in `backend/main.py`. The CORS middleware is added via `app.add_middleware` during application setup.
 
 ---
 
