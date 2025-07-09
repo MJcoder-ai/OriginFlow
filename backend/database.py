@@ -12,12 +12,23 @@ from collections.abc import Generator
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.pool import StaticPool
 
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./originflow.db")
 
-engine = create_engine(DATABASE_URL, future=True)
+# When running with the default SQLite database, allow connections to be shared
+# across threads. This prevents request handlers from blocking each other when
+# they access the database concurrently.
+engine_kwargs: dict[str, object] = {"future": True}
+if DATABASE_URL.startswith("sqlite"):
+    engine_kwargs.update({
+        "connect_args": {"check_same_thread": False},
+        "poolclass": StaticPool,
+    })
+
+engine = create_engine(DATABASE_URL, **engine_kwargs)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 
 def get_db() -> Generator[Session, None, None]:
