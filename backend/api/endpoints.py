@@ -46,7 +46,7 @@ def read_component(component_id: str, db: Session = Depends(get_db)) -> schemas.
     return schemas.Component.model_validate(db_component)
 
 
-@router.put("/components/{component_id}", response_model=schemas.Component, tags=["Components"])
+@router.patch("/components/{component_id}", response_model=schemas.Component, tags=["Components"])
 def update_component(
     component_id: str,
     component: schemas.ComponentUpdate,
