@@ -157,10 +157,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     const component = originalComponents.find((c) => c.id === componentId);
     if (!component) return;
 
+    const newX = Math.round(component.x + delta.x);
+    const newY = Math.round(component.y + delta.y);
     const updatedComponent = {
       ...component,
-      x: component.x + delta.x,
-      y: component.y + delta.y,
+      x: newX,
+      y: newY,
     };
     set({
       canvasComponents: originalComponents.map((c) =>
@@ -169,8 +171,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
     try {
       await api.updateComponent(componentId, {
-        x: updatedComponent.x,
-        y: updatedComponent.y,
+        x: newX,
+        y: newY,
       });
     } catch (error) {
       console.error('Failed to save new position:', error);
