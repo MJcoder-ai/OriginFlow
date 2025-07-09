@@ -153,8 +153,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   async updateComponentPosition(componentId, delta) {
-    const components = get().canvasComponents;
-    const component = components.find((c) => c.id === componentId);
+    const originalComponents = get().canvasComponents;
+    const component = originalComponents.find((c) => c.id === componentId);
     if (!component) return;
 
     const updatedComponent = {
@@ -163,7 +163,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       y: component.y + delta.y,
     };
     set({
-      canvasComponents: components.map((c) =>
+      canvasComponents: originalComponents.map((c) =>
         c.id === componentId ? updatedComponent : c
       ),
     });
@@ -174,7 +174,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       });
     } catch (error) {
       console.error('Failed to save new position:', error);
-      set({ canvasComponents: components });
+      // Revert on failure
+      set({ canvasComponents: originalComponents });
     }
   },
 

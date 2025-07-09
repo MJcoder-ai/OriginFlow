@@ -74,8 +74,6 @@ const CanvasCard: React.FC<{
       id={`component-card-${component.id}`}
       ref={setNodeRef}
       style={style}
-      {...listeners}
-      {...attributes}
       onClick={() => selectComponent(component.id)}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -93,6 +91,13 @@ const CanvasCard: React.FC<{
         }
       )}
     >
+      {/* The main draggable area */}
+      <div
+        {...listeners}
+        {...attributes}
+        className="w-full h-full cursor-grab"
+      />
+
       {/* Static content inside */}
       <div className="absolute top-0 left-0 w-full h-full flex flex-col items-center justify-center pointer-events-none">
         <span className="text-sm font-bold">{component.name}</span>
