@@ -30,6 +30,18 @@ class Component(ComponentBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ComponentUpdate(BaseModel):
+    """Schema for updating a component."""
+
+    name: str | None = None
+    type: str | None = None
+    standard_code: str | None = None
+    x: int | None = None
+    y: int | None = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class LinkBase(BaseModel):
     """Shared attributes for a link between components."""
 

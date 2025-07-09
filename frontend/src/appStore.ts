@@ -66,12 +66,13 @@ interface AppState {
   /** Add a component to the canvas using its type. */
   addComponent: (componentType: string) => Promise<void>;
   /** Update a component's name by id. */
-  updateComponentName: (componentId: string, newName: string) => void;
+  updateComponentName: (componentId: string, newName: string) => Promise<void>;
   /** Offset a component's position by drag delta. */
   updateComponentPosition: (
     componentId: string,
     delta: { x: number; y: number }
-  ) => void;
+  ) => Promise<void>;
+  deleteComponent: (componentId: string) => Promise<void>;
   /** Register a new link between two components. */
   addLink: (
     link: {
@@ -137,20 +138,63 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ status: 'Error: Could not add component' });
     }
   },
-  updateComponentName: (componentId, newName) =>
-    set((state) => ({
-      canvasComponents: state.canvasComponents.map((component) =>
-        component.id === componentId ? { ...component, name: newName } : component
+  async updateComponentName(componentId, newName) {
+    const components = get().canvasComponents;
+    const updated = components.map((c) =>
+      c.id === componentId ? { ...c, name: newName } : c
+    );
+    set({ canvasComponents: updated });
+    try {
+      await api.updateComponent(componentId, { name: newName });
+    } catch (error) {
+      console.error('Failed to update component name:', error);
+      set({ canvasComponents: components });
+    }
+  },
+
+  async updateComponentPosition(componentId, delta) {
+    const components = get().canvasComponents;
+    const component = components.find((c) => c.id === componentId);
+    if (!component) return;
+
+    const updatedComponent = {
+      ...component,
+      x: component.x + delta.x,
+      y: component.y + delta.y,
+    };
+    set({
+      canvasComponents: components.map((c) =>
+        c.id === componentId ? updatedComponent : c
       ),
-    })),
-  updateComponentPosition: (componentId, delta) =>
+    });
+    try {
+      await api.updateComponent(componentId, {
+        x: updatedComponent.x,
+        y: updatedComponent.y,
+      });
+    } catch (error) {
+      console.error('Failed to save new position:', error);
+      set({ canvasComponents: components });
+    }
+  },
+
+  async deleteComponent(componentId) {
     set((state) => ({
-      canvasComponents: state.canvasComponents.map((component) =>
-        component.id === componentId
-          ? { ...component, x: component.x + delta.x, y: component.y + delta.y }
-          : component
+      canvasComponents: state.canvasComponents.filter((c) => c.id !== componentId),
+      links: state.links.filter(
+        (l) =>
+          l.source.componentId !== componentId &&
+          l.target.componentId !== componentId
       ),
-    })),
+      selectedComponentId: null,
+    }));
+    try {
+      await api.deleteComponent(componentId);
+    } catch (error) {
+      console.error('Failed to delete component:', error);
+      get().fetchProject();
+    }
+  },
   async addLink({ source, target }) {
     const linkExists = get().links.some(
       (l) =>
