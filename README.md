@@ -184,6 +184,10 @@ If linking two components causes the card itself to move, ensure the drag handle
 is separate from the port elements. The UI expects only the transparent card
 overlay to be draggable while the ports handle linking exclusively.
 
+When persisting component positions, the backend expects integer coordinates.
+The store now rounds drag deltas before sending a PATCH request so fractional
+values do not trigger validation errors.
+
 If the application serves an outdated build, run `npm run build` and check for
 TypeScript errors. Ensure newly created components include the `ports` array
 added in the frontend store. When working with links, the backend API uses
