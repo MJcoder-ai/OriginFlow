@@ -8,10 +8,24 @@ from __future__ import annotations
 
 import uvicorn
 from fastapi import FastAPI
+from starlette.middleware.cors import CORSMiddleware
 
 from .api import endpoints
 
+# <codex-marker> - CORS configuration
+# Allow frontend running on localhost:5173 to access the API during development
+origins = ["http://localhost:5173"]
+
 app = FastAPI(title="OriginFlow API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(endpoints.router, prefix="/api/v1", tags=["components"])
 
 @app.get("/")
