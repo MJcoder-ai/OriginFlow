@@ -32,6 +32,7 @@ structlog = "^24.1.0"
 python-dotenv = "^1.0.1"
 tenacity = "^8.2.3"
 deprecated = "^1.2.14"
+aiosqlite = "^0.20.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.0"
