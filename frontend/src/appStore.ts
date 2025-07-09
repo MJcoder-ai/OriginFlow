@@ -39,10 +39,10 @@ export interface CanvasComponent {
 export interface Link {
   /** Unique identifier for this link. */
   id: string;
-  /** Source component and port. */
-  source: { componentId: string; portId: 'output' };
-  /** Target component and port. */
-  target: { componentId: string; portId: 'input' };
+  /** Source component identifier. */
+  source_id: string;
+  /** Target component identifier. */
+  target_id: string;
 }
 
 /**
@@ -76,8 +76,8 @@ interface AppState {
   /** Register a new link between two components. */
   addLink: (
     link: {
-      source: { componentId: string; portId: 'output' };
-      target: { componentId: string; portId: 'input' };
+      source_id: string;
+      target_id: string;
     }
   ) => Promise<void>;
 }
@@ -183,9 +183,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => ({
       canvasComponents: state.canvasComponents.filter((c) => c.id !== componentId),
       links: state.links.filter(
-        (l) =>
-          l.source.componentId !== componentId &&
-          l.target.componentId !== componentId
+        (l) => l.source_id !== componentId && l.target_id !== componentId
       ),
       selectedComponentId: null,
     }));
@@ -196,21 +194,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       get().fetchProject();
     }
   },
-  async addLink({ source, target }) {
+  async addLink({ source_id, target_id }) {
     const linkExists = get().links.some(
-      (l) =>
-        l.source.componentId === source.componentId &&
-        l.target.componentId === target.componentId
+      (l) => l.source_id === source_id && l.target_id === target_id
     );
-    if (linkExists || source.componentId === target.componentId) {
+    if (linkExists || source_id === target_id) {
       return;
     }
     set({ status: 'Creating link...' });
     try {
-      const saved = await api.createLink({
-        source,
-        target,
-      });
+      const saved = await api.createLink({ source_id, target_id });
       set((state) => ({ links: [...state.links, saved], status: 'Link created' }));
     } catch (error) {
       console.error('Failed to add link:', error);
