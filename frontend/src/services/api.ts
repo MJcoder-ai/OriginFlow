@@ -9,7 +9,7 @@ const API_BASE_URL = 'http://localhost:8000/api/v1';
 
 export type ComponentCreateDTO = Omit<CanvasComponent, 'id' | 'ports'>;
 /** Payload for creating a link via the backend API. */
-
+export type LinkCreateDTO = Omit<Link, 'id'>;
 export const api = {
   async getComponents(): Promise<CanvasComponent[]> {
     const response = await fetch(`${API_BASE_URL}/components/`);
@@ -33,7 +33,7 @@ export const api = {
     return response.json();
   },
 
-  async createLink(linkData: any): Promise<Link> {
+  async createLink(linkData: LinkCreateDTO): Promise<Link> {
     const response = await fetch(`${API_BASE_URL}/links/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

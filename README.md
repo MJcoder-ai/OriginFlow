@@ -189,10 +189,10 @@ Endpoints that fetch a specific resource (e.g., `/api/v1/components/{component_i
 will return a `404 Not Found` error if the resource does not exist. The UI status
 bar will surface these and other API communication errors.
 
-Links returned from the API now include nested `source` and `target` objects
-representing each endpoint of the connection. The payload for creating a link
-still requires `source_id` and `target_id`, allowing backward compatibility
-with existing database records.
+Links returned from the API include nested `source` and `target` objects that
+describe each endpoint of the connection. When creating a link, send the same
+nested `source` and `target` structure; the flat `source_id` and `target_id`
+fields are no longer required.
 
 Deleting a component via `DELETE /api/v1/components/{component_id}` returns a
 `204 No Content` response on success.

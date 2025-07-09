@@ -52,8 +52,7 @@ class LinkBase(BaseModel):
 class LinkCreate(LinkBase):
     """Schema for creating a link."""
 
-    source_id: str
-    target_id: str
+    pass
 
 
 class Link(LinkBase):
