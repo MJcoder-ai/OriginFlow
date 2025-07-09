@@ -194,6 +194,9 @@ representing each endpoint of the connection. The payload for creating a link
 still requires `source_id` and `target_id`, allowing backward compatibility
 with existing database records.
 
+Deleting a component via `DELETE /api/v1/components/{component_id}` returns a
+`204 No Content` response on success.
+
 ### 6.9 UI-Backend Connection (CORS Errors)
 If API requests fail with `CORS` errors in the browser console, ensure the backend allows the frontend's origin. The default development configuration permits the following common development URLs:
 

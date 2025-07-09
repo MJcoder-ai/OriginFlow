@@ -9,7 +9,7 @@ from __future__ import annotations
 import uuid
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 
 from .. import schemas
@@ -67,14 +67,16 @@ def update_component(
 
 
 @router.delete("/components/{component_id}", status_code=204, tags=["Components"])
-def delete_component(component_id: str, db: Session = Depends(get_db)) -> None:
+def delete_component(component_id: str, db: Session = Depends(get_db)) -> Response:
+    """Delete a component and return ``204 No Content`` on success."""
+
     db_component = db.query(Component).filter(Component.id == component_id).first()
     if db_component is None:
         raise HTTPException(status_code=404, detail="Component not found")
 
     db.delete(db_component)
     db.commit()
-    return None
+    return Response(status_code=204)
 
 
 @router.post("/links/", response_model=schemas.Link)
