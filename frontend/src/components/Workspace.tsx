@@ -164,6 +164,7 @@ const Workspace: React.FC = () => {
     selectedComponentId,
     deleteComponent,
   } = useAppStore();
+  const componentCount = useAppStore((s) => s.canvasComponents.length);
   useEffect(() => {
     fetchProject();
   }, [fetchProject]);
@@ -191,7 +192,16 @@ const Workspace: React.FC = () => {
         over.id === 'canvas-area' &&
         String(active.id).startsWith('palette-')
       ) {
-        addComponent(active.data.current?.type);
+        const ctype = active.data.current?.type;
+        if (ctype) {
+          addComponent({
+            name: `${ctype} ${componentCount + 1}`,
+            type: ctype,
+            standard_code: `CODE-${Date.now()}`,
+            x: 100,
+            y: 100,
+          });
+        }
       } else if (!String(active.id).startsWith('palette-')) {
         updateComponentPosition(active.id as string, delta);
       }

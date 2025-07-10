@@ -4,8 +4,9 @@
  * Provides helper functions to fetch and persist canvas data.
  */
 import { CanvasComponent, Link } from '../appStore';
+import { AiAction } from '../types/ai';
 
-const API_BASE_URL = 'http://localhost:8000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api/v1';
 
 export type ComponentCreateDTO = Omit<CanvasComponent, 'id' | 'ports'>;
 /** Payload for creating a link via the backend API. */
@@ -61,5 +62,19 @@ export const api = {
       method: 'DELETE',
     });
     if (!response.ok) throw new Error('Failed to delete component');
+  },
+
+  /** POST a natural-language command and receive deterministic actions. */
+  async sendCommandToAI(command: string): Promise<AiAction[]> {
+    const res = await fetch(`${API_BASE_URL}/ai/command`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command }),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`AI endpoint error ${res.status}: ${text.slice(0, 120)}`);
+    }
+    return res.json();
   },
 };
