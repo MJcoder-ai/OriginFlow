@@ -2,7 +2,7 @@
 """AI command endpoint."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
 from backend.api.deps import AiOrchestrator
 from backend.schemas.ai import AiAction, AiCommandRequest
@@ -15,6 +15,7 @@ router = APIRouter()
 @limiter.limit("30/minute")
 async def ai_command(
     req: AiCommandRequest,
+    request: Request,
     orchestrator: AiOrchestrator = Depends(AiOrchestrator.dep),
 ) -> list[AiAction]:
     """Process a natural-language command via the AI orchestrator."""
