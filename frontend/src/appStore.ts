@@ -35,6 +35,15 @@ export interface CanvasComponent {
 }
 
 /**
+ * Universal shape for a chat message.
+ */
+export interface Message {
+  id: string;
+  author: 'User' | 'AI';
+  text: string;
+}
+
+/**
  * Representation of a connection between two canvas components.
  */
 export interface Link {
@@ -62,6 +71,8 @@ interface AppState {
   bomItems: string[] | null;
   /** The id of the currently selected component. */
   selectedComponentId: string | null;
+  /** History of messages in the chat panel. */
+  messages: Message[];
   /** Update which component is selected. */
   /** The current status message for the UI. */
   status: AppStatus;
@@ -95,6 +106,8 @@ interface AppState {
   chatMode: ChatMode;
   /** Flag indicating whether the AI is processing a request. */
   isAiProcessing: boolean;
+  /** Adds a message to the chat history. */
+  addMessage: (message: Message) => void;
   /** Update chat mode. */
   setChatMode: (mode: ChatMode) => void;
   /** Update AI processing flag. */
@@ -110,9 +123,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   ghostLinks: [],
   bomItems: null,
   selectedComponentId: null,
+  messages: [],
   status: 'loading',
   chatMode: 'default',
   isAiProcessing: false,
+  addMessage: (message) => set((state) => ({ messages: [...state.messages, message] })),
   selectComponent: (id) => set({ selectedComponentId: id }),
   async fetchProject() {
     set({ status: 'loading' });
@@ -263,13 +278,30 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   async analyzeAndExecute(command) {
-    const { canvasComponents, links } = get();
-    const snapshot = {
-      components: canvasComponents,
-      links,
-    };
-    const actions = await api.analyzeDesign(snapshot, command);
-    await get().executeAiActions(actions);
+    const { addMessage, setIsAiProcessing, executeAiActions, canvasComponents, links } = get();
+
+    // 1. Add user message and set processing state
+    addMessage({ id: crypto.randomUUID(), author: 'User', text: command });
+    setIsAiProcessing(true);
+
+    try {
+      const snapshot = { components: canvasComponents, links };
+      const actions = await api.analyzeDesign(snapshot, command);
+      await executeAiActions(actions);
+
+      // 2. Add AI success message
+      const successMessage = `I have successfully executed ${actions.length} action(s).`;
+      addMessage({ id: crypto.randomUUID(), author: 'AI', text: successMessage });
+    } catch (error) {
+      console.error('AI command failed:', error);
+      const errorMessage = 'Sorry, I ran into an error trying to do that.';
+      // 3. Add AI error message
+      addMessage({ id: crypto.randomUUID(), author: 'AI', text: errorMessage });
+      set({ status: 'Error: AI command failed' });
+    } finally {
+      // 4. Reset processing state
+      setIsAiProcessing(false);
+    }
   },
   setBom(items) {
     set({ bomItems: items });
