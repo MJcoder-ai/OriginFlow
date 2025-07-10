@@ -7,8 +7,10 @@ from typing import List
 from fastapi import HTTPException
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+from openai import OpenAIError
 
 from backend.agents.router_agent import RouterAgent
+from backend.utils.openai_helpers import map_openai_error
 from backend.schemas.ai import AiAction, AiActionType
 from backend.schemas.component import ComponentCreate
 from backend.schemas.link import LinkCreate
@@ -24,7 +26,10 @@ class AiOrchestrator:
     async def process(self, command: str) -> List[AiAction]:
         """Run the router agent and validate the returned actions."""
 
-        raw = await self.router_agent.handle(command)
+        try:
+            raw = await self.router_agent.handle(command)
+        except (OpenAIError, ValueError) as err:
+            raise map_openai_error(err)
         validated: List[AiAction] = []
         for action in raw:
             try:
