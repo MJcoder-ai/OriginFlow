@@ -12,9 +12,11 @@ from backend.config import settings
 import backend.agents.component_agent  # noqa: F401
 import backend.agents.link_agent  # noqa: F401
 import backend.agents.layout_agent  # noqa: F401
+import backend.agents.auditor_agent  # noqa: F401
+import backend.agents.bom_agent  # noqa: F401
 # ----------------------------------------------------------------
 
-from backend.api.routes import components, links, ai
+from backend.api.routes import components, links, ai, analyze
 
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -36,6 +38,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.include_router(components.router, prefix=settings.api_prefix)
 app.include_router(links.router, prefix=settings.api_prefix)
 app.include_router(ai.router, prefix=settings.api_prefix)
+app.include_router(analyze.router, prefix=settings.api_prefix)
 
 
 @app.get("/")

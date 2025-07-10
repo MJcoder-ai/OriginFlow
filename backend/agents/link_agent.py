@@ -20,37 +20,46 @@ class LinkAgent(AgentBase):
     """Adds or removes links using OpenAI function-calling."""
 
     name = "link_agent"
-    description = "Adds or removes links between components."
+    description = "Adds or removes links between components or suggests them."
 
     async def handle(self, command: str) -> List[Dict[str, Any]]:
         """Return validated link actions."""
 
+        tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "add_link",
+                    "description": "Create a link between components.",
+                    "parameters": LinkCreate.model_json_schema(),
+                },
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "suggest_link",
+                    "description": "Suggest a logical link without committing.",
+                    "parameters": LinkCreate.model_json_schema(),
+                },
+            },
+        ]
         response = await client.chat.completions.create(
             model=settings.openai_model_agents,
             temperature=settings.temperature,
             max_tokens=settings.max_tokens,
             messages=[{"role": "user", "content": command}],
-            tools=[
-                {
-                    "type": "function",
-                    "function": {
-                        "name": "add_link",
-                        "description": "Add a link between components.",
-                        "parameters": LinkCreate.model_json_schema(),
-                    },
-                }
-            ],
+            tools=tools,
             tool_choice="auto",
         )
 
         actions: List[Dict[str, Any]] = []
         for call in response.choices[0].message.tool_calls:
-            if call.function.name == "add_link":
-                payload = json.loads(call.function.arguments)
-                LinkCreate(**payload)
-                actions.append(
-                    AiAction(action=AiActionType.add_link, payload=payload, version=1).model_dump()
-                )
+            payload = json.loads(call.function.arguments)
+            LinkCreate(**payload)
+            kind = AiActionType.add_link if call.function.name == "add_link" else AiActionType.suggest_link
+            actions.append(
+                AiAction(action=kind, payload=payload, version=1).model_dump()
+            )
         if not actions:
             raise ValueError("LinkAgent produced no actions")
         return actions

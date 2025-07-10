@@ -83,6 +83,8 @@ interface AppState {
   ) => Promise<void>;
   /** Execute a list of AI-generated actions. */
   executeAiActions: (actions: AiAction[]) => Promise<void>;
+  /** Send snapshot and command to AI and execute returned actions. */
+  analyzeAndExecute: (command: string) => Promise<void>;
 }
 
 /**
@@ -220,6 +222,16 @@ export const useAppStore = create<AppState>((set, get) => ({
           console.warn('AI action not implemented', act);
       }
     }
+  },
+
+  async analyzeAndExecute(command) {
+    const { canvasComponents, links } = get();
+    const snapshot = {
+      components: canvasComponents,
+      links,
+    };
+    const actions = await api.analyzeDesign(snapshot, command);
+    await get().executeAiActions(actions);
   },
 }));
 
