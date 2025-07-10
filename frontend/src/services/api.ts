@@ -5,6 +5,7 @@
  */
 import { CanvasComponent, Link } from '../appStore';
 import { AiAction } from '../types/ai';
+import { DesignSnapshot } from '../types/analysis';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api/v1';
 
@@ -62,6 +63,16 @@ export const api = {
       method: 'DELETE',
     });
     if (!response.ok) throw new Error('Failed to delete component');
+  },
+
+  async analyzeDesign(snapshot: DesignSnapshot, command: string): Promise<AiAction[]> {
+    const res = await fetch(`${API_BASE_URL}/ai/analyze-design`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command, snapshot }),
+    });
+    if (!res.ok) throw new Error(`Analyze failed: ${res.status}`);
+    return res.json();
   },
 
   /** POST a natural-language command and receive deterministic actions. */

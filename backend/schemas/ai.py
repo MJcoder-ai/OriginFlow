@@ -5,6 +5,8 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any, Dict
 
+from .analysis import DesignSnapshot
+
 from pydantic import BaseModel
 
 
@@ -16,6 +18,9 @@ class AiActionType(str, Enum):
     add_link = "addLink"
     remove_link = "removeLink"
     update_position = "updatePosition"
+    suggest_link = "suggestLink"
+    validation = "validation"
+    report = "report"
 
 
 class AiAction(BaseModel):
@@ -30,4 +35,14 @@ class AiCommandRequest(BaseModel):
     """Request body for /api/v1/ai/command."""
 
     command: str
+
+
+class AnalyzeCommandRequest(BaseModel):
+    """Body for /ai/analyze-design."""
+
+    command: str
+    snapshot: DesignSnapshot
+
+
+AnalyzeCommandRequest.model_rebuild()
 # ----------------------------------------------------------------

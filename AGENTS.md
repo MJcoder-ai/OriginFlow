@@ -508,8 +508,10 @@ OriginFlow/
 |-------------------|--------------------------------------------|------------------------------------|-----------------------------|
 | `router_agent`    | Classify a user command and choose **one‒or‒more** specialist agents to satisfy it. | `route_to_agent(agent_names: string[])` | `{ agent_names: string[] }` |
 | `component_agent` | Parse commands that create, modify or delete components. | `add_component(ComponentCreate)`<br>`remove_component(id: string)` | `AiAction` `addComponent | removeComponent` |
-| `link_agent`      | Parse commands that create or remove links between components. | `add_link(LinkCreate)`<br>`remove_link(id: string)` | `AiAction` `addLink | removeLink` |
-| `layout_agent`    | (future) Arrange components on the canvas for optimal readability. | `set_position(id: string, x:int, y:int)` | `AiAction` `updatePosition` |
+| `link_agent`      | Parse commands that create or remove links between components or suggest new ones. | `add_link(LinkCreate)`<br>`remove_link(id: string)`<br>`suggest_link(LinkCreate)` | `AiAction` `addLink | removeLink | suggestLink` |
+| `layout_agent`    | Arrange components on the canvas for optimal readability. | `set_position(id: string, x:int, y:int)` | `AiAction` `updatePosition` |
+| `auditor_agent`   | Validate full design for IEC / UL rules. | `validation(message:str)` | `AiAction` `validation` |
+| `bom_agent`       | Produce bill‑of‑materials for the design. | `report(items:list[str])` | `AiAction` `report` |
 
 ### Deterministic guarantee
 * All agents **must** use OpenAI or Anthropic *function‑calling* with `temperature=0`.

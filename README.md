@@ -124,6 +124,27 @@ curl -X POST http://localhost:8000/api/v1/ai/command \
      -d '{"command":"add a panel"}'
 ```
 
+### 🔍 Design analysis
+
+```bash
+curl -X POST http://localhost:8000/api/v1/ai/analyze-design \
+     -H "Content-Type: application/json" \
+     -d @snapshot.json
+```
+Where `snapshot.json` looks like:
+
+```json
+{
+  "command": "validate my design",
+  "snapshot": {
+    "components": [],
+    "links": []
+  }
+}
+```
+
+The API responds with an array of `AiAction` objects that the UI can apply.
+
 ---
 
 ## 6. Usage Examples
