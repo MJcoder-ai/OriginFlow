@@ -4,73 +4,57 @@
  */
 import React, { useState } from 'react';
 import { useAppStore } from '../appStore';
-import { Paperclip, Wand2, Mic, Waves, SendHorizonal, Square } from 'lucide-react';
+import { Paperclip, Wand2, Mic, Waves } from 'lucide-react';
 
 /** Input box for sending chat messages and toggling voice mode. */
 export const ChatInput: React.FC = () => {
-  const { chatMode, setChatMode, isAiProcessing } = useAppStore();
+  const { chatMode, setChatMode, isAiProcessing, analyzeAndExecute } = useAppStore(
+    (state) => ({
+      chatMode: state.chatMode,
+      setChatMode: state.setChatMode,
+      isAiProcessing: state.isAiProcessing,
+      analyzeAndExecute: state.analyzeAndExecute,
+    }),
+  );
+
   const [message, setMessage] = useState('');
 
-  const handleSendMessage = () => {
-    if (message.trim() === '') return;
-    console.log('Sending message:', message);
+  const handleSendMessage = async () => {
+    if (message.trim() === '' || isAiProcessing) return;
+    const commandToSend = message;
     setMessage('');
+    await analyzeAndExecute(commandToSend);
   };
 
-  const isVoiceMode = chatMode === 'voice';
-  const placeholderText = isVoiceMode ? 'Listening...' : 'Type a message, or use a tool...';
-  const containerClasses = `
-    flex items-center p-2 bg-gray-50 rounded-full
-    border border-gray-200 transition-all duration-300
-    focus-within:ring-2 focus-within:ring-blue-500
-    ${isVoiceMode ? 'ring-2 ring-blue-500 shadow-lg' : ''}
-  `;
+  // Hide voice/dictation icons when user is typing
+  const showVoiceIcons = message.length === 0;
 
   return (
-    <div className={containerClasses}>
+    <div className="relative flex items-center w-full">
       <button className="p-2 text-gray-500 hover:text-blue-600 transition-colors">
         <Paperclip size={20} />
       </button>
-      <button className="p-2 text-gray-500 hover:text-blue-600 transition-colors">
+      <button className="p-2 mr-2 text-gray-500 hover:text-blue-600 transition-colors">
         <Wand2 size={20} />
       </button>
 
-      <input
-        type="text"
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
-        onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-        placeholder={placeholderText}
-        className="flex-grow bg-transparent focus:outline-none mx-2 text-gray-800"
-        disabled={isVoiceMode}
-      />
-
-      <button className="p-2 text-gray-500 hover:text-blue-600 transition-colors">
-        <Mic size={20} />
-      </button>
-      <button
-        onClick={() => setChatMode(isVoiceMode ? 'default' : 'voice')}
-        className={`p-2 transition-colors ${isVoiceMode ? 'text-blue-600' : 'text-gray-500 hover:text-blue-600'}`}
-      >
-        <Waves size={20} />
-      </button>
-
-      {isVoiceMode ? (
-        <button
-          onClick={() => setChatMode('default')}
-          className="p-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-all ml-2"
-        >
-          <Square size={20} />
-        </button>
-      ) : (
-        <button
-          onClick={handleSendMessage}
-          className="p-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-all ml-2 disabled:bg-gray-400"
-          disabled={!message.trim() || isAiProcessing}
-        >
-          <SendHorizonal size={20} />
-        </button>
-      )}
+      <div className="relative w-full">
+        <input
+          type="text"
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+          placeholder="Type a message..."
+          className="w-full h-10 px-3 pr-20 text-sm bg-gray-100 border border-transparent rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+          disabled={isAiProcessing}
+        />
+        {showVoiceIcons && (
+          <div className="absolute top-0 right-0 flex items-center h-full mr-3">
+            <button className="p-2 text-gray-500 hover:text-blue-600"><Mic size={20} /></button>
+            <button className="p-2 text-gray-500 hover:text-blue-600"><Waves size={20} /></button>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
