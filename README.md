@@ -116,6 +116,13 @@ poetry run uvicorn backend.main:app --reload --host 0.0.0.0
 npm --prefix frontend run dev -- --port 5173 --strictPort
 ```
 
+Test the AI endpoint:
+```bash
+curl -X POST http://localhost:8000/api/v1/ai/command \
+     -H "Content-Type: application/json" \
+     -d '{"command":"add a panel"}'
+```
+
 ---
 
 ## 6. Usage Examples
