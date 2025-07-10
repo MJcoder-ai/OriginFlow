@@ -3,12 +3,14 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List
 
-from openai import AsyncOpenAI
+from fastapi import HTTPException
+from openai import AsyncOpenAI, OpenAIError
 
 from backend.agents.base import AgentBase
 from backend.agents.registry import register
 from backend.config import settings
 from backend.schemas.ai import AiAction, AiActionType
+from backend.utils.llm import safe_tool_calls
 
 client = AsyncOpenAI(api_key=settings.openai_api_key)
 
@@ -39,16 +41,21 @@ class BomAgent(AgentBase):
                 },
             }
         ]
-        response = await client.chat.completions.create(
-            model=settings.openai_model_agents,
-            temperature=settings.temperature,
-            max_tokens=settings.max_tokens,
-            messages=[{"role": "user", "content": command}],
-            tools=tools,
-            tool_choice="auto",
-        )
+        try:
+            response = await client.chat.completions.create(
+                model=settings.openai_model_agents,
+                temperature=settings.temperature,
+                max_tokens=settings.max_tokens,
+                messages=[{"role": "user", "content": command}],
+                tools=tools,
+                tool_choice="auto",
+            )
+            tool_calls = safe_tool_calls(response)
+        except (OpenAIError, ValueError) as err:
+            raise HTTPException(status_code=422, detail=str(err))
+
         actions: List[Dict[str, Any]] = []
-        for call in response.choices[0].message.tool_calls:
+        for call in tool_calls:
             payload = json.loads(call.function.arguments)
             actions.append(
                 AiAction(action=AiActionType.report, payload=payload, version=1).model_dump()

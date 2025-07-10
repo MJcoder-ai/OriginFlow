@@ -7,6 +7,7 @@ from typing import Any, Dict, List
 
 from openai import AsyncOpenAI, OpenAIError
 from fastapi import HTTPException
+from pydantic import BaseModel, Field
 
 from backend.utils.llm import safe_tool_calls
 
@@ -15,6 +16,12 @@ from backend.agents.registry import register
 from backend.config import settings
 from backend.schemas.ai import AiAction, AiActionType
 from backend.schemas.component import ComponentCreate
+
+# schema for the remove_component tool
+class RemoveComponentPayload(BaseModel):
+    """Payload identifying a component to remove."""
+
+    name: str = Field(..., description="The name of the component to remove.")
 
 client = AsyncOpenAI(api_key=settings.openai_api_key)
 
@@ -42,7 +49,15 @@ class ComponentAgent(AgentBase):
                             "description": "Add components to the design.",
                             "parameters": ComponentCreate.model_json_schema(),
                         },
-                    }
+                    },
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "remove_component",
+                            "description": "Remove a component from the design by its name.",
+                            "parameters": RemoveComponentPayload.model_json_schema(),
+                        },
+                    },
                 ],
                 tool_choice="auto",
             )
@@ -53,12 +68,18 @@ class ComponentAgent(AgentBase):
 
         actions: List[Dict[str, Any]] = []
         for call in tool_calls:
+            payload = json.loads(call.function.arguments)
             if call.function.name == "add_component":
-                payload = json.loads(call.function.arguments)
                 ComponentCreate(**payload)
                 actions.append(
                     AiAction(
                         action=AiActionType.add_component, payload=payload, version=1
+                    ).model_dump()
+                )
+            elif call.function.name == "remove_component":
+                actions.append(
+                    AiAction(
+                        action=AiActionType.remove_component, payload=payload, version=1
                     ).model_dump()
                 )
         if not actions:
