@@ -16,6 +16,8 @@ import backend.agents.layout_agent  # noqa: F401
 
 from backend.api.routes import components, links, ai
 
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from backend.services.ai_service import limiter
 
 app = FastAPI(title="OriginFlow API")
@@ -28,7 +30,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-limiter.init_app(app)  # ⭐ initialise slowapi rate-limiter
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.include_router(components.router, prefix=settings.api_prefix)
 app.include_router(links.router, prefix=settings.api_prefix)

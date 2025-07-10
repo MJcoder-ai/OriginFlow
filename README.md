@@ -213,7 +213,9 @@ Endpoints that fetch a specific resource (e.g., `/api/v1/components/{component_i
 will return a `404 Not Found` error if the resource does not exist. The UI status
 bar will surface these and other API communication errors.
 
-The `/api/v1/ai/command` endpoint is rate-limited to **30 requests per minute**.
+The `/api/v1/ai/command` endpoint is rate-limited to **30 requests per minute**
+using the `slowapi` library. The limiter is initialized in `backend/main.py` by
+attaching it to `app.state` and registering the rate limit exception handler.
 
 Links returned from the API now include `source_id` and `target_id` fields
 referencing the connected components. Use the same flat structure when creating
