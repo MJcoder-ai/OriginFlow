@@ -213,6 +213,8 @@ Endpoints that fetch a specific resource (e.g., `/api/v1/components/{component_i
 will return a `404 Not Found` error if the resource does not exist. The UI status
 bar will surface these and other API communication errors.
 
+The `/api/v1/ai/command` endpoint is rate-limited to **30 requests per minute**.
+
 Links returned from the API now include `source_id` and `target_id` fields
 referencing the connected components. Use the same flat structure when creating
 a new link via `POST /api/v1/links/`.
