@@ -57,6 +57,8 @@ class BomAgent(AgentBase):
         actions: List[Dict[str, Any]] = []
         for call in tool_calls:
             payload = BomReportPayload.model_validate_json(call.function.arguments).model_dump()
+            unique = sorted(set(payload["items"]))
+            payload["items"] = unique
             actions.append(
                 AiAction(action=AiActionType.report, payload=payload, version=1).model_dump()
             )

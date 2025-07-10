@@ -16,6 +16,7 @@ from backend.agents.registry import register
 from backend.config import settings
 from backend.schemas.ai import AiAction, AiActionType
 from backend.schemas.component import ComponentCreate
+from backend.services.component_service import find_component_by_name
 
 # schema for the remove_component tool
 class RemoveComponentPayload(BaseModel):
@@ -77,9 +78,18 @@ class ComponentAgent(AgentBase):
                     ).model_dump()
                 )
             elif call.function.name == "remove_component":
+                payload = (
+                    RemoveComponentPayload.model_validate_json(call.function.arguments).model_dump()
+                )
+                # translate name → id here so front-end gets exact id
+                comp = await find_component_by_name(payload["name"])
+                if not comp:
+                    raise HTTPException(404, f'Component "{payload["name"]}" not found')
                 actions.append(
                     AiAction(
-                        action=AiActionType.remove_component, payload=payload, version=1
+                        action=AiActionType.remove_component,
+                        payload={"id": comp.id, "name": comp.name},
+                        version=1,
                     ).model_dump()
                 )
         if not actions:

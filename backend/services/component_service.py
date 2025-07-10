@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import select
+
+from backend.database.session import SessionMaker
 
 from fastapi import HTTPException
 
@@ -36,3 +39,12 @@ class ComponentService:
                 raise HTTPException(409, "Component already exists") from err
         await self.session.refresh(obj)
         return obj
+
+
+async def find_component_by_name(name: str) -> Component | None:
+    """Return first component matching ``name`` case-insensitively."""
+
+    async with SessionMaker() as session:
+        stmt = select(Component).where(Component.name.ilike(name)).limit(1)
+        result = await session.execute(stmt)
+        return result.scalars().first()
