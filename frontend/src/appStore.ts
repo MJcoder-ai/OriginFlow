@@ -51,6 +51,8 @@ export interface Link {
  */
 type AppStatus = 'loading' | 'ready' | 'error' | 'saving' | string;
 
+export type ChatMode = 'default' | 'dictating' | 'voice';
+
 interface AppState {
   /** Components currently placed on the canvas. */
   canvasComponents: CanvasComponent[];
@@ -88,6 +90,15 @@ interface AppState {
   /** Send snapshot and command to AI and execute returned actions. */
   analyzeAndExecute: (command: string) => Promise<void>;
   setBom: (items: string[] | null) => void;
+
+  /** Current mode of the chat input. */
+  chatMode: ChatMode;
+  /** Flag indicating whether the AI is processing a request. */
+  isAiProcessing: boolean;
+  /** Update chat mode. */
+  setChatMode: (mode: ChatMode) => void;
+  /** Update AI processing flag. */
+  setIsAiProcessing: (isProcessing: boolean) => void;
 }
 
 /**
@@ -100,6 +111,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   bomItems: null,
   selectedComponentId: null,
   status: 'loading',
+  chatMode: 'default',
+  isAiProcessing: false,
   selectComponent: (id) => set({ selectedComponentId: id }),
   async fetchProject() {
     set({ status: 'loading' });
@@ -260,6 +273,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   setBom(items) {
     set({ bomItems: items });
+  },
+  setChatMode(mode) {
+    set({ chatMode: mode });
+  },
+  setIsAiProcessing(isProcessing) {
+    set({ isAiProcessing: isProcessing });
   },
 }));
 

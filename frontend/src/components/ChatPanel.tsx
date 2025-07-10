@@ -1,124 +1,29 @@
 /**
  * File: frontend/src/components/ChatPanel.tsx
- * A panel for interacting with an AI assistant with local state management.
+ * Simple panel wrapping chat history and input box.
  */
-import React, { useState, KeyboardEvent } from 'react';
-import clsx from 'clsx';
-import { api } from '../services/api';
+import React from 'react';
 import { useAppStore } from '../appStore';
-import { AiAction } from '../types/ai';
+import { ChatInput } from './ChatInput';
+import { Loader } from 'lucide-react';
 
-// Define the shape of a single chat message
-interface Message {
-  id: number;
-  author: 'User' | 'AI';
-  text: string;
-}
-
-// Sub-component for rendering a single message
-const ChatMessage: React.FC<{ message: Message }> = ({ message }) => (
-  <div
-    className={clsx('max-w-[80%] rounded-lg px-3 py-2 text-sm', {
-      'bg-blue-500 text-white self-end': message.author === 'User',
-      'bg-gray-200 text-gray-800 self-start': message.author === 'AI',
-    })}
-  >
-    {message.text}
-  </div>
-);
-
+/** Wrapper panel containing history and input. */
 const ChatPanel: React.FC = () => {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [inputValue, setInputValue] = useState('');
-  const { executeAiActions, analyzeAndExecute } = useAppStore();
-  const analysisKeywords = /(analyse|analyze|validate|bom|bill of materials|optimise|optimize|organise|organize)/i;
-
-  const handleSendMessage = async () => {
-    if (!inputValue.trim()) return;
-
-    const command = inputValue.trim();
-
-    // 1️⃣ add user bubble
-    const userMsg: Message = {
-      id: Date.now(),
-      author: 'User',
-      text: command,
-    };
-    setMessages((prev) => [...prev, userMsg]);
-    setInputValue('');
-
-    try {
-      if (analysisKeywords.test(command)) {
-        try {
-          await analyzeAndExecute(command);
-          return;
-        } catch (e) {
-          /* fall through to error bubble */
-        }
-      }
-
-      // 2️⃣ ask the backend
-      const actions: AiAction[] = await api.sendCommandToAI(command);
-
-      // 3️⃣ show "thinking…" bubble
-      const aiMsg: Message = {
-        id: Date.now() + 1,
-        author: 'AI',
-        text: 'Executing changes…',
-      };
-      setMessages((prev) => [...prev, aiMsg]);
-
-      // 4️⃣ apply to canvas & state
-      await executeAiActions(actions);
-
-      // 5️⃣ replace provisional message with success summary
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === aiMsg.id ? { ...m, text: `Added ${actions.length} item(s) ✅` } : m,
-        ),
-      );
-    } catch (err) {
-      console.error(err);
-      let errorText = 'Sorry, something went wrong 🤖';
-      if (err instanceof Response && !err.ok) {
-        const { detail } = await err.json().catch(() => ({ detail: err.statusText }));
-        errorText = detail ?? errorText;
-      }
-      const errorMsg: Message = {
-        id: Date.now() + 2,
-        author: 'AI',
-        text: errorText,
-      };
-      setMessages((prev) => [...prev, errorMsg]);
-    }
-  };
-
-  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Enter') {
-      handleSendMessage();
-    }
-  };
+  const { isAiProcessing } = useAppStore();
 
   return (
-    // Fill the parent container to keep the overall panel height fixed
-    <div className="w-full h-full flex flex-col p-2">
-      {/* Chat History: grows and becomes scrollable when content overflows */}
-      <div className="flex-grow space-y-3 overflow-y-auto p-2">
-        {messages.map((msg) => (
-          <ChatMessage key={msg.id} message={msg} />
-        ))}
+    <div className="flex flex-col h-full bg-white p-4">
+      <div className="flex-grow overflow-y-auto mb-4">
+        <p className="text-sm text-gray-500">Your chat history goes here...</p>
+        {isAiProcessing && (
+          <div className="flex items-center justify-start space-x-2 p-2">
+            <Loader className="animate-spin text-blue-600" size={20} />
+            <span className="text-sm text-gray-600">AI is thinking...</span>
+          </div>
+        )}
       </div>
-
-      {/* Chat Input pinned to the bottom */}
-      <div className="mt-2 flex-shrink-0">
-        <input
-          type="text"
-          placeholder="Type a message..."
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-        />
+      <div className="mt-auto">
+        <ChatInput />
       </div>
     </div>
   );
