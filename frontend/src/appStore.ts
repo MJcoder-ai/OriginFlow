@@ -6,6 +6,7 @@
  */
 import { create } from 'zustand';
 import { api } from './services/api';
+import { AiAction } from './types/ai';
 
 /** Connection port available on a component. */
 export interface Port {
@@ -63,8 +64,8 @@ interface AppState {
   selectComponent: (id: string | null) => void;
   /** Fetch the entire project from the backend API. */
   fetchProject: () => Promise<void>;
-  /** Add a component to the canvas using its type. */
-  addComponent: (componentType: string) => Promise<void>;
+  /** Add a component to the canvas using a full payload. */
+  addComponent: (payload: { name: string; type: string; standard_code: string; x?: number; y?: number }) => Promise<void>;
   /** Update a component's name by id. */
   updateComponentName: (componentId: string, newName: string) => Promise<void>;
   /** Offset a component's position by drag delta. */
@@ -80,6 +81,8 @@ interface AppState {
       target_id: string;
     }
   ) => Promise<void>;
+  /** Execute a list of AI-generated actions. */
+  executeAiActions: (actions: AiAction[]) => Promise<void>;
 }
 
 /**
@@ -111,17 +114,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ status: 'Error: Could not load project' });
     }
   },
-  async addComponent(componentType) {
-    const newComponentData = {
-      name: `${componentType} ${get().canvasComponents.length + 1}`,
-      type: componentType,
-      standard_code: `CODE-${Date.now()}`,
-      x: 100,
-      y: 100,
-    };
-    set({ status: `Adding ${componentType}...` });
+  async addComponent(payload) {
+    set({ status: `Adding ${payload.type}...` });
     try {
-      const saved = await api.createComponent(newComponentData);
+      const saved = await api.createComponent(payload);
       const component: CanvasComponent = {
         ...saved,
         ports: [
@@ -210,6 +206,19 @@ export const useAppStore = create<AppState>((set, get) => ({
     } catch (error) {
       console.error('Failed to add link:', error);
       set({ status: 'Error: Could not create link' });
+    }
+  },
+
+  async executeAiActions(actions) {
+    for (const act of actions) {
+      switch (act.action) {
+        case 'addComponent':
+          await get().addComponent(act.payload);
+          break;
+        // TODO: implement link & removal once endpoints exist
+        default:
+          console.warn('AI action not implemented', act);
+      }
     }
   },
 }));

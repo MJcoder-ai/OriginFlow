@@ -4,6 +4,9 @@
  */
 import React, { useState, KeyboardEvent } from 'react';
 import clsx from 'clsx';
+import { api } from '../services/api';
+import { useAppStore } from '../appStore';
+import { AiAction } from '../types/ai';
 
 // Define the shape of a single chat message
 interface Message {
@@ -25,33 +28,54 @@ const ChatMessage: React.FC<{ message: Message }> = ({ message }) => (
 );
 
 const ChatPanel: React.FC = () => {
-  // Local state for managing messages and the current input value
-  const [messages, setMessages] = useState<Message[]>([
-    { id: 1, author: 'AI', text: "Hello! How can I help you with your design?" },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
+  const { executeAiActions } = useAppStore();
 
-  const handleSendMessage = () => {
-    if (inputValue.trim() === '') return;
+  const handleSendMessage = async () => {
+    if (!inputValue.trim()) return;
 
-    // Add the user's message
-    const userMessage: Message = {
+    const command = inputValue.trim();
+
+    // 1️⃣ add user bubble
+    const userMsg: Message = {
       id: Date.now(),
       author: 'User',
-      text: inputValue,
+      text: command,
     };
-    setMessages((prev) => [...prev, userMessage]);
-    setInputValue(''); // Clear the input
+    setMessages((prev) => [...prev, userMsg]);
+    setInputValue('');
 
-    // Simulate an AI response after a short delay
-    setTimeout(() => {
-      const aiResponse: Message = {
+    try {
+      // 2️⃣ ask the backend
+      const actions: AiAction[] = await api.sendCommandToAI(command);
+
+      // 3️⃣ show "thinking…" bubble
+      const aiMsg: Message = {
         id: Date.now() + 1,
         author: 'AI',
-        text: "That's an interesting idea. Let me look into the specifications for that component.",
+        text: 'Executing changes…',
       };
-      setMessages((prev) => [...prev, aiResponse]);
-    }, 1000);
+      setMessages((prev) => [...prev, aiMsg]);
+
+      // 4️⃣ apply to canvas & state
+      await executeAiActions(actions);
+
+      // 5️⃣ replace provisional message with success summary
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === aiMsg.id ? { ...m, text: `Added ${actions.length} item(s) ✅` } : m,
+        ),
+      );
+    } catch (err) {
+      console.error(err);
+      const errorMsg: Message = {
+        id: Date.now() + 2,
+        author: 'AI',
+        text: 'Sorry, something went wrong 🤖',
+      };
+      setMessages((prev) => [...prev, errorMsg]);
+    }
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {

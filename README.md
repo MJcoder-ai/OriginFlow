@@ -98,6 +98,7 @@ See `.env.example` for required environment variables:
 - `DATABASE_URL`: Database connection string. If omitted, the backend uses a
   local SQLite file (`sqlite:///./originflow.db`) with a configuration that
   allows concurrent API requests.
+- `VITE_API_URL`: Frontend base URL for the backend API.
 - `TEMPORAL_HOST`: Host for self-hosted Temporal.io.
 
 ### ⚡ Quick-start (AI subsystem)
