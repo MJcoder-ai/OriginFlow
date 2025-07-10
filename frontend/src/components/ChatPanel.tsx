@@ -30,7 +30,8 @@ const ChatMessage: React.FC<{ message: Message }> = ({ message }) => (
 const ChatPanel: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
-  const { executeAiActions } = useAppStore();
+  const { executeAiActions, analyzeAndExecute } = useAppStore();
+  const analysisKeywords = /(analyse|analyze|validate|bom|bill of materials|optimise|optimize|organise|organize)/i;
 
   const handleSendMessage = async () => {
     if (!inputValue.trim()) return;
@@ -47,14 +48,13 @@ const ChatPanel: React.FC = () => {
     setInputValue('');
 
     try {
-      if (/analyse|analyze|validate|organize/i.test(command)) {
-        const snapshot = {
-          components: useAppStore.getState().canvasComponents,
-          links: useAppStore.getState().links,
-        };
-        const acts = await api.analyzeDesign(snapshot, command);
-        await executeAiActions(acts);
-        return;
+      if (analysisKeywords.test(command)) {
+        try {
+          await analyzeAndExecute(command);
+          return;
+        } catch (e) {
+          /* fall through to error bubble */
+        }
       }
 
       // 2️⃣ ask the backend

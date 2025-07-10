@@ -235,6 +235,18 @@ export const useAppStore = create<AppState>((set, get) => ({
         case 'suggestLink':
           set((s) => ({ ghostLinks: [...s.ghostLinks, act.payload] }));
           break;
+        case 'updatePosition':
+          set((s) => ({
+            canvasComponents: s.canvasComponents.map((c) =>
+              c.id === act.payload.id
+                ? { ...c, x: act.payload.x, y: act.payload.y }
+                : c,
+            ),
+          }));
+          break;
+        case 'report':
+          console.table(act.payload.items);
+          break;
         default:
           console.warn('AI action not implemented', act);
       }

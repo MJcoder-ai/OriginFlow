@@ -275,6 +275,14 @@ http://127.0.0.1:8082
 
 If running the frontend on a different host or port, update the `origins` list in `backend/main.py`. The CORS middleware is added via `app.add_middleware` during application setup.
 
+### 🔄 Typical AI loop
+
+1. **User**: "add solar panel / inverter / battery"
+2. **User**: "link solar panel to inverter"
+3. **User**: "remove battery" → component disappears
+4. **User**: "optimise the layout" → nodes rearranged
+5. **User**: "what is the bill of materials" → BoM table appears
+
 ---
 
 ## 7. Architecture & Design

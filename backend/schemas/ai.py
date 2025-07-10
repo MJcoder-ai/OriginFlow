@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from .analysis import DesignSnapshot
 
@@ -21,6 +21,20 @@ class AiActionType(str, Enum):
     suggest_link = "suggestLink"
     validation = "validation"
     report = "report"
+
+
+class PositionPayload(BaseModel):
+    """Coordinates for a canvas component."""
+
+    id: str
+    x: int
+    y: int
+
+
+class BomReportPayload(BaseModel):
+    """List of items returned by the BoM agent."""
+
+    items: List[str]
 
 
 class AiAction(BaseModel):

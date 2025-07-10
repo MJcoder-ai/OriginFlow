@@ -37,6 +37,7 @@ interface LinkLayerProps {
 /** Overlay drawing lines between linked components. */
 const LinkLayer: React.FC<LinkLayerProps> = ({ pendingLink, mousePos }) => {
   const links = useAppStore((state) => state.links);
+  const ghostLinks = useAppStore((state) => state.ghostLinks || []);
   const components = useAppStore((state) => state.canvasComponents);
   // Force a re-render after layout to pick up element positions
   const [, setRender] = useState<number>(0);
@@ -84,6 +85,21 @@ const LinkLayer: React.FC<LinkLayerProps> = ({ pendingLink, mousePos }) => {
   return (
     <svg className="absolute top-0 left-0 w-full h-full pointer-events-none">
       {renderedLinks as React.ReactNode[]}
+      {ghostLinks.map((g) => {
+        const s = getPortPosition(g.source_id, 'output');
+        const t = getPortPosition(g.target_id, 'input');
+        if (!s || !t) return null;
+        return (
+          <line
+            key={g.source_id + g.target_id}
+            x1={s.x}
+            y1={s.y}
+            x2={t.x}
+            y2={t.y}
+            className="stroke-blue-500 stroke-2" strokeDasharray="4 4"
+          />
+        );
+      })}
       {pendingLinkLine}
     </svg>
   );
