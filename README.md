@@ -19,6 +19,7 @@
 - **Extensibility**: Plug-in framework for components, AI models, and workflows via Component Pack Studio and marketplace.
 - **Observability**: Grafana dashboards, OpenTelemetry traces, and Workflow Visibility Dashboard for monitoring.
 - **Properties Panel with AI Chat**: Manage components via a drag-and-drop palette, edit selected component properties, and collaborate with an AI assistant.
+- **Component Deletion by Name**: Remove components via the AI assistant or UI by referencing the component's name.
 - **AI Governance**: MLMD for model versioning and drift detection.
 - **Performance Benchmarks**:
   | **Nodes** | **CPU (cores)** | **RAM (GB)** |

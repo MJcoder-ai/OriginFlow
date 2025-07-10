@@ -220,13 +220,14 @@ export const useAppStore = create<AppState>((set, get) => ({
           await get().addComponent(act.payload);
           break;
         case 'removeComponent':
-          await api.deleteComponent(act.payload.id);
-          set((s) => ({
-            canvasComponents: s.canvasComponents.filter((c) => c.id !== act.payload.id),
-            links: s.links.filter(
-              (l) => l.source_id !== act.payload.id && l.target_id !== act.payload.id,
-            ),
-          }));
+          const componentToDelete = get().canvasComponents.find(
+            (c) => c.name.toLowerCase() === act.payload.name.toLowerCase(),
+          );
+          if (componentToDelete) {
+            await get().deleteComponent(componentToDelete.id);
+          } else {
+            console.warn(`AI tried to delete non-existent component: ${act.payload.name}`);
+          }
           break;
         case 'addLink':
           await api.createLink(act.payload);
