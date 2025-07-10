@@ -9,11 +9,12 @@ from openai import AsyncOpenAI, OpenAIError
 from fastapi import HTTPException
 
 from backend.utils.llm import safe_tool_calls
+from backend.schemas.ai import AiAction, AiActionType, PositionPayload
 
 from backend.agents.base import AgentBase
 from backend.agents.registry import register
 from backend.config import settings
-from backend.schemas.ai import AiAction, AiActionType
+
 
 client = AsyncOpenAI(api_key=settings.openai_api_key)
 
@@ -27,15 +28,7 @@ class LayoutAgent(AgentBase):
     async def handle(self, command: str) -> List[Dict[str, Any]]:
         """Return position update actions."""
 
-        schema = {
-            "type": "object",
-            "properties": {
-                "id": {"type": "string"},
-                "x": {"type": "integer"},
-                "y": {"type": "integer"},
-            },
-            "required": ["id", "x", "y"],
-        }
+        schema = PositionPayload.model_json_schema()
         try:
             response = await client.chat.completions.create(
                 model=settings.openai_model_agents,
@@ -57,7 +50,7 @@ class LayoutAgent(AgentBase):
             raise HTTPException(status_code=422, detail=str(err))
         actions: List[Dict[str, Any]] = []
         for call in tool_calls:
-            payload = json.loads(call.function.arguments)
+            payload = PositionPayload.model_validate_json(call.function.arguments).model_dump()
             actions.append(
                 AiAction(action=AiActionType.update_position, payload=payload, version=1).model_dump()
             )

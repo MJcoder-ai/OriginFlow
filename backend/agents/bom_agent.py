@@ -9,7 +9,7 @@ from openai import AsyncOpenAI, OpenAIError
 from backend.agents.base import AgentBase
 from backend.agents.registry import register
 from backend.config import settings
-from backend.schemas.ai import AiAction, AiActionType
+from backend.schemas.ai import AiAction, AiActionType, BomReportPayload
 from backend.utils.llm import safe_tool_calls
 
 client = AsyncOpenAI(api_key=settings.openai_api_key)
@@ -56,7 +56,7 @@ class BomAgent(AgentBase):
 
         actions: List[Dict[str, Any]] = []
         for call in tool_calls:
-            payload = json.loads(call.function.arguments)
+            payload = BomReportPayload.model_validate_json(call.function.arguments).model_dump()
             actions.append(
                 AiAction(action=AiActionType.report, payload=payload, version=1).model_dump()
             )

@@ -11,7 +11,7 @@ from openai import OpenAIError
 
 from backend.agents.router_agent import RouterAgent
 from backend.utils.openai_helpers import map_openai_error
-from backend.schemas.ai import AiAction, AiActionType
+from backend.schemas.ai import AiAction, AiActionType, BomReportPayload, PositionPayload
 from backend.schemas.component import ComponentCreate
 from backend.schemas.link import LinkCreate
 
@@ -40,6 +40,10 @@ class AiOrchestrator:
                 ComponentCreate(**obj.payload)
             elif obj.action == AiActionType.add_link:
                 LinkCreate(**obj.payload)
+            elif obj.action == AiActionType.update_position:
+                PositionPayload(**obj.payload)
+            elif obj.action == AiActionType.report:
+                BomReportPayload(**obj.payload)
             validated.append(obj)
         return validated
 
