@@ -7,7 +7,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.config import settings
+
+# --- import agents once so they self-register --------------------
+import backend.agents.component_agent  # noqa: F401
+import backend.agents.link_agent  # noqa: F401
+import backend.agents.layout_agent  # noqa: F401
+# ----------------------------------------------------------------
+
 from backend.api.routes import components, links, ai
+
+from backend.services.ai_service import limiter
 
 app = FastAPI(title="OriginFlow API")
 
@@ -18,6 +27,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+limiter.init_app(app)  # ⭐ initialise slowapi rate-limiter
 
 app.include_router(components.router, prefix=settings.api_prefix)
 app.include_router(links.router, prefix=settings.api_prefix)

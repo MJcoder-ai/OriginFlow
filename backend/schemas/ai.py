@@ -24,3 +24,10 @@ class AiAction(BaseModel):
     action: AiActionType
     payload: Dict[str, Any]
     version: int
+
+# --- NEW ---------------------------------------------------------
+class AiCommandRequest(BaseModel):
+    """Request body for /api/v1/ai/command."""
+
+    command: str
+# ----------------------------------------------------------------

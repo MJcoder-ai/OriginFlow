@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List
 
-from openai import AsyncClient
+from openai import AsyncOpenAI
 
 from backend.agents.base import AgentBase
 from backend.agents.registry import register
@@ -13,7 +13,7 @@ from backend.config import settings
 from backend.schemas.ai import AiAction, AiActionType
 from backend.schemas.link import LinkCreate
 
-client = AsyncClient(api_key=settings.openai_api_key)
+client = AsyncOpenAI(api_key=settings.openai_api_key)
 
 
 class LinkAgent(AgentBase):

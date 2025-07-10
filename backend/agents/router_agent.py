@@ -5,13 +5,13 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List
 
-from openai import AsyncClient
+from openai import AsyncOpenAI
 
 from backend.agents.base import AgentBase
 from backend.agents.registry import get_agent, get_agent_names
 from backend.config import settings
 
-client = AsyncClient(api_key=settings.openai_api_key)
+client = AsyncOpenAI(api_key=settings.openai_api_key)
 
 
 class RouterAgent(AgentBase):

@@ -4,9 +4,10 @@
 Defines SQLAlchemy declarative base and ORM models.
 """
 
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import declarative_base
 
-class Base(DeclarativeBase):
-    """Base class for all ORM models."""
+# ⚠️  All ORM models must inherit from this Base.
+Base = declarative_base()
+
 
 __all__ = ["Base"]
