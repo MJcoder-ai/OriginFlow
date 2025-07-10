@@ -47,6 +47,16 @@ const ChatPanel: React.FC = () => {
     setInputValue('');
 
     try {
+      if (/analyse|analyze|validate|organize/i.test(command)) {
+        const snapshot = {
+          components: useAppStore.getState().canvasComponents,
+          links: useAppStore.getState().links,
+        };
+        const acts = await api.analyzeDesign(snapshot, command);
+        await executeAiActions(acts);
+        return;
+      }
+
       // 2️⃣ ask the backend
       const actions: AiAction[] = await api.sendCommandToAI(command);
 

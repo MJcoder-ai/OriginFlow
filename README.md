@@ -254,6 +254,14 @@ Partial updates to a component should be sent via
 `PATCH /api/v1/components/{component_id}`. Deleting a component returns a
 `204 No Content` response on success.
 
+### Common 4xx responses from AI endpoints
+
+| status | meaning | typical fix |
+|--------|---------|-------------|
+| 409 | component/link already exists | change name or let AI pick auto-code |
+| 422 | AI could not generate structured output | rephrase command or add more context |
+| 429 | rate-limited by OpenAI | wait / upgrade quota |
+
 ### 6.9 UI-Backend Connection (CORS Errors)
 If API requests fail with `CORS` errors in the browser console, ensure the backend allows the frontend's origin. The default development configuration permits the following common development URLs:
 

@@ -56,6 +56,7 @@ interface AppState {
   canvasComponents: CanvasComponent[];
   /** Links connecting components on the canvas. */
   links: Link[];
+  ghostLinks?: Link[];
   /** The id of the currently selected component. */
   selectedComponentId: string | null;
   /** Update which component is selected. */
@@ -93,6 +94,7 @@ interface AppState {
 export const useAppStore = create<AppState>((set, get) => ({
   canvasComponents: [],
   links: [],
+  ghostLinks: [],
   selectedComponentId: null,
   status: 'loading',
   selectComponent: (id) => set({ selectedComponentId: id }),
@@ -217,7 +219,21 @@ export const useAppStore = create<AppState>((set, get) => ({
         case 'addComponent':
           await get().addComponent(act.payload);
           break;
-        // TODO: implement link & removal once endpoints exist
+        case 'removeComponent':
+          await api.deleteComponent(act.payload.id);
+          set((s) => ({
+            canvasComponents: s.canvasComponents.filter((c) => c.id !== act.payload.id),
+            links: s.links.filter(
+              (l) => l.source_id !== act.payload.id && l.target_id !== act.payload.id,
+            ),
+          }));
+          break;
+        case 'addLink':
+          await api.createLink(act.payload);
+          break;
+        case 'suggestLink':
+          set((s) => ({ ghostLinks: [...s.ghostLinks, act.payload] }));
+          break;
         default:
           console.warn('AI action not implemented', act);
       }

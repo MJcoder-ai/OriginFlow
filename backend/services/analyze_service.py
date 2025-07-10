@@ -16,7 +16,7 @@ class AnalyzeOrchestrator(AiOrchestrator):
         prompt = self._serialize_snapshot(req)
         try:
             raw = await self.router_agent.handle(f"{prompt}\n\n{req.command}")
-        except OpenAIError as err:  # pragma: no cover - network error
+        except (OpenAIError, ValueError) as err:  # pragma: no cover - network error
             raise map_openai_error(err)
         return self._validate_actions(raw)
 
