@@ -31,9 +31,9 @@ class AnalyzeOrchestrator(AiOrchestrator):
         )
         return (
             "The current design consists of:\n"
-            f"{comp_lines or ' - (no components)'}\n\n"
+            f"{comp_lines or ' - none'}\n\n"
             "Existing connections:\n"
-            f"{link_lines or ' - (no links)'}"
+            f"{link_lines or ' - none'}"
         )
 
     @classmethod

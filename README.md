@@ -146,6 +146,13 @@ Where `snapshot.json` looks like:
 
 The API responds with an array of `AiAction` objects that the UI can apply.
 
+### New AI commands
+
+* **remove _{name}_** – deletes by name.
+* **analyse / validate** – full snapshot audit.
+* **what is the bill of materials** – shows modal with unique part list.
+* **organise / optimise layout** – neatly re-positions nodes.
+
 ---
 
 ## 6. Usage Examples

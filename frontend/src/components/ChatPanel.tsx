@@ -79,10 +79,15 @@ const ChatPanel: React.FC = () => {
       );
     } catch (err) {
       console.error(err);
+      let errorText = 'Sorry, something went wrong 🤖';
+      if (err instanceof Response && !err.ok) {
+        const { detail } = await err.json().catch(() => ({ detail: err.statusText }));
+        errorText = detail ?? errorText;
+      }
       const errorMsg: Message = {
         id: Date.now() + 2,
         author: 'AI',
-        text: 'Sorry, something went wrong 🤖',
+        text: errorText,
       };
       setMessages((prev) => [...prev, errorMsg]);
     }

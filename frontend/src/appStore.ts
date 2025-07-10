@@ -57,6 +57,7 @@ interface AppState {
   /** Links connecting components on the canvas. */
   links: Link[];
   ghostLinks?: Link[];
+  bomItems: string[] | null;
   /** The id of the currently selected component. */
   selectedComponentId: string | null;
   /** Update which component is selected. */
@@ -86,6 +87,7 @@ interface AppState {
   executeAiActions: (actions: AiAction[]) => Promise<void>;
   /** Send snapshot and command to AI and execute returned actions. */
   analyzeAndExecute: (command: string) => Promise<void>;
+  setBom: (items: string[] | null) => void;
 }
 
 /**
@@ -95,6 +97,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   canvasComponents: [],
   links: [],
   ghostLinks: [],
+  bomItems: null,
   selectedComponentId: null,
   status: 'loading',
   selectComponent: (id) => set({ selectedComponentId: id }),
@@ -220,14 +223,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           await get().addComponent(act.payload);
           break;
         case 'removeComponent':
-          const componentToDelete = get().canvasComponents.find(
-            (c) => c.name.toLowerCase() === act.payload.name.toLowerCase(),
-          );
-          if (componentToDelete) {
-            await get().deleteComponent(componentToDelete.id);
-          } else {
-            console.warn(`AI tried to delete non-existent component: ${act.payload.name}`);
-          }
+          await get().deleteComponent(act.payload.id);
           break;
         case 'addLink':
           await api.createLink(act.payload);
@@ -245,7 +241,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           }));
           break;
         case 'report':
-          console.table(act.payload.items);
+          get().setBom(act.payload.items);
           break;
         default:
           console.warn('AI action not implemented', act);
@@ -261,6 +257,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     };
     const actions = await api.analyzeDesign(snapshot, command);
     await get().executeAiActions(actions);
+  },
+  setBom(items) {
+    set({ bomItems: items });
   },
 }));
 

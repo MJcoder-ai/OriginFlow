@@ -6,6 +6,7 @@ import json
 from typing import Any, Dict, List
 
 from openai import AsyncOpenAI
+from fastapi import HTTPException
 
 from backend.agents.base import AgentBase
 from backend.agents.registry import get_agent, get_agent_names
@@ -24,38 +25,53 @@ class RouterAgent(AgentBase):
         """Return aggregated actions from relevant specialist agents."""
 
         agents = get_agent_names()
+
+        system_prompt = (
+            "You are a router that maps user commands to agent names.\n"
+            "Available agents: " + ", ".join(agents) + ".\n"
+            "Return exactly one JSON tool call."
+        )
+        examples = [
+            {"user": "add inverter", "agent": "component_agent"},
+            {"user": "delete battery", "agent": "component_agent"},
+            {"user": "connect panel to inverter", "agent": "link_agent"},
+            {"user": "organise the layout", "agent": "layout_agent"},
+            {"user": "validate my design", "agent": "auditor_agent"},
+            {"user": "what is the bill of materials", "agent": "bom_agent"},
+        ]
+        msgs = [{"role": "system", "content": system_prompt}]
+        for ex in examples:
+            msgs += [
+                {"role": "user", "content": ex["user"]},
+                {"role": "assistant", "content": f'{{"agent_names":["{ex["agent"]}"]}}'},
+            ]
+        msgs += [{"role": "user", "content": command}]
+
         response = await client.chat.completions.create(
             model=settings.openai_model_router,
-            temperature=settings.temperature,
-            max_tokens=settings.max_tokens,
-            messages=[{"role": "user", "content": command}],
-            tools=[
-                {
-                    "type": "function",
-                    "function": {
-                        "name": "route_to_agent",
-                        "description": "Pick one or more agents to satisfy the command.",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "agent_names": {
-                                    "type": "array",
-                                    "items": {"type": "string", "enum": agents},
-                                    "minItems": 1,
-                                }
-                            },
-                            "required": ["agent_names"],
+            temperature=0,
+            max_tokens=20,
+            messages=msgs,
+            tools=[{
+                "type": "function",
+                "function": {
+                    "name": "route_to_agent",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "agent_names": {"type": "array", "items": {"type": "string", "enum": agents}},
                         },
+                        "required": ["agent_names"],
                     },
-                }
-            ],
+                }}],
             tool_choice={"type": "function", "function": {"name": "route_to_agent"}},
         )
-        agent_names: List[str] = json.loads(
-            response.choices[0].message.tool_calls[0].function.arguments
-        )["agent_names"]
+        try:
+            selected = json.loads(response.choices[0].message.tool_calls[0].function.arguments)["agent_names"]
+        except Exception:
+            raise HTTPException(422, "Router could not classify the command")
+
         actions: List[Dict[str, Any]] = []
-        for name in agent_names:
-            specialist = get_agent(name)
-            actions.extend(await specialist.handle(command))
+        for name in selected:
+            actions += await get_agent(name).handle(command)
         return actions
