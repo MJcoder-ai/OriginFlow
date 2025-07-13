@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import ActionBar from './ActionBar';
-import Workspace from './Workspace';
+import MainPanel from './MainPanel';
 import StatusBar from './StatusBar';
 
 /**
@@ -31,7 +31,7 @@ const Layout: React.FC = () => {
         toggleActionCollapse={() => setIsActionCollapsed(!isActionCollapsed)}
       />
       <ActionBar isCollapsed={isActionCollapsed} />
-      <Workspace />
+      <MainPanel />
       <StatusBar />
     </div>
   );

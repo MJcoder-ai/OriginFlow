@@ -8,6 +8,16 @@ import { create } from 'zustand';
 import { api } from './services/api';
 import { AiAction } from './types/ai';
 
+export interface UploadEntry {
+  id: string;
+  name: string;
+  size: number;
+  mime: string;
+  progress: number; // 0-100, 101 queued for AI, 200 done
+}
+
+export type Route = 'projects' | 'components';
+
 /** Connection port available on a component. */
 export interface Port {
   /** Port identifier, fixed to either 'input' or 'output'. */
@@ -112,6 +122,18 @@ interface AppState {
   setChatMode: (mode: ChatMode) => void;
   /** Update AI processing flag. */
   setIsAiProcessing: (isProcessing: boolean) => void;
+
+  /** Current route of the main panel. */
+  route: Route;
+  /** Navigate to a new route. */
+  setRoute: (r: Route) => void;
+
+  /** List of in-progress and completed uploads. */
+  uploads: UploadEntry[];
+  /** Add a new upload entry. */
+  addUpload: (u: UploadEntry) => void;
+  /** Update an existing upload entry. */
+  updateUpload: (id: string, patch: Partial<UploadEntry>) => void;
 }
 
 /**
@@ -127,6 +149,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   status: 'loading',
   chatMode: 'default',
   isAiProcessing: false,
+  route: 'projects',
+  uploads: [],
   addMessage: (message) => set((state) => ({ messages: [...state.messages, message] })),
   selectComponent: (id) => set({ selectedComponentId: id }),
   async fetchProject() {
@@ -311,6 +335,17 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   setIsAiProcessing(isProcessing) {
     set({ isAiProcessing: isProcessing });
+  },
+  setRoute(r) {
+    set({ route: r });
+  },
+  addUpload(u) {
+    set((s) => ({ uploads: [...s.uploads, u] }));
+  },
+  updateUpload(id, patch) {
+    set((s) => ({
+      uploads: s.uploads.map((u) => (u.id === id ? { ...u, ...patch } : u)),
+    }));
   },
 }));
 
