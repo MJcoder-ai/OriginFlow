@@ -1,39 +1,27 @@
-import { PresignResponse, CompleteRequest, FileAsset } from './types';
+import { FileAsset } from './types';
 import { API_BASE_URL } from './api';
 
-async function fetchJson<T>(url: string, init: RequestInit) {
-  const res = await fetch(url, { ...init, headers: { 'Content-Type': 'application/json' } });
-  if (!res.ok) throw new Error(`Request failed ${res.status}`);
-  return res.json() as Promise<T>;
-}
-
-export async function presign(filename: string, mime: string) {
-  return fetchJson<PresignResponse>(`${API_BASE_URL}/files/presign`, {
-    method: 'POST',
-    body: JSON.stringify({ filename, mime }),
-  });
-}
-
-export async function complete(body: CompleteRequest) {
-  return fetchJson<FileAsset>(`${API_BASE_URL}/files/complete`, {
-    method: 'POST',
-    body: JSON.stringify(body),
-  });
-}
-
-export async function uploadWithProgress(
-  url: string,
+export async function uploadFile(
   file: File,
   onProg: (p: number) => void,
-) {
-  return new Promise<void>((res, rej) => {
+): Promise<FileAsset> {
+  return new Promise((res, rej) => {
     const xhr = new XMLHttpRequest();
+    const formData = new FormData();
+    formData.append('file', file);
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProg(Math.round((e.loaded / e.total) * 100));
     };
-    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? res() : rej(xhr));
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        res(JSON.parse(xhr.responseText));
+      } else {
+        rej(xhr);
+      }
+    };
     xhr.onerror = () => rej(xhr);
-    xhr.open('PUT', url);
-    xhr.send(file);
+
+    xhr.open('POST', `${API_BASE_URL}/files/upload`);
+    xhr.send(formData);
   });
 }
