@@ -13,6 +13,7 @@ import { useAppStore, CanvasComponent, Port } from '../appStore';
 import PropertiesPanel from './PropertiesPanel';
 import LinkLayer from './LinkLayer';
 import clsx from 'clsx';
+import { FileStagingArea } from './FileStagingArea';
 
 /** A component card rendered on the canvas with a connection handle */
 const PortHandle: React.FC<{
@@ -247,6 +248,7 @@ const Workspace: React.FC = () => {
             onStartLink={handleStartLink}
             onEndLink={handleEndLink}
           />
+          <FileStagingArea />
         </div>
         <Resizer />
         <div className="w-[300px]">

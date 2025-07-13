@@ -4,7 +4,8 @@
  */
 import React, { useState } from 'react';
 import { useAppStore } from '../appStore';
-import { Paperclip, Wand2, Mic, Waves } from 'lucide-react';
+import { Wand2, Mic, Waves } from 'lucide-react';
+import { FileUploadButton } from './FileUploadButton';
 
 /** Input box for sending chat messages and toggling voice mode. */
 export const ChatInput: React.FC = () => {
@@ -31,9 +32,7 @@ export const ChatInput: React.FC = () => {
 
   return (
     <div className="relative flex items-center w-full">
-      <button className="p-2 text-gray-500 hover:text-blue-600 transition-colors">
-        <Paperclip size={20} />
-      </button>
+      <FileUploadButton />
       <button className="p-2 mr-2 text-gray-500 hover:text-blue-600 transition-colors">
         <Wand2 size={20} />
       </button>
