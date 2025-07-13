@@ -1,19 +1,22 @@
-/**
- * File: frontend/src/components/ComponentPalette.tsx
- * Displays a list of components that can be dragged onto the canvas.
- * Uses `@dnd-kit/core` to provide drag sources for the workspace.
- */
 import React from 'react';
+import { Server, PanelTop, Battery, Boxes, Cable } from 'lucide-react';
 import { useDraggable } from '@dnd-kit/core';
 
-/** Available component types presented in the palette. */
-const PALETTE_ITEMS = ['Panel', 'Inverter', 'Battery', 'JunctionBox'];
+export const PALETTE_COMPONENT_DRAG_TYPE = 'palette-component';
 
-/** Small wrapper representing a palette item that can be dragged. */
-const PaletteItem: React.FC<{ type: string }> = ({ type }) => {
+const paletteItems = [
+  { type: 'Panel', icon: PanelTop, label: 'Panel' },
+  { type: 'Inverter', icon: Server, label: 'Inverter' },
+  { type: 'Battery', icon: Battery, label: 'Battery' },
+  { type: 'JunctionBox', icon: Boxes, label: 'JunctionBox' },
+  { type: 'Cable', icon: Cable, label: 'Cable' },
+];
+
+const PaletteItem: React.FC<{ item: (typeof paletteItems)[0] }> = ({ item }) => {
+  const Icon = item.icon;
   const { attributes, listeners, setNodeRef } = useDraggable({
-    id: `palette-${type}`,
-    data: { type },
+    id: `palette-${item.type}`,
+    data: { type: PALETTE_COMPONENT_DRAG_TYPE, componentType: item.type },
   });
 
   return (
@@ -21,22 +24,20 @@ const PaletteItem: React.FC<{ type: string }> = ({ type }) => {
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      className="h-12 bg-gray-100 rounded-md flex items-center justify-center text-sm text-gray-700 select-none cursor-grab active:cursor-grabbing"
+      className="flex flex-col items-center p-2 border rounded-md shadow-sm bg-white cursor-grab hover:bg-gray-50"
     >
-      {type}
+      <Icon size={32} className="mb-2" />
+      <span className="text-xs text-center">{item.label}</span>
     </div>
   );
 };
 
-/** The palette showing available draggable component types. */
-const ComponentPalette: React.FC = () => {
+export const ComponentPalette: React.FC = () => {
   return (
-    <div className="p-2 border-b border-gray-200">
-      <div className="grid grid-cols-2 gap-2">
-        {PALETTE_ITEMS.map((type) => (
-          <PaletteItem key={type} type={type} />
-        ))}
-      </div>
+    <div className="p-2 grid grid-cols-2 gap-2">
+      {paletteItems.map((item) => (
+        <PaletteItem key={item.type} item={item} />
+      ))}
     </div>
   );
 };

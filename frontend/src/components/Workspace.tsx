@@ -10,6 +10,7 @@ import {
   DragEndEvent,
 } from '@dnd-kit/core';
 import { useAppStore, CanvasComponent, Port } from '../appStore';
+import { PALETTE_COMPONENT_DRAG_TYPE } from './ComponentPalette';
 import LinkLayer from './LinkLayer';
 import clsx from 'clsx';
 
@@ -189,9 +190,9 @@ const Workspace: React.FC = () => {
     if (active.id && over && delta.x !== 0 && delta.y !== 0) {
       if (
         over.id === 'canvas-area' &&
-        String(active.id).startsWith('palette-')
+        active.data.current?.type === PALETTE_COMPONENT_DRAG_TYPE
       ) {
-        const ctype = active.data.current?.type;
+        const ctype = active.data.current?.componentType;
         if (ctype) {
           addComponent({
             name: `${ctype} ${componentCount + 1}`,
@@ -201,7 +202,7 @@ const Workspace: React.FC = () => {
             y: 100,
           });
         }
-      } else if (!String(active.id).startsWith('palette-')) {
+      } else if (active.data.current?.type !== PALETTE_COMPONENT_DRAG_TYPE) {
         updateComponentPosition(active.id as string, delta);
       }
     }

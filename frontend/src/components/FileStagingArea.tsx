@@ -6,7 +6,7 @@ export const FileStagingArea = () => {
   if (!uploads.length) return null;
 
   return (
-    <div className="absolute right-2 top-2 w-56 space-y-2 z-20">
+    <div className="absolute bottom-2 left-2 w-56 space-y-2 z-20">
       {uploads.map((u) => (
         <div
           key={u.id}

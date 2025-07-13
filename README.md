@@ -291,6 +291,13 @@ If running the frontend on a different host or port, update the `origins` list i
 4. **User**: "optimise the layout" → nodes rearranged
 5. **User**: "what is the bill of materials" → BoM table appears
 
+### 6.10 Adding Components via Datasheets
+
+1. **Drag from Palette** – Grab a component type from the palette on the left and drop it onto the canvas.
+2. **Upload a Datasheet** – Click the paperclip icon and select a PDF. It appears in the staging area in the bottom-left corner.
+3. **Drag from Staging** – Drag the uploaded datasheet from the staging area onto the canvas to create a component.
+4. **AI Assistant** – Alternatively say, "Add the SUN2000-150K-MG0.pdf datasheet to the project" and the assistant will place it for you.
+
 ---
 
 ## 7. Architecture & Design
