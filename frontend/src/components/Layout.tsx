@@ -8,6 +8,7 @@ import Sidebar from './Sidebar';
 import Header from './Header';
 import ActionBar from './ActionBar';
 import MainPanel from './MainPanel';
+import { FileStagingArea } from './FileStagingArea';
 import StatusBar from './StatusBar';
 
 /**
@@ -32,6 +33,7 @@ const Layout: React.FC = () => {
       />
       <ActionBar isCollapsed={isActionCollapsed} />
       <MainPanel />
+      <FileStagingArea />
       <StatusBar />
     </div>
   );

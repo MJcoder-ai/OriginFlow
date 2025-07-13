@@ -10,10 +10,8 @@ import {
   DragEndEvent,
 } from '@dnd-kit/core';
 import { useAppStore, CanvasComponent, Port } from '../appStore';
-import PropertiesPanel from './PropertiesPanel';
 import LinkLayer from './LinkLayer';
 import clsx from 'clsx';
-import { FileStagingArea } from './FileStagingArea';
 
 /** A component card rendered on the canvas with a connection handle */
 const PortHandle: React.FC<{
@@ -150,7 +148,7 @@ const CanvasArea: React.FC<{
 };
 
 /** A visual element for resizing the panel */
-const Resizer: React.FC = () => (
+export const Resizer: React.FC = () => (
     // For simplicity, we remove the resizing logic for now to focus on the link feature
     <div className="w-1.5 bg-gray-200"></div>
 );
@@ -240,21 +238,14 @@ const Workspace: React.FC = () => {
 
   return (
     <DndContext onDragEnd={handleDragEnd}>
-      <main className="[grid-area:workspace] bg-gray-50 p-4 flex overflow-auto">
-        <div className="flex-grow h-full relative" onMouseMove={handleCanvasMouseMove} onMouseUp={handleCanvasMouseUp}>
-          <LinkLayer pendingLink={pendingLink} mousePos={mousePos} />
-          <CanvasArea
-            pendingLinkSourceId={pendingLink?.sourceId ?? null}
-            onStartLink={handleStartLink}
-            onEndLink={handleEndLink}
-          />
-          <FileStagingArea />
-        </div>
-        <Resizer />
-        <div className="w-[300px]">
-          <PropertiesPanel />
-        </div>
-      </main>
+      <div className="flex-grow h-full relative" onMouseMove={handleCanvasMouseMove} onMouseUp={handleCanvasMouseUp}>
+        <LinkLayer pendingLink={pendingLink} mousePos={mousePos} />
+        <CanvasArea
+          pendingLinkSourceId={pendingLink?.sourceId ?? null}
+          onStartLink={handleStartLink}
+          onEndLink={handleEndLink}
+        />
+      </div>
     </DndContext>
   );
 };
