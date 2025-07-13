@@ -1,5 +1,5 @@
 import { Paperclip } from 'lucide-react';
-import { presign, complete, uploadWithProgress } from '../services/fileApi';
+import { uploadFile } from '../services/fileApi';
 import { useAppStore } from '../appStore';
 import prettyBytes from 'pretty-bytes';
 import { generateId } from '../utils/id';
@@ -15,35 +15,27 @@ export const FileUploadButton = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const { upload_url, asset_id } = await presign(file.name, file.type);
+    const tempId = generateId('upload');
 
     addUpload({
-      id: asset_id,
+      id: tempId,
       name: file.name,
       size: file.size,
       mime: file.type,
       progress: 0,
     });
 
-    await uploadWithProgress(upload_url, file, (p) =>
-      updateUpload(asset_id, { progress: p }),
-    );
-
-    await complete({
-      asset_id,
-      filename: file.name,
-      mime: file.type,
-      size: file.size,
-      component_id: null,
-    });
-
-    updateUpload(asset_id, { progress: 101 });
-
-    useAppStore.getState().addMessage({
-      id: generateId('msg'),
-      author: 'AI',
-      text: `✅ Uploaded *${file.name}* (${prettyBytes(file.size)}) – parsing…`,
-    });
+    try {
+      const asset = await uploadFile(file, (p) => updateUpload(tempId, { progress: p }));
+      updateUpload(tempId, { id: asset.id, progress: 101 });
+      useAppStore
+        .getState()
+        .addMessage({ id: generateId('msg'), author: 'AI', text: `✅ Uploaded *${file.name}* (${prettyBytes(file.size)}) – parsing…` });
+    } catch (error) {
+      console.error('Upload failed', error);
+      updateUpload(tempId, { progress: -1 });
+      useAppStore.getState().addMessage({ id: generateId('msg'), author: 'AI', text: `❌ Upload failed for *${file.name}*` });
+    }
   };
 
   return (

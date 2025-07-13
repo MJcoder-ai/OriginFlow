@@ -5,6 +5,7 @@ from __future__ import annotations
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from backend.config import settings
 
@@ -16,7 +17,7 @@ import backend.agents.auditor_agent  # noqa: F401
 import backend.agents.bom_agent  # noqa: F401
 # ----------------------------------------------------------------
 
-from backend.api.routes import components, links, ai, analyze
+from backend.api.routes import components, links, ai, analyze, files
 
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -32,11 +33,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+app.mount("/static", StaticFiles(directory="backend/static"), name="static")
+
 app.include_router(components.router, prefix=settings.api_prefix)
 app.include_router(links.router, prefix=settings.api_prefix)
+app.include_router(files.router, prefix=settings.api_prefix)
 app.include_router(ai.router, prefix=settings.api_prefix)
 app.include_router(analyze.router, prefix=settings.api_prefix)
 
