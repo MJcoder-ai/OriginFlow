@@ -2,6 +2,7 @@ import React from 'react';
 import { FolderKanban, Box, LifeBuoy } from 'lucide-react';
 import clsx from 'clsx';
 import { useAppStore, Route } from '../appStore';
+import { FileStagingArea } from './FileStagingArea';
 
 const Item = ({ label, route, Icon, collapsed }: { label: string; route: Route; Icon?: React.ComponentType<{size?:number}>; collapsed: boolean }) => {
   const setRoute = useAppStore((s) => s.setRoute);
@@ -29,6 +30,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed }) => (
     <nav className="flex-grow space-y-1">
       <Item label="Projects" route="projects" Icon={FolderKanban} collapsed={isCollapsed} />
       <Item label="Components" route="components" Icon={Box} collapsed={isCollapsed} />
+      <FileStagingArea />
     </nav>
     <div className="flex-shrink-0">
       <Item label="Help & Support" route="projects" Icon={LifeBuoy} collapsed={isCollapsed} />

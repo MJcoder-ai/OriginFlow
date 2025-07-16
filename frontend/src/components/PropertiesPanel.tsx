@@ -6,7 +6,6 @@
 */
 import React from 'react';
 import { useAppStore } from '../appStore';
-import ComponentPalette from './ComponentPalette';
 import ChatPanel from './ChatPanel';
 
 const PropertiesEditor: React.FC = () => {
@@ -58,12 +57,7 @@ const PropertiesPanel: React.FC = () => {
   return (
     // Main container uses flex column and fills available height
     <div className="w-full h-full bg-white border-l border-gray-200 flex flex-col">
-      {/* Palette should not grow so the chat panel gets remaining space */}
-      <div className="flex-shrink-0">
-        <ComponentPalette />
-      </div>
-
-      {/* Properties editor also has fixed height */}
+      {/* Properties editor has fixed height */}
       <div className="flex-shrink-0 border-y">
         <PropertiesEditor />
       </div>
