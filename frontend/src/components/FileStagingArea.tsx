@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import { useDraggable } from '@dnd-kit/core';
 
 const FileEntry: React.FC<{ u: UploadEntry }> = ({ u }) => {
-  const { attributes, listeners, setNodeRef } = useDraggable({
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `file-asset-${u.id}`,
     data: { type: 'file-asset', asset: u },
   });
@@ -13,8 +13,8 @@ const FileEntry: React.FC<{ u: UploadEntry }> = ({ u }) => {
       {...listeners}
       {...attributes}
       className={clsx(
-        'border rounded p-2 text-sm transition cursor-grab',
-        u.progress >= 200 && 'opacity-50',
+        'border rounded p-2 text-sm transition cursor-grab bg-white shadow-sm',
+        isDragging && 'opacity-50',
       )}
     >
       <div className="font-medium truncate">{u.name}</div>
@@ -27,19 +27,20 @@ const FileEntry: React.FC<{ u: UploadEntry }> = ({ u }) => {
           style={{ width: `${Math.min(u.progress, 100)}%` }}
         />
       </div>
-      <div className="text-xs text-right">
-        {u.progress > 100 ? 'Waiting for AI' : `${u.progress}%`}
+      <div className="text-xs text-right text-gray-500">
+        {u.progress > 100 ? 'Ready to use' : `${u.progress}%`}
       </div>
     </div>
   );
 };
 
 export const FileStagingArea = () => {
-  const uploads = useAppStore((s) => s.uploads.filter((u) => u.assetType === 'component'));
+  const uploads = useAppStore((s) => s.uploads.filter((u) => u.progress > 100));
   if (!uploads.length) return null;
 
   return (
-    <div className="absolute bottom-2 left-2 w-56 space-y-2 z-20">
+    <div className="p-2 space-y-2">
+      <div className="text-sm font-medium text-gray-500 px-2">Component Library</div>
       {uploads.map((u) => (
         <FileEntry key={u.id} u={u} />
       ))}

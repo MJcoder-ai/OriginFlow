@@ -18,7 +18,7 @@
 - **Workflow Orchestration**: Self-hosted Temporal.io for reliable execution of complex workflows, including Saga Pattern for rollbacks.
 - **Extensibility**: Plug-in framework for components, AI models, and workflows via Component Pack Studio and marketplace.
 - **Observability**: Grafana dashboards, OpenTelemetry traces, and Workflow Visibility Dashboard for monitoring.
-- **Properties Panel with AI Chat**: Manage components via a drag-and-drop palette, edit selected component properties, and collaborate with an AI assistant.
+- **Properties Panel with AI Chat**: Manage components via the Component Library in the sidebar, edit selected component properties, and collaborate with an AI assistant.
 - **Voice Mode Chat Input**: Toggle a voice-friendly input that glows when active and shows processing status.
 - **Component Deletion by Name**: Remove components via the AI assistant or UI by referencing the component's name.
 - **AI Governance**: MLMD for model versioning and drift detection.
@@ -233,7 +233,7 @@ perform cleanup. Call asynchronous store actions (e.g. `addComponent`) without
 `await` inside these handlers.
 If newly dropped components disappear, verify that `addComponent` adds the
 frontend-only `ports` array before storing the component.
-If uploaded datasheets appear but cannot be dragged from the staging area, ensure each entry uses `useDraggable` with a unique id.
+If uploaded datasheets appear but cannot be dragged from the Component Library, ensure each entry uses `useDraggable` with a unique id.
 If linking two components causes the card itself to move, ensure the drag handle
 is separate from the port elements. The UI expects only the transparent card
 overlay to be draggable while the ports handle linking exclusively.
@@ -293,10 +293,9 @@ If running the frontend on a different host or port, update the `origins` list i
 
 ### 6.10 Adding Components via Datasheets
 
-1. **Drag from Palette** – Grab a component type from the palette on the left and drop it onto the canvas.
-2. **Upload a Datasheet** – Click the paperclip icon and select a PDF. It appears in the staging area in the bottom-left corner.
-3. **Drag from Staging** – Drag the uploaded datasheet from the staging area onto the canvas to create a component.
-4. **AI Assistant** – Alternatively say, "Add the SUN2000-150K-MG0.pdf datasheet to the project" and the assistant will place it for you.
+1. **Upload a Datasheet** – Click the paperclip icon and select a PDF. It appears in the Component Library on the left.
+2. **Drag from Library** – Drag the uploaded component from the library onto the canvas to create an instance.
+3. **AI Assistant** – Alternatively say, "Add the SUN2000-150K-MG0.pdf datasheet to the project" and the assistant will place it for you.
 
 ---
 

@@ -21,4 +21,5 @@ opencv-python==4.9.0.80
 mlmd==0.2
 structlog==24.1.0
 python-dotenv==1.0.1
-tenacity==8.2.3deprecated==1.2.14
+tenacity==8.2.3
+deprecated==1.2.14

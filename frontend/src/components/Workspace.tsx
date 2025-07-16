@@ -8,7 +8,6 @@ import {
   useDraggable,
 } from '@dnd-kit/core';
 import { useAppStore, CanvasComponent, Port } from '../appStore';
-import { PALETTE_COMPONENT_DRAG_TYPE } from './ComponentPalette';
 import LinkLayer from './LinkLayer';
 import clsx from 'clsx';
 

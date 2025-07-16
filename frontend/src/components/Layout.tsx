@@ -8,11 +8,9 @@ import Sidebar from './Sidebar';
 import Header from './Header';
 import ActionBar from './ActionBar';
 import MainPanel from './MainPanel';
-import { FileStagingArea } from './FileStagingArea';
 import StatusBar from './StatusBar';
 import { DndContext, DragEndEvent } from '@dnd-kit/core';
 import { useAppStore } from '../appStore';
-import { PALETTE_COMPONENT_DRAG_TYPE } from './ComponentPalette';
 
 /**
  * Main layout component orchestrating structural UI elements.
@@ -28,20 +26,6 @@ const Layout: React.FC = () => {
     if (active.id && over) {
       if (
         over.id === 'canvas-area' &&
-        active.data.current?.type === PALETTE_COMPONENT_DRAG_TYPE
-      ) {
-        const ctype = active.data.current?.componentType;
-        if (ctype) {
-          addComponent({
-            name: `${ctype} ${componentCount + 1}`,
-            type: ctype,
-            standard_code: `CODE-${Date.now()}`,
-            x: 100,
-            y: 100,
-          });
-        }
-      } else if (
-        over.id === 'canvas-area' &&
         active.data.current?.type === 'file-asset'
       ) {
         const asset = active.data.current?.asset;
@@ -54,7 +38,7 @@ const Layout: React.FC = () => {
             y: 100,
           });
         }
-      } else if (active.data.current?.type !== PALETTE_COMPONENT_DRAG_TYPE) {
+      } else if (active.data.current?.type !== 'file-asset') {
         updateComponentPosition(active.id as string, delta);
       }
     }
@@ -76,7 +60,6 @@ const Layout: React.FC = () => {
         />
         <ActionBar isCollapsed={isActionCollapsed} />
         <MainPanel />
-        <FileStagingArea />
         <StatusBar />
       </div>
     </DndContext>
