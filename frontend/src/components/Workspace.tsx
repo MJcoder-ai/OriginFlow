@@ -4,10 +4,8 @@
 */
 import React, { useState, useEffect } from 'react';
 import {
-  DndContext,
   useDroppable,
   useDraggable,
-  DragEndEvent,
 } from '@dnd-kit/core';
 import { useAppStore, CanvasComponent, Port } from '../appStore';
 import { PALETTE_COMPONENT_DRAG_TYPE } from './ComponentPalette';
@@ -164,7 +162,6 @@ const Workspace: React.FC = () => {
     selectedComponentId,
     deleteComponent,
   } = useAppStore();
-  const componentCount = useAppStore((s) => s.canvasComponents.length);
   useEffect(() => {
     fetchProject();
   }, [fetchProject]);
@@ -184,43 +181,6 @@ const Workspace: React.FC = () => {
   const [pendingLink, setPendingLink] = useState<{ sourceId: string; portId: 'output' } | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over, delta } = event;
-
-    if (active.id && over && delta.x !== 0 && delta.y !== 0) {
-      if (
-        over.id === 'canvas-area' &&
-        active.data.current?.type === PALETTE_COMPONENT_DRAG_TYPE
-      ) {
-        const ctype = active.data.current?.componentType;
-        if (ctype) {
-          addComponent({
-            name: `${ctype} ${componentCount + 1}`,
-            type: ctype,
-            standard_code: `CODE-${Date.now()}`,
-            x: 100,
-            y: 100,
-          });
-        }
-      } else if (
-        over.id === 'canvas-area' &&
-        active.data.current?.type === 'file-asset'
-      ) {
-        const asset = active.data.current?.asset;
-        if (asset) {
-          addComponent({
-            name: asset.name,
-            type: 'Datasheet',
-            standard_code: `CODE-${Date.now()}`,
-            x: 100,
-            y: 100,
-          });
-        }
-      } else if (active.data.current?.type !== PALETTE_COMPONENT_DRAG_TYPE) {
-        updateComponentPosition(active.id as string, delta);
-      }
-    }
-  };
 
   const handleStartLink = (sourceId: string, portId: Port['id']) => {
     if (portId === 'output') {
@@ -252,16 +212,18 @@ const Workspace: React.FC = () => {
 
 
   return (
-    <DndContext onDragEnd={handleDragEnd}>
-      <div className="flex-grow h-full relative" onMouseMove={handleCanvasMouseMove} onMouseUp={handleCanvasMouseUp}>
-        <LinkLayer pendingLink={pendingLink} mousePos={mousePos} />
-        <CanvasArea
-          pendingLinkSourceId={pendingLink?.sourceId ?? null}
-          onStartLink={handleStartLink}
-          onEndLink={handleEndLink}
-        />
-      </div>
-    </DndContext>
+    <div
+      className="flex-grow h-full relative"
+      onMouseMove={handleCanvasMouseMove}
+      onMouseUp={handleCanvasMouseUp}
+    >
+      <LinkLayer pendingLink={pendingLink} mousePos={mousePos} />
+      <CanvasArea
+        pendingLinkSourceId={pendingLink?.sourceId ?? null}
+        onStartLink={handleStartLink}
+        onEndLink={handleEndLink}
+      />
+    </div>
   );
 };
 
