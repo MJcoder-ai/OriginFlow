@@ -14,6 +14,7 @@ export interface UploadEntry {
   size: number;
   mime: string;
   progress: number; // 0-100, 101 queued for AI, 200 done
+  assetType?: 'component';
 }
 
 export type Route = 'projects' | 'components';

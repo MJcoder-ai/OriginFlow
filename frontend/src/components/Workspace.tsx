@@ -202,6 +202,20 @@ const Workspace: React.FC = () => {
             y: 100,
           });
         }
+      } else if (
+        over.id === 'canvas-area' &&
+        active.data.current?.type === 'file-asset'
+      ) {
+        const asset = active.data.current?.asset;
+        if (asset) {
+          addComponent({
+            name: asset.name,
+            type: 'Datasheet',
+            standard_code: `CODE-${Date.now()}`,
+            x: 100,
+            y: 100,
+          });
+        }
       } else if (active.data.current?.type !== PALETTE_COMPONENT_DRAG_TYPE) {
         updateComponentPosition(active.id as string, delta);
       }
