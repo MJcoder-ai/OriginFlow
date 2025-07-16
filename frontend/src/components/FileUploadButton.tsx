@@ -23,6 +23,7 @@ export const FileUploadButton = () => {
       size: file.size,
       mime: file.type,
       progress: 0,
+      assetType: 'component',
     });
 
     try {

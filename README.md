@@ -233,7 +233,7 @@ perform cleanup. Call asynchronous store actions (e.g. `addComponent`) without
 `await` inside these handlers.
 If newly dropped components disappear, verify that `addComponent` adds the
 frontend-only `ports` array before storing the component.
-
+If uploaded datasheets appear but cannot be dragged from the staging area, ensure each entry uses `useDraggable` with a unique id.
 If linking two components causes the card itself to move, ensure the drag handle
 is separate from the port elements. The UI expects only the transparent card
 overlay to be draggable while the ports handle linking exclusively.
