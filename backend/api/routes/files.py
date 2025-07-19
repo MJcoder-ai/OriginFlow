@@ -29,7 +29,7 @@ async def upload_file(
     service = FileService(session)
     asset_id = generate_id("asset")
     save_path = UPLOADS_DIR / asset_id
-    save_path.mkdir()
+    save_path.mkdir(exist_ok=True)
     file_path = save_path / file.filename
     with file_path.open("wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
