@@ -25,3 +25,9 @@ export async function uploadFile(
     xhr.send(formData);
   });
 }
+
+export async function listFiles(): Promise<FileAsset[]> {
+  const resp = await fetch(`${API_BASE_URL}/files/`);
+  if (!resp.ok) throw new Error('Failed to fetch files');
+  return resp.json();
+}

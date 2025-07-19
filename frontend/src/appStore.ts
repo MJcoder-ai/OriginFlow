@@ -6,6 +6,7 @@
  */
 import { create } from 'zustand';
 import { api } from './services/api';
+import { listFiles } from './services/fileApi';
 import { AiAction } from './types/ai';
 
 export interface UploadEntry {
@@ -135,6 +136,8 @@ interface AppState {
   addUpload: (u: UploadEntry) => void;
   /** Update an existing upload entry. */
   updateUpload: (id: string, patch: Partial<UploadEntry>) => void;
+  /** Fetch uploaded file assets. */
+  loadUploads: () => Promise<void>;
 }
 
 /**
@@ -347,6 +350,23 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((s) => ({
       uploads: s.uploads.map((u) => (u.id === id ? { ...u, ...patch } : u)),
     }));
+  },
+  async loadUploads() {
+    try {
+      const assets = await listFiles();
+      set({
+        uploads: assets.map((a) => ({
+          id: a.id,
+          name: a.filename,
+          size: a.size,
+          mime: a.mime,
+          progress: 101,
+          assetType: 'component',
+        })),
+      });
+    } catch (error) {
+      console.error('Failed to load uploads', error);
+    }
   },
 }));
 

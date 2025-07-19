@@ -46,3 +46,11 @@ async def upload_file(
     )
     return FileAsset.model_validate(obj)
 
+
+@router.get("/files/", response_model=list[FileAsset])
+async def list_files(session: AsyncSession = Depends(get_session)) -> list[FileAsset]:
+    """Return all uploaded file assets."""
+    service = FileService(session)
+    items = await service.list_assets()
+    return [FileAsset.model_validate(it) for it in items]
+
