@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 
@@ -14,7 +13,7 @@ class FileAssetBase(BaseModel):
 
 
 class FileAssetRead(FileAssetBase):
-    id: UUID
+    id: str
     uploaded_at: datetime
     parsed_payload: dict | None = None
     parsed_at: datetime | None = None
