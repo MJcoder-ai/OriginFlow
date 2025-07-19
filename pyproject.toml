@@ -35,7 +35,7 @@ tenacity = "^8.2.3"
 deprecated = "^1.2.14"
 aiosqlite = "^0.20.0"
 python-multipart = "^0.0.20"
-pdfminer.six = "^20231228"
+"pdfminer.six" = "^20231228"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.0"
