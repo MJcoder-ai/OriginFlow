@@ -25,6 +25,7 @@ class FileService:
     async def create_asset(self, data: dict) -> FileAsset:
         payload = dict(data)
         asset_id = payload.pop("id", generate_id("asset"))
+        payload["uploaded_at"] = datetime.now(timezone.utc)
         obj = FileAsset(id=asset_id, **payload)
         self.session.add(obj)
         await self.session.commit()
