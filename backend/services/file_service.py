@@ -23,3 +23,10 @@ class FileService:
         await self.session.refresh(obj)
         return obj
 
+    async def list_assets(self) -> list[FileAsset]:
+        """Return all persisted file assets."""
+        from sqlalchemy import select
+
+        result = await self.session.execute(select(FileAsset))
+        return result.scalars().all()
+

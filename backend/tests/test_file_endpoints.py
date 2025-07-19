@@ -38,3 +38,11 @@ def test_upload_file(tmp_path, monkeypatch):
     # Verify file was saved in static uploads directory
     saved = Path("backend/static/uploads") / data["id"] / "foo.txt"
     assert saved.exists()
+
+
+def test_list_files(monkeypatch):
+    monkeypatch.setattr(FileService, "list_assets", lambda self: [FileAsset(id="a1", filename="a.txt", mime="text/plain", size=1, url="/u/a.txt")])
+    resp = client.get("/api/v1/files/")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert isinstance(data, list) and data[0]["id"] == "a1"

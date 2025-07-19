@@ -294,6 +294,7 @@ If running the frontend on a different host or port, update the `origins` list i
 ### 6.10 Adding Components via Datasheets
 
 1. **Upload a Datasheet** – Click the paperclip icon and select a PDF. It appears in the Component Library on the left.
+   Uploaded files are persisted on the backend and automatically reloaded when you refresh the page.
 2. **Drag from Library** – Drag the uploaded component from the library onto the canvas to create an instance.
 3. **AI Assistant** – Alternatively say, "Add the SUN2000-150K-MG0.pdf datasheet to the project" and the assistant will place it for you.
 
