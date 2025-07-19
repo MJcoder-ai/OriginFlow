@@ -28,7 +28,13 @@ const FileEntry: React.FC<{ u: UploadEntry }> = ({ u }) => {
         />
       </div>
       <div className="text-xs text-right text-gray-500">
-        {u.progress > 100 ? 'Ready to use' : `${u.progress}%`}
+        {u.progress > 100 ? (
+          <>
+            Ready to use {u.parsed_at && '✔'}
+          </>
+        ) : (
+          `${u.progress}%`
+        )}
       </div>
     </div>
   );
