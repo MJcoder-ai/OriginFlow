@@ -31,3 +31,25 @@ export async function listFiles(): Promise<FileAsset[]> {
   if (!resp.ok) throw new Error('Failed to fetch files');
   return resp.json();
 }
+
+export async function parseDatasheet(id: string): Promise<FileAsset> {
+  const res = await fetch(`${API_BASE_URL}/files/${id}/parse`, { method: 'POST' });
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.detail || 'Failed to parse datasheet');
+  }
+  return res.json();
+}
+
+export async function updateParsedData(id: string, payload: any): Promise<FileAsset> {
+  const res = await fetch(`${API_BASE_URL}/files/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ parsed_payload: payload }),
+  });
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.detail || 'Failed to save datasheet');
+  }
+  return res.json();
+}

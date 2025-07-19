@@ -296,7 +296,8 @@ If running the frontend on a different host or port, update the `origins` list i
 1. **Upload a Datasheet** – Click the paperclip icon and select a PDF. It appears in the Component Library on the left.
    Uploaded files are persisted on the backend and automatically reloaded when you refresh the page.
 2. **Drag from Library** – Drag the uploaded component from the library onto the canvas to create an instance.
-3. **AI Assistant** – Alternatively say, "Add the SUN2000-150K-MG0.pdf datasheet to the project" and the assistant will place it for you.
+3. **Drag onto Components Canvas** – Dropping a datasheet onto the Components view now opens a split view with the PDF on the left and editable AI‑parsed JSON on the right. Edits are saved automatically and a checkmark appears when parsing is complete.
+4. **AI Assistant** – Alternatively say, "Add the SUN2000-150K-MG0.pdf datasheet to the project" and the assistant will place it for you.
 
 ---
 

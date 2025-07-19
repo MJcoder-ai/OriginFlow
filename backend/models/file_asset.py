@@ -2,7 +2,10 @@
 """ORM model representing uploaded files."""
 from __future__ import annotations
 
-from sqlalchemy import String, Integer, ForeignKey
+from pathlib import Path
+from datetime import datetime
+
+from sqlalchemy import String, Integer, ForeignKey, DateTime, JSON, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.models import Base
@@ -21,4 +24,16 @@ class FileAsset(Base):
     component_id: Mapped[str | None] = mapped_column(
         String, ForeignKey("components.id", ondelete="SET NULL"), nullable=True
     )
+    uploaded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    parsed_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    parsed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    @property
+    def local_path(self) -> Path:
+        """Return the local filesystem path for this asset."""
+        from backend.api.routes.files import UPLOADS_DIR
+
+        return UPLOADS_DIR / self.id / self.filename
 

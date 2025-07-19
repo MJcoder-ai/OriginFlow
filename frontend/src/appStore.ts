@@ -16,6 +16,7 @@ export interface UploadEntry {
   mime: string;
   progress: number; // 0-100, 101 queued for AI, 200 done
   assetType?: 'component';
+  parsed_at: string | null;
 }
 
 export type Route = 'projects' | 'components';
@@ -138,6 +139,10 @@ interface AppState {
   updateUpload: (id: string, patch: Partial<UploadEntry>) => void;
   /** Fetch uploaded file assets. */
   loadUploads: () => Promise<void>;
+
+  /** Currently opened datasheet split view */
+  activeDatasheet: { url: string; payload: any; id: string } | null;
+  setActiveDatasheet: (data: { url: string; payload: any; id: string } | null) => void;
 }
 
 /**
@@ -155,6 +160,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   isAiProcessing: false,
   route: 'projects',
   uploads: [],
+  activeDatasheet: null,
+  setActiveDatasheet: (data) => set({ activeDatasheet: data }),
   addMessage: (message) => set((state) => ({ messages: [...state.messages, message] })),
   selectComponent: (id) => set({ selectedComponentId: id }),
   async fetchProject() {
@@ -362,6 +369,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           mime: a.mime,
           progress: 101,
           assetType: 'component',
+          parsed_at: a.parsed_at,
         })),
       });
     } catch (error) {
