@@ -39,9 +39,12 @@ export const FileUploadButton = () => {
         parsing_error: asset.parsing_error ?? null,
         is_human_verified: asset.is_human_verified ?? false,
       });
-      useAppStore
-        .getState()
-        .addMessage({ id: generateId('msg'), author: 'AI', text: `✅ Uploaded *${file.name}* (${prettyBytes(file.size)}) – parsing…` });
+      useAppStore.getState().addMessage({ id: generateId('msg'), author: 'AI', text: `✅ Uploaded *${file.name}* (${prettyBytes(file.size)})` });
+      if (asset.parsed_payload) {
+        useAppStore
+          .getState()
+          .setActiveDatasheet({ id: asset.id, url: asset.url, payload: asset.parsed_payload });
+      }
     } catch (error) {
       console.error('Upload failed', error);
       updateUpload(tempId, { progress: -1 });

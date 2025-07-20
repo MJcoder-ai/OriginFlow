@@ -17,7 +17,7 @@ from fastapi import (
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from openai import AsyncOpenAI
-
+from backend.config import settings
 from backend.api.deps import get_session, get_ai_client
 from backend.schemas.file_asset import FileAssetRead, FileAssetUpdate
 from backend.services.file_service import FileService, run_parsing_job
@@ -33,7 +33,9 @@ UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 @router.post("/files/upload", response_model=FileAssetRead)
 async def upload_file(
-    session: AsyncSession = Depends(get_session), file: UploadFile = File(...)
+    session: AsyncSession = Depends(get_session),
+    ai_client: AsyncOpenAI = Depends(get_ai_client),
+    file: UploadFile = File(...),
 ) -> FileAssetRead:
     """Accept a file upload and persist its metadata."""
     service = FileService(session)
@@ -54,7 +56,17 @@ async def upload_file(
             "url": url,
         }
     )
-    return FileAssetRead.model_validate(obj)
+    asset = FileAssetRead.model_validate(obj)
+
+    if file.content_type == "application/pdf" and settings.openai_api_key != "test":
+        try:
+            parsed = await FileService.parse_datasheet(obj, session, ai_client)
+            asset = FileAssetRead.model_validate(parsed)
+        except Exception:
+            # swallow parsing errors so upload still succeeds
+            pass
+
+    return asset
 
 
 @router.get("/files/", response_model=list[FileAssetRead])
