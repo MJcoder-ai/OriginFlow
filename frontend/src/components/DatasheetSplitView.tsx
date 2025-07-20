@@ -1,7 +1,5 @@
 import React, { useState, useEffect, Fragment } from 'react';
-import { createPortal } from 'react-dom';
 import { useDebounce } from 'use-debounce';
-import { theme } from '../theme';
 
 interface Props {
   assetId: string;
@@ -11,7 +9,7 @@ interface Props {
   onSave: (id: string, payload: any) => void;
 }
 
-export const DatasheetSplitView: React.FC<Props> = ({ assetId, pdfUrl, initialParsedData, onClose, onSave }) => {
+const DatasheetSplitView: React.FC<Props> = ({ assetId, pdfUrl, initialParsedData, onClose, onSave }) => {
   const [data, setData] = useState<any>(initialParsedData);
   const [debounced] = useDebounce(data, 1000);
 
@@ -21,51 +19,30 @@ export const DatasheetSplitView: React.FC<Props> = ({ assetId, pdfUrl, initialPa
     }
   }, [debounced, assetId, onSave, initialParsedData]);
 
-  const sidePanelWidth = 300;
-
-  const content = (
-    <div
-      className="fixed z-50 bg-white shadow-2xl grid grid-cols-1 md:grid-cols-2"
-      style={{
-        top: theme.layout.appBarHeight + theme.layout.actionBarHeight,
-        left: theme.layout.drawerWidth,
-        right: sidePanelWidth,
-        height: `calc(100vh - ${theme.layout.appBarHeight + theme.layout.actionBarHeight + theme.layout.footerHeight}px)`,
-      }}
-    >
-      <div className="h-full border-r border-gray-200">
+  return (
+    <div className="flex flex-1 w-full h-full">
+      <div className="w-1/2 h-full border-r border-gray-200">
         <iframe src={pdfUrl} className="w-full h-full" title="PDF Preview" />
       </div>
-
-      <div className="h-full flex flex-col">
-        <div className="flex justify-between items-center border-b border-gray-200 bg-gray-50 px-4 py-2">
-          <h3 className="text-md font-semibold text-gray-800">Review & Confirm</h3>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => onSave(assetId, data)}
-              className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-100"
-            >
-              Save
-            </button>
-            <button
-              onClick={onClose}
-              className="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
-            >
-              Confirm &amp; Close
-            </button>
+      <div className="w-1/2 h-full flex flex-col overflow-y-auto">
+        <div className="flex justify-between items-center px-4 py-2 bg-gray-50 border-b">
+          <h2 className="text-md font-bold text-gray-800">Review & Confirm</h2>
+          <div className="space-x-2">
+            <button onClick={() => onSave(assetId, data)} className="px-3 py-1 border text-sm rounded hover:bg-gray-100">Save</button>
+            <button onClick={onClose} className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">Confirm & Close</button>
           </div>
         </div>
-
-        <div className="flex-grow overflow-y-auto">
-          <ParsedDataForm data={data} onDataChange={setData} />
+        <div className="p-4 space-y-4">
+          {Object.entries(data).map(([key, value]) => (
+            <div key={key} className="flex flex-col">
+              <label className="text-sm font-medium text-gray-700">{key}</label>
+              <input type="text" value={value as any} onChange={(e) => setData({ ...data, [key]: e.target.value })} className="border px-2 py-1 text-sm rounded" />
+            </div>
+          ))}
         </div>
-
-        {/* Chat panel remains visible in the properties sidebar */}
       </div>
     </div>
   );
-
-  return createPortal(content, document.getElementById('datasheet-overlay-root')!);
 };
 
 const FormInput: React.FC<{ label: string; value: string; onChange: (v: string) => void }> = ({ label, value, onChange }) => (
@@ -130,3 +107,5 @@ const ParsedDataForm: React.FC<{ data: any; onDataChange: (d: any) => void }> = 
     </div>
   );
 };
+
+export default DatasheetSplitView;
