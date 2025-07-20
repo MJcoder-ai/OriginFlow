@@ -113,6 +113,8 @@ cp .env.example .env           # fill in OPENAI_API_KEY & DATABASE_URL
 
 # 2. run DB migrations
 alembic upgrade head
+# Migration scripts automatically detect SQLite vs PostgreSQL and
+# use the appropriate timestamp function for backfilling.
 
 # 3. start backend + frontend
 poetry run uvicorn backend.main:app --reload --host 0.0.0.0

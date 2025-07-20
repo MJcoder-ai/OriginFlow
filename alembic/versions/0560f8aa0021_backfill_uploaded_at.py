@@ -16,11 +16,20 @@ depends_on = None
 
 def upgrade() -> None:
     conn = op.get_bind()
+    dialect_name = conn.dialect.name
+
+    if dialect_name == "postgresql":
+        timestamp_func = "NOW()"
+    elif dialect_name == "sqlite":
+        timestamp_func = "CURRENT_TIMESTAMP"
+    else:
+        timestamp_func = "NOW()"
+
     conn.execute(
         text(
-            """
+            f"""
             UPDATE file_assets
-            SET uploaded_at = NOW()
+            SET uploaded_at = {timestamp_func}
             WHERE uploaded_at IS NULL;
             """
         )
