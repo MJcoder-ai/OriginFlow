@@ -8,7 +8,9 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.api.deps import get_session
+from openai import AsyncOpenAI
+
+from backend.api.deps import get_session, get_ai_client
 from backend.schemas.file_asset import FileAssetRead, FileAssetUpdate
 from backend.services.file_service import FileService
 from backend.utils.id import generate_id
@@ -57,7 +59,9 @@ async def list_files(session: AsyncSession = Depends(get_session)) -> list[FileA
 
 @router.post("/files/{file_id}/parse", response_model=FileAssetRead, summary="Trigger AI Datasheet Parsing")
 async def trigger_datasheet_parsing(
-    file_id: str, session: AsyncSession = Depends(get_session)
+    file_id: str,
+    session: AsyncSession = Depends(get_session),
+    ai_client: AsyncOpenAI = Depends(get_ai_client),
 ) -> FileAssetRead:
     asset = await FileService.get(session, file_id)
     if not asset:
@@ -65,7 +69,7 @@ async def trigger_datasheet_parsing(
     if asset.mime != "application/pdf":
         raise HTTPException(status_code=400, detail="File is not a PDF datasheet.")
 
-    parsed = await FileService.parse_datasheet(asset, session)
+    parsed = await FileService.parse_datasheet(asset, session, ai_client)
     return FileAssetRead.model_validate(parsed)
 
 
