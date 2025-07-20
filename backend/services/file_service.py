@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from typing import TypedDict, Any
 
 import asyncio
 import json
@@ -14,6 +15,17 @@ from pdfminer.high_level import extract_text
 from backend.models.file_asset import FileAsset
 from backend.schemas.file_asset import FileAssetUpdate
 from backend.utils.id import generate_id
+
+
+class ParsedSchema(TypedDict, total=False):
+    """Loose schema representation stored in the database."""
+
+    part_number: str
+    description: str
+    package: str
+    category: str
+    parameters: dict[str, Any]
+    ratings: dict[str, Any]
 
 
 async def run_parsing_job(asset_id: str, session: AsyncSession, ai_client: AsyncOpenAI) -> None:

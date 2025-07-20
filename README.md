@@ -299,7 +299,7 @@ If running the frontend on a different host or port, update the `origins` list i
 1. **Upload a Datasheet** – Click the paperclip icon and select a PDF. It appears in the Component Library on the left.
    Uploaded files are persisted on the backend and automatically reloaded when you refresh the page.
 2. **Drag from Library** – Drag the uploaded component from the library onto the canvas to create an instance.
-3. **Drag onto Components Canvas** – Dropping a datasheet onto the Components view now triggers background parsing. A spinner shows progress until the Reviewer AI confirms the data, after which the split view opens with a form-based editor. Errors are surfaced inline.
+3. **Automatic Parsing** – PDF datasheets are now parsed immediately on upload. When the server finishes extraction the split view opens automatically for review. Use the "Analyze" button for a manual re-parse if needed.
 4. **AI Assistant** – Alternatively say, "Add the SUN2000-150K-MG0.pdf datasheet to the project" and the assistant will place it for you.
 5. **Review & Confirm** – The split view includes a Save button and a "Confirm & Close" action. A chat panel at the bottom stays open for contextual AI help while you edit.
 
