@@ -12,7 +12,6 @@ import StatusBar from './StatusBar';
 import ChatSidebar from './ChatSidebar';
 import { DndContext, DragEndEvent } from '@dnd-kit/core';
 import { useAppStore, UploadEntry } from '../appStore';
-import { parseDatasheet, getFileStatus } from '../services/fileApi';
 
 /**
  * Main layout component orchestrating structural UI elements.
@@ -20,14 +19,7 @@ import { parseDatasheet, getFileStatus } from '../services/fileApi';
 const Layout: React.FC = () => {
   const [isNavCollapsed, setIsNavCollapsed] = useState<boolean>(false);
   const [isActionCollapsed, setIsActionCollapsed] = useState<boolean>(false);
-  const {
-    addComponent,
-    updateComponentPosition,
-    setActiveDatasheet,
-    updateUpload,
-    addMessage,
-  } = useAppStore();
-  const componentCount = useAppStore((s) => s.canvasComponents.length);
+  const { addComponent, updateComponentPosition } = useAppStore();
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over, delta } = event;
@@ -46,40 +38,7 @@ const Layout: React.FC = () => {
       return;
     }
 
-    // Dropping a datasheet onto the components canvas triggers parsing
-    if (over.id === 'component-canvas' && active.data.current?.type === 'file-asset') {
-      const asset = active.data.current.asset as UploadEntry;
-      if (asset.mime !== 'application/pdf') {
-        addMessage({ id: 'err', author: 'System', text: 'Only PDF datasheets can be parsed.' });
-        return;
-      }
-      parseDatasheet(asset.id).catch((err) => console.error(err));
-      updateUpload(asset.id, { parsing_status: 'processing' });
-
-      const poll = async () => {
-        try {
-          const status = await getFileStatus(asset.id);
-          updateUpload(asset.id, {
-            parsing_status: status.parsing_status ?? null,
-            parsing_error: status.parsing_error ?? null,
-            parsed_at: status.parsed_at,
-          });
-          if (status.parsing_status === 'success') {
-            setActiveDatasheet({ id: status.id, url: status.url, payload: status.parsed_payload });
-            return;
-          }
-          if (status.parsing_status === 'failed') {
-            addMessage({ id: 'err', author: 'System', text: `Failed to parse ${asset.name}.` });
-            return;
-          }
-          setTimeout(poll, 2000);
-        } catch (e) {
-          console.error(e);
-        }
-      };
-      poll();
-      return;
-    }
+    // Dropping a datasheet onto the components canvas is handled locally
 
     // Otherwise reposition existing component
     if (active.data.current?.type !== 'file-asset') {
@@ -87,24 +46,22 @@ const Layout: React.FC = () => {
     }
   };
 
+  const gridCols = isNavCollapsed ? 'grid-cols-[60px_1fr_350px]' : 'grid-cols-[180px_1fr_350px]';
+
   return (
     <DndContext onDragEnd={handleDragEnd}>
-      <div className="flex flex-col h-screen">
+      <div
+        className={`grid h-screen w-screen grid-rows-[48px_48px_1fr_40px] ${gridCols} grid-areas-layout`}
+      >
         <Header
           isNavCollapsed={isNavCollapsed}
           toggleNavCollapse={() => setIsNavCollapsed(!isNavCollapsed)}
           toggleActionCollapse={() => setIsActionCollapsed(!isActionCollapsed)}
         />
         <ActionBar isCollapsed={isActionCollapsed} />
-        <div className="flex flex-row flex-grow overflow-hidden">
-          <div className={isNavCollapsed ? 'w-20' : 'w-60'}>
-            <Sidebar isCollapsed={isNavCollapsed} />
-          </div>
-          <div className="flex flex-row flex-grow overflow-hidden">
-            <MainPanel />
-            <ChatSidebar />
-          </div>
-        </div>
+        <Sidebar isCollapsed={isNavCollapsed} />
+        <MainPanel />
+        <ChatSidebar className="[grid-area:chat]" />
         <StatusBar />
       </div>
     </DndContext>
