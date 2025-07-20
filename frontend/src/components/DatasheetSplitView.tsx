@@ -1,7 +1,6 @@
 import React, { useState, useEffect, Fragment } from 'react';
 import { createPortal } from 'react-dom';
 import { useDebounce } from 'use-debounce';
-import ChatPanel from './ChatPanel';
 import { theme } from '../theme';
 
 interface Props {
@@ -22,13 +21,15 @@ export const DatasheetSplitView: React.FC<Props> = ({ assetId, pdfUrl, initialPa
     }
   }, [debounced, assetId, onSave, initialParsedData]);
 
+  const sidePanelWidth = 300;
+
   const content = (
     <div
       className="fixed z-50 bg-white shadow-2xl grid grid-cols-1 md:grid-cols-2"
       style={{
         top: theme.layout.appBarHeight + theme.layout.actionBarHeight,
         left: theme.layout.drawerWidth,
-        width: `calc(100vw - ${theme.layout.drawerWidth}px)`,
+        right: sidePanelWidth,
         height: `calc(100vh - ${theme.layout.appBarHeight + theme.layout.actionBarHeight + theme.layout.footerHeight}px)`,
       }}
     >
@@ -59,9 +60,7 @@ export const DatasheetSplitView: React.FC<Props> = ({ assetId, pdfUrl, initialPa
           <ParsedDataForm data={data} onDataChange={setData} />
         </div>
 
-        <div className="border-t border-gray-200 bg-gray-50">
-          <ChatPanel />
-        </div>
+        {/* Chat panel remains visible in the properties sidebar */}
       </div>
     </div>
   );

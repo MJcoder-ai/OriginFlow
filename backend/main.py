@@ -17,7 +17,7 @@ import backend.agents.auditor_agent  # noqa: F401
 import backend.agents.bom_agent  # noqa: F401
 # ----------------------------------------------------------------
 
-from backend.api.routes import components, links, ai, analyze, files, ai_tools
+from backend.api.routes import components, links, ai, analyze, files, ai_tools, datasheet_parse
 
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -45,6 +45,7 @@ app.include_router(files.router, prefix=settings.api_prefix)
 app.include_router(ai.router, prefix=settings.api_prefix)
 app.include_router(analyze.router, prefix=settings.api_prefix)
 app.include_router(ai_tools.router, prefix=settings.api_prefix)
+app.include_router(datasheet_parse.router, prefix=settings.api_prefix)
 
 
 @app.get("/")
