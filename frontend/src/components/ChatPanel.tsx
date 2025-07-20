@@ -4,7 +4,6 @@
  */
 import React, { useEffect, useRef } from 'react';
 import { useAppStore } from '../appStore';
-import { ChatInput } from './ChatInput';
 import { ChatMessage } from './ChatMessage';
 import { Loader } from 'lucide-react';
 
@@ -25,8 +24,7 @@ const ChatPanel: React.FC = () => {
   }, [messages, isAiProcessing]);
 
   return (
-    <div className="flex flex-col h-full bg-white p-4">
-      <div ref={chatHistoryRef} className="flex-grow overflow-y-auto mb-4 space-y-4 pr-2">
+    <div ref={chatHistoryRef} className="flex flex-col h-full bg-white p-4 overflow-y-auto space-y-4">
         {messages.map((msg) => (
           <ChatMessage key={msg.id} message={msg} />
         ))}
@@ -36,10 +34,6 @@ const ChatPanel: React.FC = () => {
             <span className="text-sm text-gray-500">AI is thinking...</span>
           </div>
         )}
-      </div>
-      <div className="mt-auto">
-        <ChatInput />
-      </div>
     </div>
   );
 };
