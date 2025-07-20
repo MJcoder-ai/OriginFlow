@@ -12,58 +12,58 @@ const PropertiesEditor: React.FC = () => {
 
   const selectedComponent = canvasComponents.find((c) => c.id === selectedComponentId);
 
-  if (!selectedComponent) {
-    return (
-      <div className="p-4 text-sm text-gray-500">
-        Select a component on the canvas to see its properties.
-      </div>
-    );
-  }
+  if (!selectedComponent) return null;
 
   return (
-    <div className="p-4 space-y-4">
-      <h3 className="font-bold border-b pb-2">Properties</h3>
-      <div>
-        <label className="text-xs font-semibold text-gray-600 block mb-1">ID</label>
-        <div className="text-xs p-2 bg-gray-100 rounded-md text-gray-500 select-all">
-          {selectedComponent.id}
-        </div>
-      </div>
-      <div>
-        <label className="text-xs font-semibold text-gray-600 block mb-1">Type</label>
-        <div className="text-sm p-2 bg-gray-100 rounded-md">
-          {selectedComponent.type}
-        </div>
-      </div>
-      <div>
-        <label htmlFor="componentName" className="text-xs font-semibold text-gray-600 block mb-1">
-          Name
+    <aside
+      className="w-full max-h-[250px] p-4 border-b bg-white shadow transition-all"
+      role="dialog"
+      aria-label="Component Properties"
+    >
+      <h2 className="text-sm font-semibold text-gray-800 mb-2">
+        Properties: {selectedComponent.name || 'Unnamed'}
+      </h2>
+
+      <form className="flex flex-col gap-3 text-sm">
+        <label className="flex flex-col">
+          ID
+          <input
+            type="text"
+            value={selectedComponent.id}
+            disabled
+            className="mt-1 p-1 border rounded bg-gray-100 text-gray-500"
+          />
         </label>
-        <input
-          id="componentName"
-          type="text"
-          value={selectedComponent.name}
-          onChange={(e) => updateComponentName(selectedComponent.id, e.target.value)}
-          className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-        />
-      </div>
-    </div>
+
+        <label className="flex flex-col">
+          Name
+          <input
+            type="text"
+            defaultValue={selectedComponent.name}
+            className="mt-1 p-1 border rounded"
+            onBlur={(e) => {
+              updateComponentName(selectedComponent.id, e.target.value);
+            }}
+          />
+        </label>
+
+        <label className="flex flex-col">
+          Type
+          <input
+            type="text"
+            value={selectedComponent.type}
+            disabled
+            className="mt-1 p-1 border rounded bg-gray-100 text-gray-500"
+          />
+        </label>
+      </form>
+    </aside>
   );
 };
 
 /** Container for palette and chat sections. */
 const PropertiesPanel: React.FC = () => {
-  return (
-    // Main container uses flex column and fills available height
-    <div className="w-full h-full bg-white border-l border-gray-200 flex flex-col">
-      {/* Properties editor has fixed height */}
-      <div className="flex-shrink-0 border-y">
-        <PropertiesEditor />
-      </div>
-
-      {/* Additional property widgets can be added below */}
-    </div>
-  );
+  return <PropertiesEditor />;
 };
 
 export default PropertiesPanel;

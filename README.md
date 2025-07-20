@@ -81,9 +81,9 @@ The UI uses `lucide-react` for icons. Run `npm install` after pulling updates to
 The dev server expects `index.html` in the frontend project root. Ensure
 `@vitejs/plugin-react` is listed in `devDependencies`.
 
-Layout dimensions such as sidebar width and header height are centralised in
-`frontend/src/theme.ts`. Update these constants when the chrome changes so that
-overlays and panels remain aligned.
+Layout dimensions for the sidebar and sub‑navigation are now managed via
+`UIContext` in the frontend. The sidebar width collapses between `250px` and
+`64px` while the optional sub‑navigation row can be toggled from the header.
 
 ---
 

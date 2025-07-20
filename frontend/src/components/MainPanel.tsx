@@ -2,7 +2,6 @@ import React from 'react';
 import { useAppStore } from '../appStore';
 import ProjectCanvas from './ProjectCanvas';
 import ComponentCanvas from './ComponentCanvas';
-import PropertiesPanel from './PropertiesPanel';
 import { Resizer } from './Workspace';
 
 const MainPanel: React.FC = () => {
@@ -11,21 +10,24 @@ const MainPanel: React.FC = () => {
   // Only responsible for rendering the workspace panes. Datasheet overlays
   // are handled at the App level via a portal.
   return (
-    <main className="[grid-area:workspace] bg-gray-50 p-4 flex overflow-auto">
-      <div className="flex-grow h-full relative">
+    <main className="[grid-area:workspace] bg-gray-50 p-4 flex overflow-hidden">
+      <div
+        id="canvas-area"
+        className="flex-grow min-h-0 overflow-auto"
+        onClick={() => useAppStore.getState().selectComponent(null)}
+      >
         {(() => {
           switch (route) {
             case 'projects':
               return <ProjectCanvas />;
             case 'components':
               return <ComponentCanvas />;
+            default:
+              return <div className="p-4 text-gray-500">No view selected.</div>;
           }
         })()}
       </div>
       <Resizer />
-      <div className="w-[300px]">
-        <PropertiesPanel />
-      </div>
     </main>
   );
 };
