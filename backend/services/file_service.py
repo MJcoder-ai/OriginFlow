@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from typing import TypedDict, Any
+from typing import Any
+from typing_extensions import TypedDict
 
 import asyncio
 import json
