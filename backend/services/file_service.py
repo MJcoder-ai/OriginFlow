@@ -118,9 +118,11 @@ class FileService:
 
     @staticmethod
     async def update_asset(asset: FileAsset, update_data: FileAssetUpdate, session: AsyncSession) -> FileAsset:
-        """Update parsed_payload and timestamp."""
+        """Update parsed payload and mark the asset as verified."""
         asset.parsed_payload = update_data.parsed_payload
         asset.parsed_at = datetime.now(timezone.utc)
+        # Mark datasheet as manually verified when saved via the UI
+        asset.is_human_verified = True
         session.add(asset)
         await session.commit()
         await session.refresh(asset)
