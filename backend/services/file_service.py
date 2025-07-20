@@ -43,7 +43,9 @@ class FileService:
         return await session.get(FileAsset, asset_id)
 
     @staticmethod
-    async def parse_datasheet(asset: FileAsset, session: AsyncSession) -> FileAsset:
+    async def parse_datasheet(
+        asset: FileAsset, session: AsyncSession, ai_client: AsyncOpenAI
+    ) -> FileAsset:
         """Parse a PDF datasheet via AI if not already parsed."""
         if asset.parsed_at:
             return asset
@@ -53,7 +55,6 @@ class FileService:
             print(f"Error extracting text from {asset.filename}: {e}")
             return asset
 
-        ai = AsyncOpenAI()
         prompt = (
             "You are an expert electronics assistant. Extract key specifications "
             "from the following component datasheet and return ONLY valid JSON:\n"
@@ -62,7 +63,7 @@ class FileService:
             f"Datasheet text (first 20,000 chars):\n---\n{pdf_text[:20_000]}\n---"
         )
         try:
-            resp = await ai.chat.completions.create(
+            resp = await ai_client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=1024,

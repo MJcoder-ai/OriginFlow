@@ -110,6 +110,7 @@ git clone https://github.com/<org>/originflow.git
 cd originflow
 poetry install
 cp .env.example .env           # fill in OPENAI_API_KEY & DATABASE_URL
+# The backend shares a single OpenAI client loaded from this file.
 
 # 2. run DB migrations
 alembic upgrade head
