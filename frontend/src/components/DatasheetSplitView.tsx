@@ -1,5 +1,6 @@
 import React, { useState, useEffect, Fragment } from 'react';
 import { useDebounce } from 'use-debounce';
+import ChatPanel from './ChatPanel';
 
 interface Props {
   assetId: string;
@@ -14,23 +15,32 @@ export const DatasheetSplitView: React.FC<Props> = ({ assetId, pdfUrl, initialPa
   const [debounced] = useDebounce(data, 1000);
 
   useEffect(() => {
-    if (debounced !== initialParsedData) {
+    if (JSON.stringify(debounced) !== JSON.stringify(initialParsedData)) {
       onSave(assetId, debounced);
     }
   }, [debounced, assetId, onSave, initialParsedData]);
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex justify-between items-center border-b bg-gray-50 px-3 py-2">
-        <h3 className="m-0 text-sm font-medium">Datasheet Viewer</h3>
-        <button onClick={onClose} className="text-lg leading-none">&times;</button>
+    <div className="grid grid-cols-2 h-full bg-white">
+      <div className="h-full border-r border-gray-200">
+        <iframe src={pdfUrl} className="w-full h-full" title="PDF Preview" />
       </div>
-      <div className="flex-grow grid grid-cols-2">
-        <div className="h-full">
-          <iframe src={pdfUrl} className="w-full h-full border-r" title="PDF Preview" />
+
+      <div className="h-full flex flex-col">
+        <div className="flex justify-between items-center border-b border-gray-200 bg-gray-50 px-4 py-2">
+          <h3 className="text-md font-semibold text-gray-800">Review & Confirm</h3>
+          <div className="flex items-center gap-2">
+            <button onClick={() => onSave(assetId, data)} className="px-2 py-1 text-sm border rounded">Save</button>
+            <button onClick={onClose} className="px-2 py-1 text-sm bg-blue-600 text-white rounded">Confirm &amp; Close</button>
+          </div>
         </div>
-        <div className="h-full overflow-y-auto">
+
+        <div className="flex-grow overflow-y-auto">
           <ParsedDataForm data={data} onDataChange={setData} />
+        </div>
+
+        <div className="border-t border-gray-200 bg-gray-50 h-60">
+          <ChatPanel />
         </div>
       </div>
     </div>
