@@ -19,7 +19,7 @@
 - **Extensibility**: Plug-in framework for components, AI models, and workflows via Component Pack Studio and marketplace.
 - **Observability**: Grafana dashboards, OpenTelemetry traces, and Workflow Visibility Dashboard for monitoring.
 - **Properties Panel with AI Chat**: Manage components via the Component Library in the sidebar, edit selected component properties, and collaborate with an AI assistant.
-- **Voice Mode Chat Input**: Toggle a voice-friendly input that glows when active and shows processing status.
+- **Voice Mode Chat Input**: Click the microphone icon to dictate messages. The icon glows red while listening.
 - **Component Deletion by Name**: Remove components via the AI assistant or UI by referencing the component's name.
 - **AI Governance**: MLMD for model versioning and drift detection.
 - **Performance Benchmarks**:
