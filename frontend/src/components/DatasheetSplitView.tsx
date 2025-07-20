@@ -40,8 +40,18 @@ export const DatasheetSplitView: React.FC<Props> = ({ assetId, pdfUrl, initialPa
         <div className="flex justify-between items-center border-b border-gray-200 bg-gray-50 px-4 py-2">
           <h3 className="text-md font-semibold text-gray-800">Review & Confirm</h3>
           <div className="flex items-center gap-2">
-            <button onClick={() => onSave(assetId, data)} className="px-2 py-1 text-sm border rounded">Save</button>
-            <button onClick={onClose} className="px-2 py-1 text-sm bg-blue-600 text-white rounded">Confirm &amp; Close</button>
+            <button
+              onClick={() => onSave(assetId, data)}
+              className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-100"
+            >
+              Save
+            </button>
+            <button
+              onClick={onClose}
+              className="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            >
+              Confirm &amp; Close
+            </button>
           </div>
         </div>
 
