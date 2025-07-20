@@ -41,6 +41,15 @@ export async function parseDatasheet(id: string): Promise<FileAsset> {
   return res.json();
 }
 
+export async function getFileStatus(id: string): Promise<FileAsset> {
+  const res = await fetch(`${API_BASE_URL}/files/${id}`);
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.detail || 'Failed to fetch status');
+  }
+  return res.json();
+}
+
 export async function updateParsedData(id: string, payload: any): Promise<FileAsset> {
   const res = await fetch(`${API_BASE_URL}/files/${id}`, {
     method: 'PATCH',

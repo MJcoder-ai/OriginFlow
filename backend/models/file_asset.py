@@ -5,7 +5,16 @@ from __future__ import annotations
 from pathlib import Path
 from datetime import datetime
 
-from sqlalchemy import String, Integer, ForeignKey, DateTime, JSON, func
+from sqlalchemy import (
+    String,
+    Integer,
+    ForeignKey,
+    DateTime,
+    JSON,
+    func,
+    Boolean,
+    Text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.models import Base
@@ -29,6 +38,9 @@ class FileAsset(Base):
     )
     parsed_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     parsed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    parsing_status: Mapped[str | None] = mapped_column(String, nullable=True)
+    parsing_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_human_verified: Mapped[bool] = mapped_column(Boolean, server_default="false", nullable=False)
 
     @property
     def local_path(self) -> Path:

@@ -25,11 +25,20 @@ export const FileUploadButton = () => {
       progress: 0,
       assetType: 'component',
       parsed_at: null,
+      parsing_status: null,
+      parsing_error: null,
+      is_human_verified: false,
     });
 
     try {
       const asset = await uploadFile(file, (p) => updateUpload(tempId, { progress: p }));
-      updateUpload(tempId, { id: asset.id, progress: 101 });
+      updateUpload(tempId, {
+        id: asset.id,
+        progress: 101,
+        parsing_status: asset.parsing_status ?? null,
+        parsing_error: asset.parsing_error ?? null,
+        is_human_verified: asset.is_human_verified ?? false,
+      });
       useAppStore
         .getState()
         .addMessage({ id: generateId('msg'), author: 'AI', text: `✅ Uploaded *${file.name}* (${prettyBytes(file.size)}) – parsing…` });

@@ -31,17 +31,7 @@ export const DatasheetSplitView: React.FC<Props> = ({ assetId, pdfUrl, initialPa
             <iframe src={pdfUrl} style={{ width: '100%', height: '100%', border: 'none' }} title="PDF" />
           </div>
           <div style={pane}>
-            <textarea
-              value={JSON.stringify(json, null, 2)}
-              onChange={(e) => {
-                try {
-                  setJson(JSON.parse(e.target.value));
-                } catch {
-                  // ignore parse errors while typing
-                }
-              }}
-              style={{ width: '100%', height: '100%', fontFamily: 'monospace' }}
-            />
+            <ParsedDataForm data={json} onDataChange={setJson} />
           </div>
         </div>
       </div>
@@ -86,6 +76,25 @@ const content: React.CSSProperties = {
 const pane: React.CSSProperties = {
   flex: 1,
   overflow: 'auto',
+};
+
+const ParsedDataForm: React.FC<{ data: any; onDataChange: (d: any) => void }> = ({ data, onDataChange }) => {
+  const handleChange = (field: string, value: any) => {
+    onDataChange({ ...data, [field]: value });
+  };
+
+  return (
+    <form className="p-4 space-y-4">
+      <div>
+        <label>Part Number</label>
+        <input type="text" value={data.part_number || ''} onChange={(e) => handleChange('part_number', e.target.value)} />
+      </div>
+      <div>
+        <label>Description</label>
+        <textarea value={data.description || ''} onChange={(e) => handleChange('description', e.target.value)} />
+      </div>
+    </form>
+  );
 };
 
 const closeButton: React.CSSProperties = {

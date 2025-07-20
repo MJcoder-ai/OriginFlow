@@ -17,6 +17,9 @@ class FileAssetRead(FileAssetBase):
     uploaded_at: datetime | None = None
     parsed_payload: dict | None = None
     parsed_at: datetime | None = None
+    parsing_status: str | None = None
+    parsing_error: str | None = None
+    is_human_verified: bool | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -1,17 +1,42 @@
 import { useAppStore, UploadEntry } from '../appStore';
 import clsx from 'clsx';
 import { useDraggable } from '@dnd-kit/core';
+import { getFileStatus } from '../services/fileApi';
 
 const FileEntry: React.FC<{ u: UploadEntry }> = ({ u }) => {
+  const setActiveDatasheet = useAppStore((s) => s.setActiveDatasheet);
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `file-asset-${u.id}`,
     data: { type: 'file-asset', asset: u },
   });
+
+  const StatusIndicator = () => {
+    if (u.parsing_status === 'processing') {
+      return <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500" />;
+    }
+    if (u.parsing_status === 'failed') {
+      return (
+        <span title={u.parsing_error || 'An unknown error occurred.'} className="text-red-500">
+          ❗
+        </span>
+      );
+    }
+    if (u.parsing_status === 'success') {
+      return <span className="text-green-500">✔</span>;
+    }
+    return null;
+  };
   return (
     <div
       ref={setNodeRef}
       {...listeners}
       {...attributes}
+      onClick={async () => {
+        if (u.parsing_status === 'success') {
+          const asset = await getFileStatus(u.id);
+          setActiveDatasheet({ id: asset.id, url: asset.url, payload: asset.parsed_payload });
+        }
+      }}
       className={clsx(
         'border rounded p-2 text-sm transition cursor-grab bg-white shadow-sm',
         isDragging && 'opacity-50',
@@ -27,14 +52,8 @@ const FileEntry: React.FC<{ u: UploadEntry }> = ({ u }) => {
           style={{ width: `${Math.min(u.progress, 100)}%` }}
         />
       </div>
-      <div className="text-xs text-right text-gray-500">
-        {u.progress > 100 ? (
-          <>
-            Ready to use {u.parsed_at && '✔'}
-          </>
-        ) : (
-          `${u.progress}%`
-        )}
+      <div className="text-xs text-right text-gray-500 flex items-center gap-1">
+        {u.progress > 100 ? <StatusIndicator /> : `${u.progress}%`}
       </div>
     </div>
   );
