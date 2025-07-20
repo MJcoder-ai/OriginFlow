@@ -305,8 +305,8 @@ If running the frontend on a different host or port, update the `origins` list i
 2. **Drag from Library** – Drag the uploaded component from the library onto the canvas to create an instance.
 3. **Automatic Parsing** – PDF datasheets are now parsed immediately on upload. When the server finishes extraction the split view opens automatically for review. Use the "Analyze" button for a manual re-parse if needed.
 4. **AI Assistant** – Alternatively say, "Add the SUN2000-150K-MG0.pdf datasheet to the project" and the assistant will place it for you.
-5. **Review & Confirm** – The split view includes a Save button and a "Confirm & Close" action. A chat panel at the bottom stays open for contextual AI help while you edit.
-6. **Overlay Portal** – The datasheet view renders in a dedicated DOM node `datasheet-overlay-root`. If the overlay looks misaligned, verify this element exists in `frontend/index.html`.
+5. **Review & Confirm** – The split view includes a Save button and a "Confirm & Close" action. The chat history and input remain visible in the Properties panel on the right so you can ask questions while editing.
+6. **Overlay Portal** – The datasheet view leaves space for the right-hand sidebar and renders in a dedicated DOM node `datasheet-overlay-root`. If the overlay looks misaligned, verify this element exists in `frontend/index.html`.
 
 ---
 
