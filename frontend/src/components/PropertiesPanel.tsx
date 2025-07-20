@@ -6,7 +6,6 @@
 */
 import React from 'react';
 import { useAppStore } from '../appStore';
-import ChatPanel from './ChatPanel';
 
 const PropertiesEditor: React.FC = () => {
   const { selectedComponentId, canvasComponents, updateComponentName } = useAppStore();
@@ -62,10 +61,7 @@ const PropertiesPanel: React.FC = () => {
         <PropertiesEditor />
       </div>
 
-      {/* The chat wrapper grows and enables scrolling for the chat history */}
-      <div className="flex-grow min-h-0">
-        <ChatPanel />
-      </div>
+      {/* Additional property widgets can be added below */}
     </div>
   );
 };

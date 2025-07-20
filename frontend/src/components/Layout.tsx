@@ -9,6 +9,7 @@ import Header from './Header';
 import ActionBar from './ActionBar';
 import MainPanel from './MainPanel';
 import StatusBar from './StatusBar';
+import ChatSidebar from './ChatSidebar';
 import { DndContext, DragEndEvent } from '@dnd-kit/core';
 import { useAppStore, UploadEntry } from '../appStore';
 import { parseDatasheet, getFileStatus } from '../services/fileApi';
@@ -88,20 +89,22 @@ const Layout: React.FC = () => {
 
   return (
     <DndContext onDragEnd={handleDragEnd}>
-      <div
-        className={`grid h-screen transition-all duration-200 \
-        ${isNavCollapsed ? 'grid-cols-[80px_1fr]' : 'grid-cols-[240px_1fr]'} \
-        ${isActionCollapsed ? 'grid-rows-[60px_0_1fr_40px]' : 'grid-rows-[60px_48px_1fr_40px]'}
-        grid-areas-layout-desktop`}
-      >
-        <Sidebar isCollapsed={isNavCollapsed} />
+      <div className="flex flex-col h-screen">
         <Header
           isNavCollapsed={isNavCollapsed}
           toggleNavCollapse={() => setIsNavCollapsed(!isNavCollapsed)}
           toggleActionCollapse={() => setIsActionCollapsed(!isActionCollapsed)}
         />
         <ActionBar isCollapsed={isActionCollapsed} />
-        <MainPanel />
+        <div className="flex flex-row flex-grow overflow-hidden">
+          <div className={isNavCollapsed ? 'w-20' : 'w-60'}>
+            <Sidebar isCollapsed={isNavCollapsed} />
+          </div>
+          <div className="flex flex-row flex-grow overflow-hidden">
+            <MainPanel />
+            <ChatSidebar />
+          </div>
+        </div>
         <StatusBar />
       </div>
     </DndContext>
