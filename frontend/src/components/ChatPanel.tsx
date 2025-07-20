@@ -4,7 +4,6 @@
  */
 import React, { useEffect, useRef } from 'react';
 import { useAppStore } from '../appStore';
-import { ChatMessage } from './ChatMessage';
 import { Loader } from 'lucide-react';
 
 /** Wrapper panel that orchestrates the chat experience. */
@@ -13,27 +12,39 @@ const ChatPanel: React.FC = () => {
     messages: state.messages,
     isAiProcessing: state.isAiProcessing,
   }));
-  const chatHistoryRef = useRef<HTMLDivElement>(null);
+  const endRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
-  // Auto-scroll to the bottom on new messages
+  const scrollToBottom = () => {
+    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   useEffect(() => {
-    const chatHistory = chatHistoryRef.current;
-    if (chatHistory) {
-      chatHistory.scrollTop = chatHistory.scrollHeight;
-    }
-  }, [messages, isAiProcessing]);
+    const isAtBottom =
+      containerRef.current &&
+      containerRef.current.scrollHeight - containerRef.current.scrollTop <=
+        containerRef.current.clientHeight + 50;
+
+    if (isAtBottom) scrollToBottom();
+  }, [messages]);
 
   return (
-    <div ref={chatHistoryRef} className="flex flex-col h-full bg-white p-4 overflow-y-auto space-y-4">
-        {messages.map((msg) => (
-          <ChatMessage key={msg.id} message={msg} />
-        ))}
-        {isAiProcessing && (
-          <div className="flex items-center justify-start space-x-3 p-2">
-            <Loader className="animate-spin text-blue-600" size={18} />
-            <span className="text-sm text-gray-500">AI is thinking...</span>
-          </div>
-        )}
+    <div ref={containerRef} className="space-y-2">
+      {messages.map((msg) => (
+        <div
+          key={msg.id}
+          className={`p-2 rounded text-sm max-w-[80%] ${msg.author === 'User' ? 'ml-auto bg-blue-100 text-blue-900' : 'mr-auto bg-gray-100 text-gray-800'}`}
+        >
+          {msg.text}
+        </div>
+      ))}
+      {isAiProcessing && (
+        <div className="flex items-center justify-start space-x-3 p-2">
+          <Loader className="animate-spin text-blue-600" size={18} />
+          <span className="text-sm text-gray-500">AI is thinking...</span>
+        </div>
+      )}
+      <div ref={endRef} />
     </div>
   );
 };

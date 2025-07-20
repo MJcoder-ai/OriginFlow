@@ -1,10 +1,11 @@
-import React from 'react';
-import { FolderKanban, Box, LifeBuoy } from 'lucide-react';
+import React, { useContext } from 'react';
+import { FolderKanban, Box, LifeBuoy, ChevronLeft, ChevronRight } from 'lucide-react';
 import clsx from 'clsx';
 import { useAppStore, Route } from '../appStore';
 import { FileStagingArea } from './FileStagingArea';
+import { UIContext } from '../context/UIContext';
 
-const Item = ({ label, route, Icon, collapsed }: { label: string; route: Route; Icon?: React.ComponentType<{size?:number}>; collapsed: boolean }) => {
+const SidebarItem = ({ label, route, Icon, collapsed }: { label: string; route: Route; Icon?: React.ComponentType<{ size?: number }>; collapsed: boolean }) => {
   const setRoute = useAppStore((s) => s.setRoute);
   const active = useAppStore((s) => s.route) === route;
   return (
@@ -18,24 +19,36 @@ const Item = ({ label, route, Icon, collapsed }: { label: string; route: Route; 
   );
 };
 
-interface SidebarProps {
-  isCollapsed: boolean;
-}
+const Sidebar: React.FC = () => {
+  const { isSidebarCollapsed, toggleSidebar } = useContext(UIContext);
 
-const Sidebar: React.FC<SidebarProps> = ({ isCollapsed }) => (
-  <aside className="[grid-area:sidebar] bg-white border-r border-gray-200 p-4 flex flex-col">
-    <div className="h-14 flex items-center justify-center mb-4">
-      <div className="h-10 w-32 bg-gray-100 rounded-md flex items-center justify-center font-bold">Logo_1</div>
-    </div>
-    <nav className="flex-grow space-y-1">
-      <Item label="Projects" route="projects" Icon={FolderKanban} collapsed={isCollapsed} />
-      <Item label="Components" route="components" Icon={Box} collapsed={isCollapsed} />
-      <FileStagingArea />
-    </nav>
-    <div className="flex-shrink-0">
-      <Item label="Help & Support" route="projects" Icon={LifeBuoy} collapsed={isCollapsed} />
-    </div>
-  </aside>
-);
+  return (
+    <aside
+      className={`h-full border-r bg-white transition-all duration-300 ease-in-out flex flex-col ${isSidebarCollapsed ? 'w-[64px]' : 'w-[250px]'}`}
+      aria-label="Main navigation"
+    >
+      <div className="flex items-center justify-end p-2">
+        <button
+          onClick={toggleSidebar}
+          className="p-2 rounded hover:bg-gray-200 focus:outline-none focus-visible:ring"
+          aria-label="Toggle Sidebar"
+          aria-expanded={!isSidebarCollapsed}
+        >
+          {isSidebarCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
+        </button>
+      </div>
+
+      <nav className="flex flex-col gap-2 px-2 py-4 text-sm">
+        <SidebarItem icon="📁" label="Projects" route="projects" collapsed={isSidebarCollapsed} />
+        <SidebarItem icon="🧩" label="Components" route="components" collapsed={isSidebarCollapsed} />
+        <FileStagingArea />
+      </nav>
+
+      <div className="mt-auto px-2 py-4">
+        <SidebarItem icon="❓" label="Help" route="projects" collapsed={isSidebarCollapsed} />
+      </div>
+    </aside>
+  );
+};
 
 export default Sidebar;

@@ -3,7 +3,7 @@
  * Provides the application layout using CSS Grid with collapsible sidebar
  * and action bar sections for responsive engineer UI.
  */
-import React, { useState } from 'react';
+import React, { useContext } from 'react';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import ActionBar from './ActionBar';
@@ -12,14 +12,14 @@ import StatusBar from './StatusBar';
 import ChatSidebar from './ChatSidebar';
 import { DndContext, DragEndEvent } from '@dnd-kit/core';
 import { useAppStore, UploadEntry } from '../appStore';
+import { UIContext } from '../context/UIContext';
 
 /**
  * Main layout component orchestrating structural UI elements.
  */
 const Layout: React.FC = () => {
-  const [isNavCollapsed, setIsNavCollapsed] = useState<boolean>(false);
-  const [isActionCollapsed, setIsActionCollapsed] = useState<boolean>(false);
   const { addComponent, updateComponentPosition } = useAppStore();
+  const { isSidebarCollapsed, isSubNavVisible } = useContext(UIContext);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over, delta } = event;
@@ -46,20 +46,20 @@ const Layout: React.FC = () => {
     }
   };
 
-  const gridCols = isNavCollapsed ? 'grid-cols-[60px_1fr_350px]' : 'grid-cols-[180px_1fr_350px]';
+  const sidebarWidth = isSidebarCollapsed ? '64px' : '250px';
 
   return (
     <DndContext onDragEnd={handleDragEnd}>
       <div
-        className={`grid h-screen w-screen grid-rows-[48px_48px_1fr_40px] ${gridCols} grid-areas-layout`}
+        className="h-screen w-screen flex flex-col md:grid grid-areas-layout"
+        style={{
+          gridTemplateColumns: `${sidebarWidth} 1fr 350px`,
+          gridTemplateRows: `${isSubNavVisible ? '64px auto' : '64px'} 1fr 48px`,
+        }}
       >
-        <Header
-          isNavCollapsed={isNavCollapsed}
-          toggleNavCollapse={() => setIsNavCollapsed(!isNavCollapsed)}
-          toggleActionCollapse={() => setIsActionCollapsed(!isActionCollapsed)}
-        />
-        <ActionBar isCollapsed={isActionCollapsed} />
-        <Sidebar isCollapsed={isNavCollapsed} />
+        <Header />
+        <ActionBar />
+        <Sidebar />
         <MainPanel />
         <ChatSidebar className="[grid-area:chat]" />
         <StatusBar />

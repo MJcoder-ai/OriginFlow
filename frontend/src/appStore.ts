@@ -92,6 +92,9 @@ interface AppState {
   /** Update which component is selected. */
   /** The current status message for the UI. */
   status: AppStatus;
+  statusMessages: { id: string; message: string; icon?: string }[];
+  addStatusMessage: (msg: string, icon?: string) => void;
+  removeStatusMessage: (id: string) => void;
   selectComponent: (id: string | null) => void;
   /** Fetch the entire project from the backend API. */
   fetchProject: () => Promise<void>;
@@ -168,6 +171,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectedComponentId: null,
   messages: [],
   status: 'loading',
+  statusMessages: [],
   chatMode: 'default',
   isAiProcessing: false,
   route: 'projects',
@@ -179,10 +183,17 @@ export const useAppStore = create<AppState>((set, get) => ({
   setVoiceMode: (mode) => set({ voiceMode: mode }),
   toggleContinuousConversation: () =>
     set((s) => ({ isContinuousConversation: !s.isContinuousConversation })),
+  addStatusMessage: (msg, icon) =>
+    set((s) => ({
+      statusMessages: [...s.statusMessages, { id: crypto.randomUUID(), message: msg, icon }],
+    })),
+  removeStatusMessage: (id) =>
+    set((s) => ({ statusMessages: s.statusMessages.filter((m) => m.id !== id) })),
   addMessage: (message) => set((state) => ({ messages: [...state.messages, message] })),
   selectComponent: (id) => set({ selectedComponentId: id }),
   async fetchProject() {
     set({ status: 'loading' });
+    get().addStatusMessage('Loading project...');
     try {
       const [components, linksFromApi] = await Promise.all([
         api.getComponents(),
@@ -196,13 +207,16 @@ export const useAppStore = create<AppState>((set, get) => ({
         ],
       }));
       set({ canvasComponents: enrichedComponents, links: linksFromApi, status: 'ready' });
+      get().addStatusMessage('Project loaded');
     } catch (error) {
       console.error('Failed to load project:', error);
       set({ status: 'Error: Could not load project' });
+      get().addStatusMessage('Failed to load project');
     }
   },
   async addComponent(payload) {
     set({ status: `Adding ${payload.type}...` });
+    get().addStatusMessage(`Adding ${payload.type}...`);
     try {
       const saved = await api.createComponent(payload);
       const component: CanvasComponent = {
@@ -216,9 +230,11 @@ export const useAppStore = create<AppState>((set, get) => ({
         canvasComponents: [...state.canvasComponents, component],
         status: `Component ${saved.name} added`,
       }));
+      get().addStatusMessage(`Component ${saved.name} added`);
     } catch (error) {
       console.error('Failed to add component:', error);
       set({ status: 'Error: Could not add component' });
+      get().addStatusMessage('Failed to add component');
     }
   },
   async updateComponentName(componentId, newName) {
@@ -287,12 +303,15 @@ export const useAppStore = create<AppState>((set, get) => ({
       return;
     }
     set({ status: 'Creating link...' });
+    get().addStatusMessage('Creating link...');
     try {
       const saved = await api.createLink({ source_id, target_id });
       set((state) => ({ links: [...state.links, saved], status: 'Link created' }));
+      get().addStatusMessage('Link created');
     } catch (error) {
       console.error('Failed to add link:', error);
       set({ status: 'Error: Could not create link' });
+      get().addStatusMessage('Failed to create link');
     }
   },
 
@@ -335,6 +354,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     // 1. Add user message and set processing state
     addMessage({ id: crypto.randomUUID(), author: 'User', text: command });
     setIsAiProcessing(true);
+    get().addStatusMessage('Processing command');
 
     try {
       const snapshot = { components: canvasComponents, links };
@@ -344,12 +364,14 @@ export const useAppStore = create<AppState>((set, get) => ({
       // 2. Add AI success message
       const successMessage = `I have successfully executed ${actions.length} action(s).`;
       addMessage({ id: crypto.randomUUID(), author: 'AI', text: successMessage });
+      get().addStatusMessage('AI actions executed');
     } catch (error) {
       console.error('AI command failed:', error);
       const errorMessage = 'Sorry, I ran into an error trying to do that.';
       // 3. Add AI error message
       addMessage({ id: crypto.randomUUID(), author: 'AI', text: errorMessage });
       set({ status: 'Error: AI command failed' });
+      get().addStatusMessage('AI command failed');
     } finally {
       // 4. Reset processing state
       setIsAiProcessing(false);
