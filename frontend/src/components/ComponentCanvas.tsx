@@ -1,34 +1,17 @@
 import React from 'react';
-import { useAppStore } from '../appStore';
-import { uploadFile, parseDatasheet } from '../services/fileApi';
+import { useDroppable } from '@dnd-kit/core';
 
+/** Canvas used for parsing new components from uploaded datasheets. */
 const ComponentCanvas = () => {
-  const { setActiveDatasheet, updateUpload } = useAppStore();
-
-  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files?.[0];
-    if (file && file.type === 'application/pdf') {
-      try {
-        const asset = await uploadFile(file, () => {});
-        const parsed = await parseDatasheet(asset.id);
-        setActiveDatasheet({ id: parsed.id, url: parsed.url, payload: parsed.parsed_payload });
-        updateUpload(parsed.id, { parsed_at: parsed.parsed_at });
-      } catch (err) {
-        console.error(err);
-      }
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent) => e.preventDefault();
+  // Register this canvas as a drop target for dnd-kit
+  const { setNodeRef } = useDroppable({ id: 'component-canvas' });
 
   return (
     <div
-      onDrop={handleDrop}
-      onDragOver={handleDragOver}
-      className="[grid-area:workspace] flex items-center justify-center text-gray-500 border-2 border-dashed rounded"
+      ref={setNodeRef}
+      className="[grid-area:workspace] flex items-center justify-center text-gray-500 border-2 border-dashed rounded-lg bg-gray-50"
     >
-      Drag datasheet PDF here
+      Drag a datasheet from the library here to parse it.
     </div>
   );
 };
