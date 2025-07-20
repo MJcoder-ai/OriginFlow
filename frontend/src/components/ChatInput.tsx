@@ -2,7 +2,7 @@
  * File: frontend/src/components/ChatInput.tsx
  * Dedicated input component for the chat panel with voice mode support.
  */
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAppStore } from '../appStore';
 import { Wand2, Mic } from 'lucide-react';
 import { FileUploadButton } from './FileUploadButton';
@@ -18,6 +18,7 @@ export const ChatInput: React.FC = () => {
   const [message, setMessage] = useState('');
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const speechTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const SpeechRecognition =
@@ -40,11 +41,18 @@ export const ChatInput: React.FC = () => {
       }
       if (finalTranscript) {
         setMessage((prev) => prev + finalTranscript);
+        if (speechTimeoutRef.current) {
+          clearTimeout(speechTimeoutRef.current);
+        }
+        speechTimeoutRef.current = setTimeout(submitAndStop, 2000);
       }
     };
 
     recognition.onend = () => {
       setIsListening(false);
+      if (speechTimeoutRef.current) {
+        clearTimeout(speechTimeoutRef.current);
+      }
     };
 
     recognitionRef.current = recognition;
@@ -54,16 +62,22 @@ export const ChatInput: React.FC = () => {
     };
   }, []);
 
-  const handleSendMessage = async () => {
-    if (message.trim() === '' || isAiProcessing) return;
-    const commandToSend = message;
-    setMessage('');
-    await analyzeAndExecute(commandToSend);
-  };
+  const submitAndStop = useCallback(() => {
+    recognitionRef.current?.stop();
+    if (speechTimeoutRef.current) {
+      clearTimeout(speechTimeoutRef.current);
+    }
+    setMessage((currentMessage) => {
+      if (currentMessage.trim() !== '' && !isAiProcessing) {
+        analyzeAndExecute(currentMessage);
+      }
+      return '';
+    });
+  }, [analyzeAndExecute, isAiProcessing]);
 
   const toggleListen = () => {
     if (isListening) {
-      recognitionRef.current?.stop();
+      submitAndStop();
     } else {
       recognitionRef.current?.start();
     }
@@ -82,7 +96,7 @@ export const ChatInput: React.FC = () => {
           type="text"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+          onKeyDown={(e) => e.key === 'Enter' && submitAndStop()}
           placeholder="Type a message or click the mic to dictate..."
           className="w-full h-10 px-3 pr-20 text-sm bg-gray-100 border border-transparent rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
           disabled={isAiProcessing}
