@@ -5,14 +5,22 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    UploadFile,
+    File,
+    HTTPException,
+    status,
+    BackgroundTasks,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from openai import AsyncOpenAI
 
 from backend.api.deps import get_session, get_ai_client
 from backend.schemas.file_asset import FileAssetRead, FileAssetUpdate
-from backend.services.file_service import FileService
+from backend.services.file_service import FileService, run_parsing_job
 from backend.utils.id import generate_id
 
 router = APIRouter()
@@ -57,20 +65,37 @@ async def list_files(session: AsyncSession = Depends(get_session)) -> list[FileA
     return [FileAssetRead.model_validate(it) for it in items]
 
 
-@router.post("/files/{file_id}/parse", response_model=FileAssetRead, summary="Trigger AI Datasheet Parsing")
+@router.get("/files/{file_id}", response_model=FileAssetRead, summary="Get File Asset Status")
+async def get_file_status(file_id: str, session: AsyncSession = Depends(get_session)) -> FileAssetRead:
+    """Return a single file asset with parsing status."""
+    asset = await FileService.get(session, file_id)
+    if not asset:
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileAssetRead.model_validate(asset)
+
+
+@router.post(
+    "/files/{file_id}/parse",
+    response_model=FileAssetRead,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Trigger AI Datasheet Parsing",
+)
 async def trigger_datasheet_parsing(
     file_id: str,
+    background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_session),
     ai_client: AsyncOpenAI = Depends(get_ai_client),
 ) -> FileAssetRead:
+    """Kick off AI parsing as a background task."""
     asset = await FileService.get(session, file_id)
     if not asset:
         raise HTTPException(status_code=404, detail="File not found")
     if asset.mime != "application/pdf":
         raise HTTPException(status_code=400, detail="File is not a PDF datasheet.")
 
-    parsed = await FileService.parse_datasheet(asset, session, ai_client)
-    return FileAssetRead.model_validate(parsed)
+    updated_asset = await FileService.trigger_parsing(asset, session)
+    background_tasks.add_task(run_parsing_job, asset.id, session, ai_client)
+    return FileAssetRead.model_validate(updated_asset)
 
 
 @router.patch("/files/{file_id}", response_model=FileAssetRead, summary="Update Parsed Datasheet Data")

@@ -16,6 +16,59 @@ from backend.schemas.file_asset import FileAssetUpdate
 from backend.utils.id import generate_id
 
 
+async def run_parsing_job(asset_id: str, session: AsyncSession, ai_client: AsyncOpenAI) -> None:
+    """Background job that extracts text and parses a datasheet via AI."""
+    asset = await FileService.get(session, asset_id)
+    if not asset:
+        return
+
+    try:
+        pdf_text = await asyncio.to_thread(extract_text, asset.local_path)
+        if not pdf_text or len(pdf_text.strip()) < 100:
+            raise ValueError("Low quality text extracted. Potential scanned document.")
+
+        extractor_prompt = (
+            "You are an expert electronics datasheet extractor. Analyze the text provided. "
+            "First, find the part number. Second, find the main description. "
+            "Third, find all key electrical parameters and their values. "
+            "Fourth, find all absolute maximum ratings. "
+            "Finally, assemble this into a single JSON object. Ensure all values are correctly typed as numbers or strings.\n\n"
+            f"Datasheet text:\n---\n{pdf_text[:20_000]}\n---"
+        )
+
+        extractor_resp = await ai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": extractor_prompt}],
+            response_format={"type": "json_object"},
+        )
+        extracted_json_str = extractor_resp.choices[0].message.content
+
+        validator_prompt = (
+            "You are a validation AI. The following JSON was extracted from a component datasheet. "
+            "Review it for correctness and adherence to the schema. "
+            "Correct any obvious typos or formatting errors. Ensure values that should be numbers are not strings. "
+            "Return ONLY the cleaned, validated JSON object. Do not add any commentary.\n\n"
+            f"Input JSON:\n---\n{extracted_json_str}\n---"
+        )
+
+        validator_resp = await ai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": validator_prompt}],
+            response_format={"type": "json_object"},
+        )
+        final_payload = json.loads(validator_resp.choices[0].message.content)
+
+        asset.parsed_payload = final_payload
+        asset.parsing_status = "success"
+        asset.parsed_at = datetime.now(timezone.utc)
+    except Exception as e:  # pragma: no cover - log error
+        asset.parsing_status = "failed"
+        asset.parsing_error = str(e)
+
+    session.add(asset)
+    await session.commit()
+
+
 class FileService:
     """Service layer for file asset CRUD."""
 
@@ -43,41 +96,24 @@ class FileService:
         return await session.get(FileAsset, asset_id)
 
     @staticmethod
+    async def trigger_parsing(asset: FileAsset, session: AsyncSession) -> FileAsset:
+        """Mark an asset as processing and persist."""
+        if asset.parsing_status in {"processing", "success"}:
+            return asset
+        asset.parsing_status = "processing"
+        asset.parsing_error = None
+        session.add(asset)
+        await session.commit()
+        await session.refresh(asset)
+        return asset
+
+    @staticmethod
     async def parse_datasheet(
         asset: FileAsset, session: AsyncSession, ai_client: AsyncOpenAI
     ) -> FileAsset:
-        """Parse a PDF datasheet via AI if not already parsed."""
-        if asset.parsed_at:
-            return asset
-        try:
-            pdf_text = await asyncio.to_thread(extract_text, asset.local_path)
-        except Exception as e:  # pragma: no cover - log error
-            print(f"Error extracting text from {asset.filename}: {e}")
-            return asset
-
-        prompt = (
-            "You are an expert electronics assistant. Extract key specifications "
-            "from the following component datasheet and return ONLY valid JSON:\n"
-            '{"part_number":str,"description":str,"package":str,"category":str,'
-            '"parameters":{str:str|float},"ratings":{str:str|float}}\n\n'
-            f"Datasheet text (first 20,000 chars):\n---\n{pdf_text[:20_000]}\n---"
-        )
-        try:
-            resp = await ai_client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=1024,
-                temperature=0.0,
-                response_format={"type": "json_object"},
-            )
-            content = resp.choices[0].message.content
-            asset.parsed_payload = json.loads(content)
-            asset.parsed_at = datetime.now(timezone.utc)
-            session.add(asset)
-            await session.commit()
-            await session.refresh(asset)
-        except Exception as e:  # pragma: no cover - log error
-            print(f"AI parsing failed for {asset.filename}: {e}")
+        """Synchronously parse a datasheet via AI (legacy)."""
+        await run_parsing_job(asset.id, session, ai_client)
+        await session.refresh(asset)
         return asset
 
     @staticmethod

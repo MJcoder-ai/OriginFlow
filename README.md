@@ -12,7 +12,7 @@
 ## 2. Key Features
 - **Engineering Canvas**: A drag-and-drop interface for creating and editing schematics with AI-driven auto-completion, industry-standard naming, WebGL rendering, CRDT-based offline sync, and port-based connections between components. Links are created by dragging from an output port to an input port, with ports highlighting during the drag. Component dragging is separate from linking, so accidental moves are avoided. Connection lines now align precisely with each port for clearer diagrams.
 - **Customer Project Wizard**: A guided interface for non-technical users to plan projects with AI suggestions and cost estimation.
-- **AI-Driven Datasheet Processing**: Extracts and validates data from uploaded datasheets with multi-agent validation and error fallbacks.
+- **AI-Driven Datasheet Processing**: Asynchronous parsing pipeline with status tracking, Chain-of-Thought extraction and a Reviewer AI for higher accuracy.
 - **Media Management**: Upload or capture component images/videos, validated by AI with Octopart API integration.
 - **Standards Compliance Engine**: Real-time validation against industry standards (e.g., IEC 81346) with webhook-driven revalidation.
 - **Workflow Orchestration**: Self-hosted Temporal.io for reliable execution of complex workflows, including Saga Pattern for rollbacks.
@@ -299,7 +299,7 @@ If running the frontend on a different host or port, update the `origins` list i
 1. **Upload a Datasheet** – Click the paperclip icon and select a PDF. It appears in the Component Library on the left.
    Uploaded files are persisted on the backend and automatically reloaded when you refresh the page.
 2. **Drag from Library** – Drag the uploaded component from the library onto the canvas to create an instance.
-3. **Drag onto Components Canvas** – Dropping a datasheet onto the Components view now opens a split view with the PDF on the left and editable AI‑parsed JSON on the right. Edits are saved automatically and a checkmark appears when parsing is complete.
+3. **Drag onto Components Canvas** – Dropping a datasheet onto the Components view now triggers background parsing. A spinner shows progress until the Reviewer AI confirms the data, after which the split view opens with a form-based editor. Errors are surfaced inline.
 4. **AI Assistant** – Alternatively say, "Add the SUN2000-150K-MG0.pdf datasheet to the project" and the assistant will place it for you.
 
 ---

@@ -17,6 +17,9 @@ export interface UploadEntry {
   progress: number; // 0-100, 101 queued for AI, 200 done
   assetType?: 'component';
   parsed_at: string | null;
+  parsing_status: 'pending' | 'processing' | 'success' | 'failed' | null;
+  parsing_error: string | null;
+  is_human_verified: boolean;
 }
 
 export type Route = 'projects' | 'components';
@@ -370,6 +373,9 @@ export const useAppStore = create<AppState>((set, get) => ({
           progress: 101,
           assetType: 'component',
           parsed_at: a.parsed_at,
+          parsing_status: a.parsing_status ?? null,
+          parsing_error: a.parsing_error ?? null,
+          is_human_verified: a.is_human_verified ?? false,
         })),
       });
     } catch (error) {

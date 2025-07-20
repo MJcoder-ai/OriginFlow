@@ -11,7 +11,7 @@ import MainPanel from './MainPanel';
 import StatusBar from './StatusBar';
 import { DndContext, DragEndEvent } from '@dnd-kit/core';
 import { useAppStore, UploadEntry } from '../appStore';
-import { parseDatasheet } from '../services/fileApi';
+import { parseDatasheet, getFileStatus } from '../services/fileApi';
 
 /**
  * Main layout component orchestrating structural UI elements.
@@ -52,15 +52,31 @@ const Layout: React.FC = () => {
         addMessage({ id: 'err', author: 'System', text: 'Only PDF datasheets can be parsed.' });
         return;
       }
-      parseDatasheet(asset.id)
-        .then((parsed) => {
-          setActiveDatasheet({ id: parsed.id, url: parsed.url, payload: parsed.parsed_payload });
-          updateUpload(parsed.id, { parsed_at: parsed.parsed_at });
-        })
-        .catch((err) => {
-          console.error(err);
-          addMessage({ id: 'err', author: 'System', text: `Failed to parse ${asset.name}.` });
-        });
+      parseDatasheet(asset.id).catch((err) => console.error(err));
+      updateUpload(asset.id, { parsing_status: 'processing' });
+
+      const poll = async () => {
+        try {
+          const status = await getFileStatus(asset.id);
+          updateUpload(asset.id, {
+            parsing_status: status.parsing_status ?? null,
+            parsing_error: status.parsing_error ?? null,
+            parsed_at: status.parsed_at,
+          });
+          if (status.parsing_status === 'success') {
+            setActiveDatasheet({ id: status.id, url: status.url, payload: status.parsed_payload });
+            return;
+          }
+          if (status.parsing_status === 'failed') {
+            addMessage({ id: 'err', author: 'System', text: `Failed to parse ${asset.name}.` });
+            return;
+          }
+          setTimeout(poll, 2000);
+        } catch (e) {
+          console.error(e);
+        }
+      };
+      poll();
       return;
     }
 
