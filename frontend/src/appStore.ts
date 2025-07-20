@@ -143,6 +143,15 @@ interface AppState {
   /** Fetch uploaded file assets. */
   loadUploads: () => Promise<void>;
 
+  /** Voice command state. */
+  voiceMode: 'idle' | 'listening' | 'processing';
+  /** Update voice command state. */
+  setVoiceMode: (mode: 'idle' | 'listening' | 'processing') => void;
+  /** Continuous conversation flag. */
+  isContinuousConversation: boolean;
+  /** Toggle continuous conversation mode. */
+  toggleContinuousConversation: () => void;
+
   /** Currently opened datasheet split view */
   activeDatasheet: { url: string; payload: any; id: string } | null;
   setActiveDatasheet: (data: { url: string; payload: any; id: string } | null) => void;
@@ -163,8 +172,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   isAiProcessing: false,
   route: 'projects',
   uploads: [],
+  voiceMode: 'idle',
+  isContinuousConversation: false,
   activeDatasheet: null,
   setActiveDatasheet: (data) => set({ activeDatasheet: data }),
+  setVoiceMode: (mode) => set({ voiceMode: mode }),
+  toggleContinuousConversation: () =>
+    set((s) => ({ isContinuousConversation: !s.isContinuousConversation })),
   addMessage: (message) => set((state) => ({ messages: [...state.messages, message] })),
   selectComponent: (id) => set({ selectedComponentId: id }),
   async fetchProject() {
@@ -339,6 +353,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     } finally {
       // 4. Reset processing state
       setIsAiProcessing(false);
+      if (get().isContinuousConversation) {
+        get().setVoiceMode('listening');
+      } else {
+        get().setVoiceMode('idle');
+      }
     }
   },
   setBom(items) {
