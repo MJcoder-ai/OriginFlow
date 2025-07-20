@@ -1,4 +1,5 @@
 import React, { useState, useEffect, Fragment } from 'react';
+import { createPortal } from 'react-dom';
 import { useDebounce } from 'use-debounce';
 import ChatPanel from './ChatPanel';
 
@@ -20,8 +21,8 @@ export const DatasheetSplitView: React.FC<Props> = ({ assetId, pdfUrl, initialPa
     }
   }, [debounced, assetId, onSave, initialParsedData]);
 
-  return (
-    <div className="grid grid-cols-2 h-full bg-white">
+  const content = (
+    <div className="fixed z-50 bg-white shadow-lg left-[240px] top-[108px] right-0 bottom-[40px] grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[1fr_1fr_320px]">
       <div className="h-full border-r border-gray-200">
         <iframe src={pdfUrl} className="w-full h-full" title="PDF Preview" />
       </div>
@@ -45,6 +46,8 @@ export const DatasheetSplitView: React.FC<Props> = ({ assetId, pdfUrl, initialPa
       </div>
     </div>
   );
+
+  return createPortal(content, document.getElementById('datasheet-overlay-root')!);
 };
 
 const FormInput: React.FC<{ label: string; value: string; onChange: (v: string) => void }> = ({ label, value, onChange }) => (
