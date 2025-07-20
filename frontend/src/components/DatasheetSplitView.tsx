@@ -2,6 +2,7 @@ import React, { useState, useEffect, Fragment } from 'react';
 import { createPortal } from 'react-dom';
 import { useDebounce } from 'use-debounce';
 import ChatPanel from './ChatPanel';
+import { theme } from '../theme';
 
 interface Props {
   assetId: string;
@@ -22,7 +23,15 @@ export const DatasheetSplitView: React.FC<Props> = ({ assetId, pdfUrl, initialPa
   }, [debounced, assetId, onSave, initialParsedData]);
 
   const content = (
-    <div className="fixed z-50 bg-white shadow-lg left-[240px] top-[108px] right-0 bottom-[40px] grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[1fr_1fr_320px]">
+    <div
+      className="fixed z-50 bg-white shadow-2xl grid grid-cols-1 md:grid-cols-2"
+      style={{
+        top: theme.layout.appBarHeight + theme.layout.actionBarHeight,
+        left: theme.layout.drawerWidth,
+        width: `calc(100vw - ${theme.layout.drawerWidth}px)`,
+        height: `calc(100vh - ${theme.layout.appBarHeight + theme.layout.actionBarHeight + theme.layout.footerHeight}px)`,
+      }}
+    >
       <div className="h-full border-r border-gray-200">
         <iframe src={pdfUrl} className="w-full h-full" title="PDF Preview" />
       </div>
@@ -40,7 +49,7 @@ export const DatasheetSplitView: React.FC<Props> = ({ assetId, pdfUrl, initialPa
           <ParsedDataForm data={data} onDataChange={setData} />
         </div>
 
-        <div className="border-t border-gray-200 bg-gray-50 h-60">
+        <div className="border-t border-gray-200 bg-gray-50">
           <ChatPanel />
         </div>
       </div>
@@ -51,13 +60,13 @@ export const DatasheetSplitView: React.FC<Props> = ({ assetId, pdfUrl, initialPa
 };
 
 const FormInput: React.FC<{ label: string; value: string; onChange: (v: string) => void }> = ({ label, value, onChange }) => (
-  <div className="mb-4">
-    <label className="block text-sm font-medium text-gray-700 capitalize">{label.replace(/_/g, ' ')}</label>
+  <div className="grid grid-cols-3 gap-4 items-center">
+    <label className="text-sm font-medium text-gray-600 capitalize text-right">{label.replace(/_/g, ' ')}</label>
     <input
       type="text"
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+      className="col-span-2 mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
     />
   </div>
 );
@@ -90,13 +99,13 @@ const ParsedDataForm: React.FC<{ data: any; onDataChange: (d: any) => void }> = 
   };
 
   return (
-    <div className="p-6">
+    <div className="p-6 space-y-4">
       {Object.entries(data).map(([key, value]) => {
         if (typeof value === 'object' && value !== null) {
           return (
             <Fragment key={key}>
               <h3 className="text-lg font-semibold text-gray-900 capitalize mt-6 mb-4 border-b pb-2">{key.replace(/_/g, ' ')}</h3>
-              {renderObjectFields(value, key)}
+              <div className="space-y-4">{renderObjectFields(value, key)}</div>
             </Fragment>
           );
         }
