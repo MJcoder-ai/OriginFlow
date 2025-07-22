@@ -84,6 +84,9 @@ The dev server expects `index.html` in the frontend project root. Ensure
 Layout dimensions for the sidebar and sub‑navigation are now managed via
 `UIContext` in the frontend. The sidebar width collapses between `250px` and
 `64px` while the optional sub‑navigation row can be toggled from the header.
+The sidebar collapse control lives in the header menu, and the sidebar itself
+shows a persistent logo even when collapsed. The status bar is fixed to the
+bottom of the viewport.
 
 ---
 

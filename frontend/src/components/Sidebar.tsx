@@ -1,5 +1,5 @@
 import React, { useContext } from 'react';
-import { FolderKanban, Box, LifeBuoy, ChevronLeft, ChevronRight } from 'lucide-react';
+import { FolderKanban, Box, LifeBuoy } from 'lucide-react';
 import clsx from 'clsx';
 import { useAppStore, Route } from '../appStore';
 import { FileStagingArea } from './FileStagingArea';
@@ -20,32 +20,25 @@ const SidebarItem = ({ label, route, Icon, collapsed }: { label: string; route: 
 };
 
 const Sidebar: React.FC = () => {
-  const { isSidebarCollapsed, toggleSidebar } = useContext(UIContext);
+  const { isSidebarCollapsed } = useContext(UIContext);
 
   return (
     <aside
       className={`h-full border-r bg-white transition-all duration-300 ease-in-out flex flex-col ${isSidebarCollapsed ? 'w-[64px]' : 'w-[250px]'}`}
       aria-label="Main navigation"
     >
-      <div className="flex items-center justify-end p-2">
-        <button
-          onClick={toggleSidebar}
-          className="p-2 rounded hover:bg-gray-200 focus:outline-none focus-visible:ring"
-          aria-label="Toggle Sidebar"
-          aria-expanded={!isSidebarCollapsed}
-        >
-          {isSidebarCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
-        </button>
+      <div className="flex items-center justify-center h-[64px] font-bold text-lg border-b">
+        {isSidebarCollapsed ? '🌀' : 'OriginFlow'}
       </div>
 
       <nav className="flex flex-col gap-2 px-2 py-4 text-sm">
-        <SidebarItem icon="📁" label="Projects" route="projects" collapsed={isSidebarCollapsed} />
-        <SidebarItem icon="🧩" label="Components" route="components" collapsed={isSidebarCollapsed} />
+        <SidebarItem Icon={FolderKanban} label="Projects" route="projects" collapsed={isSidebarCollapsed} />
+        <SidebarItem Icon={Box} label="Components" route="components" collapsed={isSidebarCollapsed} />
         <FileStagingArea />
       </nav>
 
       <div className="mt-auto px-2 py-4">
-        <SidebarItem icon="❓" label="Help" route="projects" collapsed={isSidebarCollapsed} />
+        <SidebarItem Icon={LifeBuoy} label="Help" route="projects" collapsed={isSidebarCollapsed} />
       </div>
     </aside>
   );
