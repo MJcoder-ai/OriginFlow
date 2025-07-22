@@ -51,17 +51,32 @@ const Layout: React.FC = () => {
   return (
     <DndContext onDragEnd={handleDragEnd}>
       <div
-        className="h-screen w-screen flex flex-col md:grid grid-areas-layout"
+        className="h-screen w-screen grid"
         style={{
           gridTemplateColumns: `${sidebarWidth} 1fr 350px`,
-          gridTemplateRows: `${isSubNavVisible ? '64px auto' : '64px'} 1fr 48px`,
+          gridTemplateRows: `${isSubNavVisible ? 'auto auto' : 'auto'} 1fr`,
+          gridTemplateAreas: `\n            "header header header"\n            ${isSubNavVisible ? '"toolbar toolbar toolbar"' : ''}\n            "sidebar main chat"\n          `,
         }}
       >
-        <Header />
-        <ActionBar />
-        <Sidebar />
-        <MainPanel />
-        <ChatSidebar className="[grid-area:chat]" />
+        <div style={{ gridArea: 'header' }}>
+          <Header />
+        </div>
+        {isSubNavVisible && (
+          <div style={{ gridArea: 'toolbar' }}>
+            <ActionBar />
+          </div>
+        )}
+        <div style={{ gridArea: 'sidebar' }}>
+          <Sidebar />
+        </div>
+        <div style={{ gridArea: 'main', overflow: 'hidden' }}>
+          <MainPanel />
+        </div>
+        <div style={{ gridArea: 'chat' }}>
+          <ChatSidebar />
+        </div>
+      </div>
+      <div className="fixed bottom-0 w-full z-50">
         <StatusBar />
       </div>
     </DndContext>
