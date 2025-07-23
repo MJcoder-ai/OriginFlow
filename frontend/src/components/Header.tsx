@@ -1,55 +1,50 @@
-/**
- * File: frontend/src/components/Header.tsx
- * Top bar component showing global navigation and agent statuses.
- * Includes buttons to toggle the sidebar and action bar visibility.
- */
-import React, { useContext } from 'react';
-import { Menu, Settings } from 'lucide-react';
-import { UIContext } from '../context/UIContext';
+import React from 'react';
+import { Settings } from 'lucide-react';
 
-/** Props accepted by the Header component. */
-/** Props for the AgentStatus subcomponent. */
-interface AgentStatusProps {
-  /** Display name abbreviation. */
-  name: string;
-  /** Optional flag to mark the agent offline. */
-  isOffline?: boolean;
-}
+const Header = ({ toggleSidebar, toggleToolbar }: { toggleSidebar: () => void; toggleToolbar: () => void }) => (
+  <header className="h-16 flex items-center justify-between px-4 bg-white border-b shadow-sm">
+    {/* Left: ☰ Toggle only */}
+    <div className="flex items-center gap-4">
+      <button
+        onClick={toggleSidebar}
+        className="ml-[4px] p-2 rounded-md hover:bg-gray-100 focus:ring-2 focus:ring-blue-500"
+        aria-label="Toggle sidebar"
+      >
+        ☰
+      </button>
+    </div>
 
-/** Display a round badge representing agent status. */
-const AgentStatus: React.FC<AgentStatusProps> = ({ name, isOffline }) => (
-  <div className={`w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-semibold ${isOffline ? 'opacity-30' : ''}`}>{name}</div>
+    {/* Center: Tabs + Gear */}
+    <div className="flex items-center gap-4">
+      <nav role="tablist" aria-label="Primary navigation" className="flex gap-2">
+        {['GlobalNav_1', 'GlobalNav_2', 'GlobalNav_3'].map((tab) => (
+          <button
+            key={tab}
+            role="tab"
+            className="px-4 py-2 rounded-md hover:bg-gray-100 aria-selected:bg-blue-100"
+            aria-selected={tab === 'GlobalNav_1'}
+          >
+            {tab}
+          </button>
+        ))}
+      </nav>
+
+      <button
+        onClick={toggleToolbar}
+        className="p-2 rounded-full hover:bg-gray-100"
+        aria-label="Toggle sub-navigation"
+        title="Toggle Sub-Nav"
+      >
+        <Settings className="h-5 w-5" />
+      </button>
+    </div>
+
+    {/* Right: Avatars */}
+    <div className="flex gap-1">
+      <span className="h-6 w-6 rounded-full bg-blue-200 text-xs flex items-center justify-center">AI_1</span>
+      <span className="h-6 w-6 rounded-full bg-gray-300 text-xs flex items-center justify-center">Eng_1</span>
+    </div>
+  </header>
 );
-
-/** Header containing global navigation and agent indicators. */
-const Header: React.FC = () => {
-  const { toggleSidebar, isSubNavVisible, toggleSubNav } = useContext(UIContext);
-  return (
-    <header className="[grid-area:topbar] bg-white border-b shadow-sm flex items-center justify-between h-[64px] px-4">
-      <div className="flex items-center gap-6">
-        <button onClick={toggleSidebar} aria-label="Toggle Sidebar" className="text-gray-500 hover:text-gray-800">
-          <Menu size={24} />
-        </button>
-        <nav role="tablist" className="flex items-center gap-4">
-          <button role="tab" className="text-sm font-medium text-gray-700 hover:text-black">GlobalNav_1</button>
-          <button role="tab" className="text-sm font-medium text-gray-700 hover:text-black">GlobalNav_2</button>
-          <button role="tab" className="text-sm font-medium text-gray-700 hover:text-black">GlobalNav_3</button>
-        </nav>
-      </div>
-
-      <div className="flex items-center gap-4">
-        <button
-          onClick={toggleSubNav}
-          aria-label="Toggle Sub Navigation"
-          aria-pressed={isSubNavVisible}
-          title="Toggle Sub-Nav"
-          className={`transition-transform hover:rotate-90 ${isSubNavVisible ? 'text-blue-600' : 'text-gray-600'}`}
-        >
-          <Settings size={20} />
-        </button>
-      </div>
-    </header>
-  );
-};
 
 export default Header;
