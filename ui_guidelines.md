@@ -167,8 +167,9 @@ The app layout is defined using **CSS Grid** inside a full-height flex container
 ## 7. StatusBar.tsx
 
 ```tsx
+const { statusMessages } = useAppStore();
 <footer className="h-12 flex items-center px-6 bg-white border-t shadow text-sm" role="status" aria-live="polite">
-  Status: Link Created
+  {statusMessages[statusMessages.length - 1]?.message ?? 'Ready'}
 </footer>
 ```
 

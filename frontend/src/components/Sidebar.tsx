@@ -1,38 +1,43 @@
 import React from 'react';
 import { HelpCircle, Box, Book } from 'lucide-react';
+import { useAppStore } from '../appStore';
 
 const NAV_ITEMS = [
-  { name: 'Projects', icon: Book, href: '#projects' },
-  { name: 'Components', icon: Box, href: '#components' },
+  { name: 'projects', label: 'Projects', icon: Book },
+  { name: 'components', label: 'Components', icon: Box },
 ];
 
-const Sidebar = ({ isCollapsed }: { isCollapsed: boolean }) => (
-  <aside className="w-[250px] flex flex-col bg-gray-50 border-r">
-    {/* Logo + Title */}
-    <div className="h-16 flex items-center justify-center border-b text-xl font-bold">
-      🌀 {!isCollapsed && <span className="ml-2">OriginFlow</span>}
-    </div>
+const Sidebar = ({ isCollapsed }: { isCollapsed: boolean }) => {
+  const currentRoute = useAppStore((s) => s.route);
+  const setRoute = useAppStore((s) => s.setRoute);
 
-    {/* Navigation */}
-    <nav className="flex-1 py-4 px-2" aria-label="Sidebar navigation">
-      <ul className="space-y-1">
-        {NAV_ITEMS.map((item) => (
-          <li key={item.name}>
-            <a
-              href={item.href}
-              className={`flex items-center gap-3 p-3 rounded-r-lg transition-colors ${
-                isCollapsed ? 'justify-center' : ''
-              } hover:bg-blue-50`}
-              aria-current={item.name === 'Projects' ? 'page' : undefined}
-              title={isCollapsed ? item.name : undefined}
-            >
-              <item.icon className="h-5 w-5" />
-              {!isCollapsed && <span>{item.name}</span>}
-            </a>
-          </li>
-        ))}
-      </ul>
-    </nav>
+  return (
+    <aside className="w-[250px] flex flex-col bg-gray-50 border-r">
+      {/* Logo + Title */}
+      <div className="h-16 flex items-center justify-center border-b text-xl font-bold">
+        🌀 {!isCollapsed && <span className="ml-2">OriginFlow</span>}
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 py-4 px-2" aria-label="Sidebar navigation">
+        <ul className="space-y-1">
+          {NAV_ITEMS.map((item) => (
+            <li key={item.name}>
+              <button
+                onClick={() => setRoute(item.name as any)}
+                className={`flex w-full items-center gap-3 p-3 rounded-r-lg transition-colors ${
+                  isCollapsed ? 'justify-center' : ''
+                } ${currentRoute === item.name ? 'bg-blue-100 text-blue-600' : 'hover:bg-blue-50'}`}
+                aria-current={currentRoute === item.name ? 'page' : undefined}
+                title={isCollapsed ? item.label : undefined}
+              >
+                <item.icon className="h-5 w-5" />
+                {!isCollapsed && <span>{item.label}</span>}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </nav>
 
     {/* Help aligned to status height */}
     <div className={`py-[12px] border-t px-4 ${isCollapsed ? 'text-center' : ''}`}>
@@ -41,7 +46,8 @@ const Sidebar = ({ isCollapsed }: { isCollapsed: boolean }) => (
         {!isCollapsed && 'Help & Support'}
       </a>
     </div>
-  </aside>
-);
+    </aside>
+  );
+};
 
 export default Sidebar;
