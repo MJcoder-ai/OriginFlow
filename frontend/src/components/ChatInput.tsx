@@ -18,8 +18,17 @@ export const ChatInput: React.FC = () => {
     useAppStore();
 
   const [message, setMessage] = useState('');
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const recognitionRef = useRef<any>(null);
   const speechTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Auto-resize the textarea based on its scroll height
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
+    }
+  }, [message]);
 
   // When voice mode switches to processing, submit the current message
   useEffect(() => {
@@ -116,14 +125,20 @@ export const ChatInput: React.FC = () => {
       </button>
 
       <div className="relative w-full">
-        <input
-          type="text"
+        <textarea
+          ref={textareaRef}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleTextSubmit()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              handleTextSubmit();
+            }
+          }}
           placeholder="Type a message or click the mic to dictate..."
-          className="w-full h-10 px-3 pr-20 text-sm bg-gray-100 border border-transparent rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+          className="w-full resize-none overflow-hidden min-h-[32px] max-h-[120px] py-2 px-3 pr-20 text-sm bg-gray-100 border border-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
           disabled={isAiProcessing}
+          rows={1}
         />
         <div className="absolute top-0 right-0 flex items-center h-full mr-3">
           <button
