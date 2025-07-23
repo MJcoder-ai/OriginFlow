@@ -1,11 +1,8 @@
-import React, { useContext } from 'react';
+import React from 'react';
 import { useAppStore } from '../appStore';
-import { UIContext } from '../context/UIContext';
 
 const Toolbar: React.FC = () => {
-  const { isSubNavVisible } = useContext(UIContext);
   const analyzeAndExecute = useAppStore((s) => s.analyzeAndExecute);
-  if (!isSubNavVisible) return null;
   return (
     <section
       className="flex items-center justify-between px-4 py-2 border-b bg-gray-50 transition-all duration-300"

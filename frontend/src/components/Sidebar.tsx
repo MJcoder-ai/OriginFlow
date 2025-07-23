@@ -1,47 +1,47 @@
-import React, { useContext } from 'react';
-import { FolderKanban, Box, LifeBuoy } from 'lucide-react';
-import clsx from 'clsx';
-import { useAppStore, Route } from '../appStore';
-import { FileStagingArea } from './FileStagingArea';
-import { UIContext } from '../context/UIContext';
+import React from 'react';
+import { HelpCircle, Box, Book } from 'lucide-react';
 
-const SidebarItem = ({ label, route, Icon, collapsed }: { label: string; route: Route; Icon?: React.ComponentType<{ size?: number }>; collapsed: boolean }) => {
-  const setRoute = useAppStore((s) => s.setRoute);
-  const active = useAppStore((s) => s.route) === route;
-  return (
-    <li
-      className={clsx('flex items-center p-2 rounded-lg cursor-pointer', active && 'bg-blue-100')}
-      onClick={() => setRoute(route)}
-    >
-      {Icon && <Icon size={20} className="flex-shrink-0" />}
-      <span className={clsx('ml-3 transition-opacity duration-200', { 'opacity-0': collapsed })}>{label}</span>
-    </li>
-  );
-};
+const NAV_ITEMS = [
+  { name: 'Projects', icon: Book, href: '#projects' },
+  { name: 'Components', icon: Box, href: '#components' },
+];
 
-const Sidebar: React.FC = () => {
-  const { isSidebarCollapsed } = useContext(UIContext);
+const Sidebar = ({ isCollapsed }: { isCollapsed: boolean }) => (
+  <aside className="h-full flex flex-col bg-gray-50 border-r">
+    {/* Logo + Title */}
+    <div className="h-16 flex items-center justify-center border-b text-xl font-bold">
+      🌀 {!isCollapsed && <span className="ml-2">OriginFlow</span>}
+    </div>
 
-  return (
-    <aside
-      className={`h-full border-r bg-white transition-all duration-300 ease-in-out flex flex-col ${isSidebarCollapsed ? 'w-[64px]' : 'w-[250px]'}`}
-      aria-label="Main navigation"
-    >
-      <div className="flex items-center justify-center h-[64px] font-bold text-lg border-b">
-        {isSidebarCollapsed ? '🌀' : 'OriginFlow'}
-      </div>
+    {/* Navigation */}
+    <nav className="flex-1 py-4 px-2" aria-label="Sidebar navigation">
+      <ul className="space-y-1">
+        {NAV_ITEMS.map((item) => (
+          <li key={item.name}>
+            <a
+              href={item.href}
+              className={`flex items-center gap-3 p-3 rounded-r-lg transition-colors ${
+                isCollapsed ? 'justify-center' : ''
+              } hover:bg-blue-50`}
+              aria-current={item.name === 'Projects' ? 'page' : undefined}
+              title={isCollapsed ? item.name : undefined}
+            >
+              <item.icon className="h-5 w-5" />
+              {!isCollapsed && <span>{item.name}</span>}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
 
-      <nav className="flex flex-col gap-2 px-2 py-4 text-sm">
-        <SidebarItem Icon={FolderKanban} label="Projects" route="projects" collapsed={isSidebarCollapsed} />
-        <SidebarItem Icon={Box} label="Components" route="components" collapsed={isSidebarCollapsed} />
-        <FileStagingArea />
-      </nav>
-
-      <div className="mt-auto px-2 py-4">
-        <SidebarItem Icon={LifeBuoy} label="Help" route="projects" collapsed={isSidebarCollapsed} />
-      </div>
-    </aside>
-  );
-};
+    {/* Help aligned to status height */}
+    <div className={`py-[12px] border-t px-4 ${isCollapsed ? 'text-center' : ''}`}>
+      <a href="#help" className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
+        <HelpCircle className="h-4 w-4" />
+        {!isCollapsed && 'Help & Support'}
+      </a>
+    </div>
+  </aside>
+);
 
 export default Sidebar;

@@ -1,85 +1,62 @@
-/**
- * File: frontend/src/components/Layout.tsx
- * Provides the application layout using CSS Grid with collapsible sidebar
- * and action bar sections for responsive engineer UI.
- */
-import React, { useContext } from 'react';
-import Sidebar from './Sidebar';
+import React, { useState } from 'react';
 import Header from './Header';
-import ActionBar from './ActionBar';
+import Toolbar from './Toolbar';
+import Sidebar from './Sidebar';
 import MainPanel from './MainPanel';
-import StatusBar from './StatusBar';
 import ChatSidebar from './ChatSidebar';
-import { DndContext, DragEndEvent } from '@dnd-kit/core';
-import { useAppStore, UploadEntry } from '../appStore';
-import { UIContext } from '../context/UIContext';
+import StatusBar from './StatusBar';
 
-/**
- * Main layout component orchestrating structural UI elements.
- */
 const Layout: React.FC = () => {
-  const { addComponent, updateComponentPosition } = useAppStore();
-  const { isSidebarCollapsed, isSubNavVisible } = useContext(UIContext);
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over, delta } = event;
-    if (!active.id || !over) return;
-
-    // Dropping a component asset onto the project canvas adds an instance
-    if (over.id === 'canvas-area' && active.data.current?.type === 'file-asset') {
-      const asset = active.data.current.asset as UploadEntry;
-      addComponent({
-        name: asset.name,
-        type: 'Datasheet',
-        standard_code: `CODE-${Date.now()}`,
-        x: 100,
-        y: 100,
-      });
-      return;
-    }
-
-    // Dropping a datasheet onto the components canvas is handled locally
-
-    // Otherwise reposition existing component
-    if (active.data.current?.type !== 'file-asset') {
-      updateComponentPosition(active.id as string, delta);
-    }
-  };
-
-  const sidebarWidth = isSidebarCollapsed ? '64px' : '250px';
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSubNavVisible, setIsSubNavVisible] = useState(true);
 
   return (
-    <DndContext onDragEnd={handleDragEnd}>
+    <div className="h-screen flex flex-col">
       <div
-        className="h-screen w-screen grid"
+        className="grid h-full w-full transition-all duration-300 ease-in-out"
         style={{
-          gridTemplateColumns: `${sidebarWidth} 1fr 350px`,
-          gridTemplateRows: `${isSubNavVisible ? 'auto auto' : 'auto'} 1fr`,
-          gridTemplateAreas: `\n            "header header header"\n            ${isSubNavVisible ? '"toolbar toolbar toolbar"' : ''}\n            "sidebar main chat"\n          `,
+          gridTemplateColumns: `${isSidebarCollapsed ? '64px' : '250px'} 1fr 350px`,
+          gridTemplateRows: '64px 48px 1fr',
+          gridTemplateAreas: `
+            "header header header"
+            "toolbar toolbar toolbar"
+            "sidebar main chat"
+          `,
         }}
       >
-        <div style={{ gridArea: 'header' }}>
-          <Header />
-        </div>
+        <header className="grid-in-header">
+          <Header
+            toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            toggleToolbar={() => setIsSubNavVisible(!isSubNavVisible)}
+          />
+        </header>
+
         {isSubNavVisible && (
-          <div style={{ gridArea: 'toolbar' }}>
-            <ActionBar />
+          <div className="grid-in-toolbar">
+            <Toolbar />
           </div>
         )}
-        <div style={{ gridArea: 'sidebar' }}>
-          <Sidebar />
-        </div>
-        <div style={{ gridArea: 'main', overflow: 'hidden' }}>
+
+        <aside
+          className={`grid-in-sidebar transition-all duration-300 ease-in-out ${
+            isSidebarCollapsed ? 'w-16' : 'w-64'
+          }`}
+          aria-label="Main navigation"
+        >
+          <Sidebar isCollapsed={isSidebarCollapsed} />
+        </aside>
+
+        <main className="grid-in-main overflow-hidden">
           <MainPanel />
-        </div>
-        <div style={{ gridArea: 'chat' }}>
+        </main>
+
+        <div className="grid-in-chat max-md:fixed max-md:right-0 max-md:top-0 max-md:h-full max-md:z-50 max-md:shadow-2xl">
           <ChatSidebar />
         </div>
       </div>
-      <div className="fixed bottom-0 w-full z-50">
-        <StatusBar />
-      </div>
-    </DndContext>
+
+      <StatusBar />
+    </div>
   );
 };
 
