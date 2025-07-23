@@ -1,4 +1,4 @@
-# OriginFlow UI Guidelines (v3.1)
+# OriginFlow UI Guidelines (v3.2.1)
 
 This document defines the implementation specification for all major UI components in the OriginFlow app. It provides layout structure, behavior, styling patterns, accessibility expectations, and code patterns for consistent implementation.
 
@@ -21,9 +21,10 @@ The app layout is defined using **CSS Grid** inside a full-height flex container
         "sidebar main chat"
         "status status chatInput"
       `,
+      columnGap: '4px',
+      rowGap: '4px',
     }}
   >
-    {/* Grid children below */}
     <Header />
     <Toolbar />
     <Sidebar />
@@ -49,146 +50,173 @@ The app layout is defined using **CSS Grid** inside a full-height flex container
 
 ---
 
-## 1. Header.tsx
+## Sidebar Width Sync
 
-```tsx
-<header className="h-16 flex items-center justify-between px-4 bg-white border-b shadow-sm">
-  <div className="flex items-center gap-6">
-    <button aria-label="Toggle sidebar">☰</button>
-  </div>
+Define custom tokens:
 
-  <nav role="tablist" className="flex gap-2">
-    {['GlobalNav_1', 'GlobalNav_2', 'GlobalNav_3'].map(tab => (
-      <button role="tab" aria-selected={false}>{tab}</button>
-    ))}
-    <button aria-label="Toggle subnav"><SettingsIcon /></button>
-  </nav>
-
-  <div className="flex gap-1">
-    <Avatar name="AI_1" />
-    <Avatar name="Eng_1" />
-  </div>
-</header>
+```css
+:root {
+  --sidebar-width-expanded: 250px;
+  --sidebar-width-collapsed: 64px;
+}
 ```
 
-### Accessibility
-
-- Use `role="tablist"` and `aria-selected`
-- All interactive elements must have `aria-label` or `title`
-
----
-
-## 2. Sidebar.tsx
+Then apply:
 
 ```tsx
-<aside className="w-[250px] bg-gray-50 border-r flex flex-col">
-  <div className="h-16 flex items-center justify-center border-b">
-    <LogoIcon /> OriginFlow
-  </div>
-
-  <nav aria-label="Main navigation" className="flex-1 p-4 space-y-2">
-    <SidebarItem icon={<ProjectIcon />} label="Projects" />
-    <SidebarItem icon={<ComponentIcon />} label="Components" />
-  </nav>
-
-  <div className="p-4 border-t">
-    <SidebarItem icon={<HelpIcon />} label="Help & Support" />
-  </div>
-</aside>
+<aside className={`transition-[width] duration-200 ${sidebarCollapsed ? 'w-[var(--sidebar-width-collapsed)]' : 'w-[var(--sidebar-width-expanded)]'}`}>
 ```
 
 ---
 
-## 3. Toolbar.tsx
+## Responsive ChatSidebar (Overlay Mode)
 
 ```tsx
-<section className="h-12 flex items-center justify-between px-6 border-b bg-white shadow-sm">
-  <div className="flex gap-3">
-    <button>Analyze</button>
-    <button>Filter</button>
-    <button>Export</button>
-  </div>
-  <div className="text-sm text-gray-500">Sub-nav active</div>
-</section>
+@media (max-width: 1280px) {
+  .grid {
+    grid-template-columns: auto 1fr;
+    grid-template-areas:
+      "header header"
+      "toolbar toolbar"
+      "sidebar main"
+      "status chatInput";
+  }
+}
+
+.chat-sidebar {
+  @apply fixed right-0 top-0 h-full w-[350px] z-50 bg-white shadow-xl;
+}
+
+.chat-backdrop {
+  @apply fixed inset-0 bg-black/30 backdrop-blur-sm;
+  animation: fadeIn 150ms ease-in;
+}
+```
+
+Use focus trap:
+
+```tsx
+const { ref: chatRef } = useFocusTrap({ active: isChatOverlayOpen });
 ```
 
 ---
 
-## 4. MainPanel.tsx
+## StatusBar State Handling
 
 ```tsx
-<main className="overflow-auto bg-gray-100">
-  <div className="border-2 border-dashed min-w-[2000px] min-h-[1200px] bg-grid-pattern m-6 relative">
-    <p className="absolute inset-0 flex justify-center items-center text-gray-400">
-      Drag components here to start
-    </p>
-  </div>
-</main>
+<footer role="status" aria-live="polite">
+  {statusMessages[0]?.text || 'Ready'}
+</footer>
+```
+
+Color styles:
+
+```ts
+const statusColors = {
+  success: 'text-green-700 bg-green-50 border-green-200',
+  error:   'text-red-700 bg-red-50 border-red-200',
+  info:    'text-blue-700 bg-blue-50 border-blue-200',
+}
+```
+
+Status interface:
+
+```ts
+interface StatusMessage {
+  id: string;
+  text: string;
+  type: 'success' | 'error' | 'info';
+  icon?: JSX.Element;
+}
 ```
 
 ---
 
-## 5. ChatSidebar.tsx
+## ChatPanel Enhancements
+
+- Scroll-to-bottom on new message unless user is scrolling
+- Add `aria-live="polite"` to announce messages
+- Optional: Show timestamps
 
 ```tsx
-<aside className="w-[350px] flex flex-col h-full border-l bg-white">
-  {selectedComponent && (
-    <div className="max-h-[250px] overflow-y-auto border-b p-4" role="dialog">
-      <h2>Properties</h2>
-      {/* form fields */}
-    </div>
-  )}
-  <div className="flex-1 overflow-y-auto p-4 bg-gray-50" aria-label="Chat history">
-    <ChatPanel />
-  </div>
-</aside>
+const [userScrolling, setUserScrolling] = useState(false);
+useEffect(() => {
+  if (!userScrolling) scrollToBottom();
+}, [chatMessages]);
 ```
 
 ---
 
-## 6. ChatInput.tsx
+## ChatInput Enhancements
+
+```tsx
+const MAX_CHAT_LENGTH = 2048;
+const WARNING_THRESHOLD = 1800;
+```
 
 ```tsx
 <form onSubmit={handleSubmit} className="flex flex-col gap-2 px-4 py-2">
   <textarea
-    ref={textareaRef}
-    className="w-full resize-none overflow-hidden min-h-[32px] max-h-[120px] border rounded"
+    value={value}
+    maxLength={MAX_CHAT_LENGTH}
     aria-label="Compose message"
-    onKeyDown={handleKey}
+    placeholder="Type your message..."
+    className="resize-none overflow-hidden"
   />
-  <div className="flex justify-end">
-    <button type="submit" className="btn-primary">Send</button>
+  <div className="flex justify-between text-xs text-gray-500">
+    <span>{value.length}/{MAX_CHAT_LENGTH}</span>
+    <button type="submit" disabled={!value.trim() || value.length > MAX_CHAT_LENGTH}>Send</button>
   </div>
 </form>
 ```
 
 ---
 
-## 7. StatusBar.tsx
+## Accessibility: Motion, Contrast, and Reduced Motion
 
-```tsx
-<footer className="h-12 flex items-center px-6 bg-white border-t shadow text-sm" role="status" aria-live="polite">
-  Status: Link Created
-</footer>
+```css
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .contrast-safe {
+    border-color: #000;
+    color: #000;
+    background: #fff;
+  }
+}
 ```
 
 ---
 
 ## Responsive Behavior
 
-| Width            | Behavior                    |
-| ---------------- | --------------------------- |
-| `> 1280px`       | Full layout                 |
-| `768px - 1280px` | ChatSidebar becomes overlay |
-| `< 768px`        | Stacked column layout       |
+| Width       | Behavior                    |
+| ----------- | --------------------------- |
+| ≥ 1280 px   | Full layout                 |
+| 768–1279 px | ChatSidebar becomes overlay |
+| < 768 px    | Stack Sidebar + Main layout |
+
+### Mobile Drawer Spec
+
+```tsx
+<nav className="fixed inset-0 z-50 bg-white p-4 transform transition-transform" aria-modal="true">
+  <ul className="space-y-3">{navItems}</ul>
+</nav>
+```
 
 ---
 
 ## Accessibility
 
 - Landmarks: `<header>`, `<main>`, `<aside>`, `<footer>`
-- All buttons must be keyboard-accessible (`Enter`, `Space`)
-- Color contrast must meet WCAG 2.1 AA
+- Buttons: `aria-label`, keyboard-accessible
+- Contrast: ≥ 4.5:1
+- Motion: optional disable via `prefers-reduced-motion`
+- Focus: `focus-visible:ring-1 ring-offset-1`
 
 ---
 
@@ -201,8 +229,20 @@ interface AppState {
   selectedComponent: Component | null;
   chatMessages: ChatMessage[];
   statusMessages: StatusMessage[];
+  chatOverlayOpen: boolean;
+  reducedMotion: boolean;
+  theme: 'light' | 'dark';
 }
 ```
+
+---
+
+## Documentation Changelog
+
+| Version | Date       | Notes                                                         |
+| ------- | ---------- | ------------------------------------------------------------- |
+| v3.2.1  | 2024-07-23 | Added gaps, focus-trap snippet, severity colors, state fields |
+| v3.2    | 2024-06-15 | Initial release with grid-based layout                        |
 
 ---
 
