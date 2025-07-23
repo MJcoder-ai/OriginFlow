@@ -193,7 +193,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectComponent: (id) => set({ selectedComponentId: id }),
   async fetchProject() {
     set({ status: 'loading' });
-    get().addStatusMessage('Loading project...');
+    get().addStatusMessage('Loading project...', 'info');
     try {
       const [components, linksFromApi] = await Promise.all([
         api.getComponents(),
@@ -207,16 +207,16 @@ export const useAppStore = create<AppState>((set, get) => ({
         ],
       }));
       set({ canvasComponents: enrichedComponents, links: linksFromApi, status: 'ready' });
-      get().addStatusMessage('Project loaded');
+      get().addStatusMessage('Project loaded', 'success');
     } catch (error) {
       console.error('Failed to load project:', error);
       set({ status: 'Error: Could not load project' });
-      get().addStatusMessage('Failed to load project');
+      get().addStatusMessage('Failed to load project', 'error');
     }
   },
   async addComponent(payload) {
     set({ status: `Adding ${payload.type}...` });
-    get().addStatusMessage(`Adding ${payload.type}...`);
+    get().addStatusMessage(`Adding ${payload.type}...`, 'info');
     try {
       const saved = await api.createComponent(payload);
       const component: CanvasComponent = {
@@ -230,11 +230,11 @@ export const useAppStore = create<AppState>((set, get) => ({
         canvasComponents: [...state.canvasComponents, component],
         status: `Component ${saved.name} added`,
       }));
-      get().addStatusMessage(`Component ${saved.name} added`);
+      get().addStatusMessage(`Component ${saved.name} added`, 'success');
     } catch (error) {
       console.error('Failed to add component:', error);
       set({ status: 'Error: Could not add component' });
-      get().addStatusMessage('Failed to add component');
+      get().addStatusMessage('Failed to add component', 'error');
     }
   },
   async updateComponentName(componentId, newName) {
@@ -303,15 +303,15 @@ export const useAppStore = create<AppState>((set, get) => ({
       return;
     }
     set({ status: 'Creating link...' });
-    get().addStatusMessage('Creating link...');
+    get().addStatusMessage('Creating link...', 'info');
     try {
       const saved = await api.createLink({ source_id, target_id });
       set((state) => ({ links: [...state.links, saved], status: 'Link created' }));
-      get().addStatusMessage('Link created');
+      get().addStatusMessage('Link created', 'success');
     } catch (error) {
       console.error('Failed to add link:', error);
       set({ status: 'Error: Could not create link' });
-      get().addStatusMessage('Failed to create link');
+      get().addStatusMessage('Failed to create link', 'error');
     }
   },
 
@@ -354,7 +354,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     // 1. Add user message and set processing state
     addMessage({ id: crypto.randomUUID(), author: 'User', text: command });
     setIsAiProcessing(true);
-    get().addStatusMessage('Processing command');
+    get().addStatusMessage('Processing command', 'info');
 
     try {
       const snapshot = { components: canvasComponents, links };
@@ -364,14 +364,14 @@ export const useAppStore = create<AppState>((set, get) => ({
       // 2. Add AI success message
       const successMessage = `I have successfully executed ${actions.length} action(s).`;
       addMessage({ id: crypto.randomUUID(), author: 'AI', text: successMessage });
-      get().addStatusMessage('AI actions executed');
+      get().addStatusMessage('AI actions executed', 'success');
     } catch (error) {
       console.error('AI command failed:', error);
       const errorMessage = 'Sorry, I ran into an error trying to do that.';
       // 3. Add AI error message
       addMessage({ id: crypto.randomUUID(), author: 'AI', text: errorMessage });
       set({ status: 'Error: AI command failed' });
-      get().addStatusMessage('AI command failed');
+      get().addStatusMessage('AI command failed', 'error');
     } finally {
       // 4. Reset processing state
       setIsAiProcessing(false);

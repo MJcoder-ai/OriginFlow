@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Header from './Header';
 import Toolbar from './Toolbar';
 import Sidebar from './Sidebar';
-import MainPanel from './MainPanel';
+import ProjectCanvas from './ProjectCanvas';
 import ChatSidebar from './ChatSidebar';
 import StatusBar from './StatusBar';
 import { ChatInput } from './ChatInput';
@@ -14,16 +14,10 @@ const Layout: React.FC = () => {
   return (
     <div className="h-screen flex flex-col">
       <div
-        className="grid h-full w-full transition-all duration-300 ease-in-out"
+        className="grid h-full w-full transition-all duration-300 ease-in-out grid-areas-layout"
         style={{
           gridTemplateColumns: `${isSidebarCollapsed ? '64px' : '250px'} 1fr 350px`,
           gridTemplateRows: '64px 48px 1fr 48px',
-          gridTemplateAreas: `
-            "header header header"
-            "toolbar toolbar toolbar"
-            "sidebar main chat"
-            "status status chatInput"
-          `,
         }}
       >
         <header className="grid-in-header">
@@ -49,7 +43,7 @@ const Layout: React.FC = () => {
         </aside>
 
         <main className="grid-in-main overflow-hidden">
-          <MainPanel />
+          <ProjectCanvas />
         </main>
 
         <div className="grid-in-chat fixed right-0 top-0 h-full z-50 shadow-2xl xl:static xl:shadow-none">
