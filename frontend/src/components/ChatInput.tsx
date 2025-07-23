@@ -115,16 +115,16 @@ export const ChatInput: React.FC = () => {
     }
   };
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleTextSubmit();
+  };
+
 
 
   return (
-    <div className="relative flex items-center w-full">
-      <FileUploadButton />
-      <button className="p-2 mr-2 text-gray-500 hover:text-blue-600 transition-colors">
-        <Wand2 size={20} />
-      </button>
-
-      <div className="relative w-full">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-2 px-4 py-2">
+      <div className="relative">
         <textarea
           ref={textareaRef}
           value={message}
@@ -135,20 +135,27 @@ export const ChatInput: React.FC = () => {
               handleTextSubmit();
             }
           }}
+          aria-label="Compose message"
           placeholder="Type a message or click the mic to dictate..."
-          className="w-full resize-none overflow-hidden min-h-[32px] max-h-[120px] py-2 px-3 pr-20 text-sm bg-gray-100 border border-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+          className="w-full resize-none overflow-hidden min-h-[32px] max-h-[120px] py-2 px-3 pr-20 text-sm bg-gray-100 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
           disabled={isAiProcessing}
           rows={1}
         />
-        <div className="absolute top-0 right-0 flex items-center h-full mr-3">
+        <div className="absolute top-0 right-0 flex items-center h-full mr-3 gap-1">
+          <FileUploadButton />
+          <button className="p-2 text-gray-500 hover:text-blue-600 transition-colors" type="button">
+            <Wand2 size={20} />
+          </button>
           <button
             onClick={toggleContinuousConversation}
+            type="button"
             className={clsx('p-2 text-gray-500 hover:text-blue-600', isContinuousConversation && 'text-blue-500')}
           >
             <Repeat size={16} />
           </button>
           <button
             onClick={toggleListen}
+            type="button"
             className={clsx('p-2 text-gray-500 hover:text-blue-600', voiceMode === 'listening' && 'text-red-500')}
             disabled={!recognitionRef.current}
           >
@@ -156,7 +163,12 @@ export const ChatInput: React.FC = () => {
           </button>
         </div>
       </div>
-    </div>
+      <div className="flex justify-end">
+        <button type="submit" className="btn-primary">
+          Send
+        </button>
+      </div>
+    </form>
   );
 };
 

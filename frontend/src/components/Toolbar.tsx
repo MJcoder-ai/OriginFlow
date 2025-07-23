@@ -5,7 +5,7 @@ const Toolbar: React.FC = () => {
   const analyzeAndExecute = useAppStore((s) => s.analyzeAndExecute);
   return (
     <section
-      className="flex items-center justify-between px-4 py-2 border-b bg-gray-50 transition-all duration-300"
+      className="h-12 flex items-center justify-between px-6 border-b bg-white shadow-sm"
       role="region"
       aria-label="Sub Navigation"
     >
