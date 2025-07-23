@@ -7,7 +7,7 @@ const NAV_ITEMS = [
 ];
 
 const Sidebar = ({ isCollapsed }: { isCollapsed: boolean }) => (
-  <aside className="h-full flex flex-col bg-gray-50 border-r">
+  <aside className="w-[250px] flex flex-col bg-gray-50 border-r">
     {/* Logo + Title */}
     <div className="h-16 flex items-center justify-center border-b text-xl font-bold">
       🌀 {!isCollapsed && <span className="ml-2">OriginFlow</span>}

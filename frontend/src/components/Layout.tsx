@@ -5,6 +5,7 @@ import Sidebar from './Sidebar';
 import MainPanel from './MainPanel';
 import ChatSidebar from './ChatSidebar';
 import StatusBar from './StatusBar';
+import { ChatInput } from './ChatInput';
 
 const Layout: React.FC = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -16,11 +17,12 @@ const Layout: React.FC = () => {
         className="grid h-full w-full transition-all duration-300 ease-in-out"
         style={{
           gridTemplateColumns: `${isSidebarCollapsed ? '64px' : '250px'} 1fr 350px`,
-          gridTemplateRows: '64px 48px 1fr',
+          gridTemplateRows: '64px 48px 1fr 48px',
           gridTemplateAreas: `
             "header header header"
             "toolbar toolbar toolbar"
             "sidebar main chat"
+            "status status chatInput"
           `,
         }}
       >
@@ -50,12 +52,18 @@ const Layout: React.FC = () => {
           <MainPanel />
         </main>
 
-        <div className="grid-in-chat max-md:fixed max-md:right-0 max-md:top-0 max-md:h-full max-md:z-50 max-md:shadow-2xl">
+        <div className="grid-in-chat fixed right-0 top-0 h-full z-50 shadow-2xl xl:static xl:shadow-none">
           <ChatSidebar />
         </div>
-      </div>
 
-      <StatusBar />
+        <footer className="grid-in-status">
+          <StatusBar />
+        </footer>
+
+        <div className="grid-in-chatInput">
+          <ChatInput />
+        </div>
+      </div>
     </div>
   );
 };
