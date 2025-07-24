@@ -12,31 +12,19 @@
     @apply bg-gray-50 text-gray-800;
   }
 
-  /* Ensure the root and html fill the viewport height so the layout grid can take up full height */
   html,
   body,
   #root {
+    margin: 0;
+    padding: 0;
     height: 100%;
+    width: 100%;
+    overflow: hidden;
+    background-color: #111827;
   }
 }
 
 /* Custom CSS to define the grid areas for our layout */
-.grid-areas-layout-desktop {
-  grid-template-areas:
-    "sidebar header"
-    "sidebar toolbar"
-    "sidebar main"
-    "sidebar status";
-}
-
-/* Layout with an additional chat column */
-.grid-areas-layout {
-  grid-template-areas:
-    "sidebar header chat"
-    "sidebar toolbar chat"
-    "sidebar main chat"
-    "sidebar status chat";
-}
 /* Grid area utility classes for layout components */
 .grid-in-header {
   grid-area: header;

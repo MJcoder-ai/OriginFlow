@@ -5,36 +5,28 @@
  */
 module.exports = {
   content: [
-    "./src/**/*.{js,ts,jsx,tsx}",
-    "./components/**/*.{js,ts,jsx,tsx}",
+    './index.html',
+    './src/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
     extend: {
       gridTemplateColumns: {
-        'layout-desktop': '180px 1fr',
-        'layout-desktop-collapsed': '60px 1fr',
+        'layout-collapsed': '64px 1fr 350px',
+        'layout-expanded': '250px 1fr 350px',
       },
       gridTemplateRows: {
-        'layout-desktop': '48px 48px 1fr 40px',
+        layout: '64px 48px 1fr 48px',
       },
-      gridTemplateAreas: {
-        'layout-desktop': [
-          "sidebar topbar",
-          "sidebar action-bar",
-          "sidebar workspace",
-          "sidebar statusbar",
-        ],
-      },
-      animation: {
-        spin: 'spin 1s linear infinite',
-      },
-      keyframes: {
-        spin: {
-          from: { transform: 'rotate(0deg)' },
-          to: { transform: 'rotate(360deg)' },
-        },
+      gridArea: {
+        header: 'header',
+        toolbar: 'toolbar',
+        sidebar: 'sidebar',
+        main: 'main',
+        chat: 'chat',
+        chatInput: 'chatInput',
+        status: 'status',
       },
     },
   },
   plugins: [],
-}
+};

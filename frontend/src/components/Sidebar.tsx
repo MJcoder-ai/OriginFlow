@@ -13,7 +13,7 @@ const Sidebar = ({ isCollapsed }: { isCollapsed: boolean }) => {
   const setRoute = useAppStore((s) => s.setRoute);
 
   return (
-    <aside className="w-[250px] flex flex-col bg-gray-50 border-r">
+    <aside className="w-[250px] flex flex-col bg-gray-50 border-r [grid-area:sidebar]">
       {/* App icon only – the title now lives in the header */}
       <div className="h-16 flex items-center justify-center border-b">
         <span className="text-2xl">🌀</span>
