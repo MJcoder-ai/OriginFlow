@@ -14,11 +14,12 @@ OriginFlow uses a **CSS Grid layout** wrapped in a full-height flex column to st
     className="grid h-full w-full"
     style={{
       gridTemplateColumns: 'auto 1fr 350px',
-      gridTemplateRows: '64px 48px 1fr 48px',
+      gridTemplateRows: '64px 48px 1fr auto auto',
       gridTemplateAreas: `
         "sidebar-header header      chat-history"
         "sidebar        toolbar     chat-history"
         "sidebar        main        chat-history"
+        "sidebar        main        chat-input"
         "sidebar-footer status      chat-footer"
       `,
       columnGap: '4px',
@@ -33,7 +34,8 @@ OriginFlow uses a **CSS Grid layout** wrapped in a full-height flex column to st
     <MainPanel />
     <SidebarFooter />
     <StatusBar />
-    <ChatInput />
+    <ChatInputArea />
+    <ChatFooter />
   </div>
 </div>
 ```
@@ -50,7 +52,8 @@ OriginFlow uses a **CSS Grid layout** wrapped in a full-height flex column to st
 | Sidebar Footer | `sidebar-footer` |
 | Chat History   | `chat-history`   |
 | Status Bar     | `status`         |
-| Chat Input     | `chat-footer`    |
+| Chat Input Area | `chat-input`    |
+| Chat Footer    | `chat-footer`    |
 
 ---
 
@@ -169,7 +172,7 @@ useEffect(() => {
 
 ---
 
-## 📝 ChatInput Enhancements
+## 📝 ChatInputArea Enhancements
 
 ```tsx
 const MAX_CHAT_LENGTH = 2048;

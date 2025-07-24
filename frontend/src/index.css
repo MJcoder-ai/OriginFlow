@@ -33,6 +33,7 @@
   .grid-in-sidebar { grid-area: sidebar; }
   .grid-in-main { grid-area: main; }
   .grid-in-chat-history { grid-area: chat-history; }
+  .grid-in-chat-input { grid-area: chat-input; }
   .grid-in-chat-footer { grid-area: chat-footer; }
   .grid-in-status { grid-area: status; }
   .grid-in-sidebar-header { grid-area: sidebar-header; }
@@ -46,14 +47,16 @@
 
 /* Custom CSS to define the grid areas for our layout.
    These classes are kept for reference (not used directly) and match the
-   simplified wireframe: four rows (header, toolbar, main/workspace, bottom)
-   and three columns (sidebar, main panel, chat).  The bottom row spans the
-.  status across the first two columns and the chat footer in the last column. */
+   simplified wireframe: five rows (header, toolbar, main/workspace, chat-input,
+   bottom) and three columns (sidebar, main panel, chat).  The bottom row spans
+   the status across the first two columns and the chat footer in the last
+   column. */
 .grid-areas-layout-desktop {
   grid-template-areas:
     "header header header"
     "toolbar toolbar toolbar"
     "sidebar main chat-history"
+    "sidebar main chat-input"
     "status status chat-footer";
 }
 
@@ -62,5 +65,6 @@
     "header header header"
     "toolbar toolbar toolbar"
     "sidebar main chat-history"
+    "sidebar main chat-input"
     "status status chat-footer";
 }

@@ -7,6 +7,7 @@ import SidebarFooter from './SidebarFooter';
 import StatusBar from './StatusBar';
 import Toolbar from './Toolbar';
 import ChatHistory from './ChatHistory';
+import ChatInputArea from './ChatInputArea';
 import ChatFooter from './ChatFooter';
 const Layout = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -17,11 +18,12 @@ const Layout = () => {
       className="grid h-screen w-screen min-h-0 transition-all duration-300 ease-in-out"
       style={{
         gridTemplateColumns: `${isSidebarCollapsed ? '64px' : '250px'} 1fr 350px`,
-        gridTemplateRows: '64px 48px 1fr auto',
+        gridTemplateRows: '64px 48px 1fr auto auto',
         gridTemplateAreas: `
           "sidebar-header header      chat-history"
           "sidebar        toolbar     chat-history"
           "sidebar        main        chat-history"
+          "sidebar        main        chat-input"
           "sidebar-footer status      chat-footer"
         `,
       }}
@@ -37,6 +39,7 @@ const Layout = () => {
         <MainPanel />
       </div>
       <ChatHistory />
+      <ChatInputArea />
       <ChatFooter />
       <SidebarFooter isCollapsed={isSidebarCollapsed} />
       <StatusBar />
