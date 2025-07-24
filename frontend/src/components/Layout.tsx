@@ -20,7 +20,8 @@ const Layout: React.FC = () => {
         className="grid h-full w-full transition-all duration-300 ease-in-out"
         style={{
           gridTemplateColumns: `${isSidebarCollapsed ? '64px' : '250px'} 1fr 350px`,
-          gridTemplateRows: '64px 48px 1fr 48px',
+          // Use auto sizing for the last row so the chat input can expand beyond 48px.
+          gridTemplateRows: '64px 48px 1fr auto',
           gridTemplateAreas: `
             "header header header"
             "toolbar toolbar toolbar"
@@ -54,7 +55,8 @@ const Layout: React.FC = () => {
           {route === 'components' ? <ComponentCanvas /> : <ProjectCanvas />}
         </div>
 
-        <div className="grid-in-chat fixed right-0 top-0 h-full z-50 shadow-2xl xl:static xl:shadow-none">
+        {/* Chat sidebar: placed in the grid. Responsive visibility can be controlled via CSS classes in ChatSidebar */}
+        <div className="grid-in-chat">
           <ChatSidebar />
         </div>
 
