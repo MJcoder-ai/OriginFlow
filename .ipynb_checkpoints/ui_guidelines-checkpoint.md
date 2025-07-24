@@ -48,6 +48,34 @@ The app layout is defined using **CSS Grid** inside a full-height flex container
 | StatusBar   | `status`       |
 | ChatInput   | `chatInput`    |
 
+```tsx
+@media (max-width: 1280px) {
+  .grid {
+    grid-template-columns: auto 1fr;
+    grid-template-rows: 64px 48px 1fr 48px 48px;
+    grid-template-areas:
+      "header header"
+      "toolbar toolbar"
+      "sidebar main"
+      "status status"
+      "chatInput chatInput";
+  }
+}
+
+@media (max-width: 767px) {
+  .grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: 64px 48px 1fr auto 48px;
+    grid-template-areas:
+      "header"
+      "toolbar"
+      "main"
+      "chatInput"
+      "status";
+  }
+}
+```
+
 ---
 
 ## View-specific Layouts
@@ -58,9 +86,9 @@ When the route is set to `projects`, the main area should display a drag-and-dro
 
 #### Key Behaviours:
 
-- **Component Library**: In the sidebar, below navigation, display a list of uploaded datasheets with status icons. Use `FileStagingArea`. Items are draggable via `@dnd-kit/core`.
+- **Component Library**: In the sidebar, below navigation, display a list of uploaded datasheets (PDF/CSV) with status icons. Use `FileStagingArea`. Files become draggable components when parsing succeeds.
 - **Canvas Interaction**: `Workspace` renders draggable component cards with ports, dashed canvas border, and scrolling for overflow.
-- **Status Bar**: Use `addStatusMessage` to show success/failure messages.
+- **Status Bar**: Use `addStatusMessage` to show messages such as “Project loaded” or link creation success.
 
 ### Components View – Datasheet Split
 
@@ -87,7 +115,7 @@ const route = useAppStore((s) => s.route);
 return (
   <main className="grid-in-main overflow-hidden">
     {route === 'projects' && <ProjectCanvas />}
-    {route === 'components' && <ComponentCanvas />}
+    {route === 'components' && <DatasheetSplitView />}
     {/* future views */}
   </main>
 );
@@ -95,47 +123,14 @@ return (
 
 ---
 
-## Sidebar Width Sync
-
-```css
-:root {
-  --sidebar-width-expanded: 250px;
-  --sidebar-width-collapsed: 64px;
-}
-```
-
-```tsx
-<aside className={`transition-[width] duration-200 ${sidebarCollapsed ? 'w-[var(--sidebar-width-collapsed)]' : 'w-[var(--sidebar-width-expanded)]'}`} />
-```
-
----
-
 ## Responsive ChatSidebar (Overlay Mode)
 
 ```tsx
-@media (max-width: 1280px) {
-  .grid {
-    grid-template-columns: auto 1fr;
-    grid-template-areas:
-      "header header"
-      "toolbar toolbar"
-      "sidebar main"
-      "status chatInput";
-  }
-}
-
-.chat-sidebar {
-  @apply fixed right-0 top-0 h-full w-[350px] z-50 bg-white shadow-xl;
-}
-
-.chat-backdrop {
-  @apply fixed inset-0 bg-black/30 backdrop-blur-sm;
-  animation: fadeIn 150ms ease-in;
-}
-```
-
-```tsx
-const { ref: chatRef } = useFocusTrap({ active: isChatOverlayOpen });
+const { chatOverlayOpen } = useAppStore();
+{chatOverlayOpen && (
+  <div className="chat-backdrop" onClick={closeChat} />
+  <div ref={chatRef} className="chat-sidebar">...</div>
+)}
 ```
 
 ---
@@ -144,25 +139,13 @@ const { ref: chatRef } = useFocusTrap({ active: isChatOverlayOpen });
 
 ```tsx
 <footer role="status" aria-live="polite">
-  {statusMessages[0]?.text || 'Ready'}
+  {statusMessages[0] && (
+    <div className={`flex items-center ${statusColors[statusMessages[0].type]}`}>
+      {statusMessages[0].icon}
+      <span>{statusMessages[0].text}</span>
+    </div>
+  )}
 </footer>
-```
-
-```ts
-const statusColors = {
-  success: 'text-green-700 bg-green-50 border-green-200',
-  error:   'text-red-700 bg-red-50 border-red-200',
-  info:    'text-blue-700 bg-blue-50 border-blue-200',
-}
-```
-
-```ts
-interface StatusMessage {
-  id: string;
-  text: string;
-  type: 'success' | 'error' | 'info';
-  icon?: JSX.Element;
-}
 ```
 
 ---
@@ -170,102 +153,25 @@ interface StatusMessage {
 ## ChatPanel Enhancements
 
 ```tsx
-const [userScrolling, setUserScrolling] = useState(false);
+<div aria-live="polite" aria-atomic="false" className="chat-messages">
+  {messages}
+</div>
+```
+
+---
+
+## Accessibility: Theme Switching
+
+```tsx
 useEffect(() => {
-  if (!userScrolling) scrollToBottom();
-}, [chatMessages]);
+  document.documentElement.dataset.theme = theme;
+}, [theme]);
 ```
-
-- Use `aria-live="polite"` on chat area.
-- Optional: Show message timestamps.
-
----
-
-## ChatInput Enhancements
-
-```tsx
-const MAX_CHAT_LENGTH = 2048;
-const WARNING_THRESHOLD = 1800;
-```
-
-```tsx
-<form onSubmit={handleSubmit} className="flex flex-col gap-2 px-4 py-2">
-  <textarea
-    value={value}
-    maxLength={MAX_CHAT_LENGTH}
-    aria-label="Compose message"
-    placeholder="Type your message..."
-    className="resize-none overflow-hidden"
-  />
-  <div className="flex justify-between text-xs text-gray-500">
-    <span>{value.length}/{MAX_CHAT_LENGTH}</span>
-    <button type="submit" disabled={!value.trim() || value.length > MAX_CHAT_LENGTH}>Send</button>
-  </div>
-</form>
-```
-
----
-
-## Accessibility: Motion, Contrast, and Reduced Motion
 
 ```css
-@media (prefers-reduced-motion: reduce) {
-  * {
-    transition: none !important;
-  }
-}
-
-@media (prefers-contrast: more) {
-  .contrast-safe {
-    border-color: #000;
-    color: #000;
-    background: #fff;
-  }
-}
-```
-
----
-
-## Responsive Behavior
-
-| Width       | Behavior                         |
-| ----------- | -------------------------------- |
-| ≥ 1280 px   | Full layout                      |
-| 768–1279 px | ChatSidebar becomes overlay      |
-| < 768 px    | Sidebar collapses, layout stacks |
-
-### Mobile Drawer Spec
-
-```tsx
-<nav className="fixed inset-0 z-50 bg-white p-4 transform transition-transform" aria-modal="true">
-  <ul className="space-y-3">{navItems}</ul>
-</nav>
-```
-
----
-
-## Accessibility Summary
-
-- Use semantic tags: `<header>`, `<main>`, `<aside>`, `<footer>`
-- All buttons and inputs must be keyboard accessible
-- Use `aria-label`, `aria-live`, and `aria-current` where appropriate
-- Provide focus rings: `focus-visible:ring-1 ring-offset-1`
-- Minimum contrast ratio: 4.5:1
-
----
-
-## State Model
-
-```ts
-interface AppState {
-  sidebarCollapsed: boolean;
-  subNavVisible: boolean;
-  selectedComponent: Component | null;
-  chatMessages: ChatMessage[];
-  statusMessages: StatusMessage[];
-  chatOverlayOpen: boolean;
-  reducedMotion: boolean;
-  theme: 'light' | 'dark';
+[data-theme="dark"] {
+  --bg-color: #1a202c;
+  --text-color: #e2e8f0;
 }
 ```
 
@@ -273,10 +179,10 @@ interface AppState {
 
 ## Documentation Changelog
 
-| Version | Date       | Notes                                                               |
-| ------- | ---------- | ------------------------------------------------------------------- |
-| v3.2.1  | 2024-07-23 | Added layout routing, component view behaviors, and overlay support |
-| v3.2    | 2024-06-15 | Initial release with grid-based layout                              |
+| Version | Date       | Notes                                                                |
+| ------- | ---------- | -------------------------------------------------------------------- |
+| v3.2.1  | 2024-07-23 | Added layout routing, error state icons, chat trap, theme, mobile UX |
+| v3.2    | 2024-06-15 | Initial release with grid-based layout                               |
 
 ---
 
