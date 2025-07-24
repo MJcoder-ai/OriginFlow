@@ -32,9 +32,11 @@
   .grid-in-toolbar { grid-area: toolbar; }
   .grid-in-sidebar { grid-area: sidebar; }
   .grid-in-main { grid-area: main; }
+  .grid-in-chat-history { grid-area: chat-history; }
+  .grid-in-chat-footer { grid-area: chat-footer; }
   .grid-in-status { grid-area: status; }
-  .grid-in-chatInput { grid-area: chatInput; }
-  .grid-in-chat { grid-area: chat; }
+  .grid-in-sidebar-header { grid-area: sidebar-header; }
+  .grid-in-sidebar-footer { grid-area: sidebar-footer; }
 }
 
 /* Primary button styling used in ChatInput */
@@ -46,19 +48,19 @@
    These classes are kept for reference (not used directly) and match the
    simplified wireframe: four rows (header, toolbar, main/workspace, bottom)
    and three columns (sidebar, main panel, chat).  The bottom row spans the
-   status across the first two columns and the chat input in the last column. */
+.  status across the first two columns and the chat footer in the last column. */
 .grid-areas-layout-desktop {
   grid-template-areas:
     "header header header"
     "toolbar toolbar toolbar"
-    "sidebar main chat"
-    "status status chatInput";
+    "sidebar main chat-history"
+    "status status chat-footer";
 }
 
 .grid-areas-layout {
   grid-template-areas:
     "header header header"
     "toolbar toolbar toolbar"
-    "sidebar main chat"
-    "status status chatInput";
+    "sidebar main chat-history"
+    "status status chat-footer";
 }
