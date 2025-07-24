@@ -1,11 +1,12 @@
 import { useAppStore, UploadEntry } from '../appStore';
 import clsx from 'clsx';
 import { useDraggable } from '@dnd-kit/core';
-import { getFileStatus } from '../services/fileApi';
+import { getFileStatus, parseDatasheet } from '../services/fileApi';
 
 const FileEntry: React.FC<{ u: UploadEntry }> = ({ u }) => {
   const setActiveDatasheet = useAppStore((s) => s.setActiveDatasheet);
   const setRoute = useAppStore((s) => s.setRoute);
+  const updateUpload = useAppStore((s) => s.updateUpload);
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `file-asset-${u.id}`,
     data: { type: 'file-asset', asset: u },
@@ -27,6 +28,22 @@ const FileEntry: React.FC<{ u: UploadEntry }> = ({ u }) => {
     }
     return null;
   };
+
+  const handleParse = async () => {
+    try {
+      updateUpload(u.id, { parsing_status: 'processing' });
+      const asset = await parseDatasheet(u.id);
+      updateUpload(u.id, { parsing_status: 'success', parsing_error: null });
+      setActiveDatasheet({ id: asset.id, url: asset.url, payload: asset.parsed_payload });
+      setRoute('components');
+    } catch (err: any) {
+      console.error(err);
+      updateUpload(u.id, {
+        parsing_status: 'failed',
+        parsing_error: err.message || 'Failed to parse datasheet',
+      });
+    }
+  };
   return (
     <div
       ref={setNodeRef}
@@ -40,12 +57,26 @@ const FileEntry: React.FC<{ u: UploadEntry }> = ({ u }) => {
         }
       }}
       className={clsx(
-        'border rounded p-2 text-sm transition cursor-grab bg-white shadow-sm',
+        'border rounded p-2 text-sm transition bg-white shadow-sm',
         isDragging && 'opacity-50',
       )}
     >
-      <div className="font-medium truncate">{u.name}</div>
-      <div className="h-1 bg-gray-200 rounded">
+      <div className="flex justify-between items-center gap-2">
+        <div className="font-medium truncate flex-1">{u.name}</div>
+        {(!u.parsing_status || u.parsing_status === 'failed') && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              void handleParse();
+            }}
+            className="text-xs text-blue-600 hover:underline"
+            title="Parse datasheet"
+          >
+            Parse
+          </button>
+        )}
+      </div>
+      <div className="h-1 bg-gray-200 rounded mt-1">
         <div
           className={clsx(
             'h-1 rounded bg-emerald-500 transition-all',
@@ -54,7 +85,7 @@ const FileEntry: React.FC<{ u: UploadEntry }> = ({ u }) => {
           style={{ width: `${Math.min(u.progress, 100)}%` }}
         />
       </div>
-      <div className="text-xs text-right text-gray-500 flex items-center gap-1">
+      <div className="text-xs text-right text-gray-500 flex items-center gap-1 mt-1">
         {u.progress > 100 ? <StatusIndicator /> : `${u.progress}%`}
       </div>
     </div>
