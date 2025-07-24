@@ -2,7 +2,7 @@ import React from 'react';
 import { Settings } from 'lucide-react';
 
 const Header = ({ toggleSidebar, toggleToolbar }: { toggleSidebar: () => void; toggleToolbar: () => void }) => (
-  <header className="h-16 flex items-center justify-between px-4 bg-white border-b shadow-sm">
+  <header className="h-16 flex items-center justify-between px-4 bg-white border-b shadow-sm [grid-area:header]">
     {/* Left: ☰ Toggle and App name */}
     <div className="flex items-center gap-2">
       <button

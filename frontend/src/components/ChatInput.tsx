@@ -123,7 +123,7 @@ export const ChatInput: React.FC = () => {
 
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-2 px-4 py-2">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-2 px-4 py-2 [grid-area:chatInput]">
       <div className="relative">
         <textarea
           ref={textareaRef}
