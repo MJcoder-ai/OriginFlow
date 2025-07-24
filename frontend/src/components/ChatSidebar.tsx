@@ -1,13 +1,10 @@
 import React from 'react';
-import ChatPanel from './ChatPanel';
 
 /** Simple wrapper for the chat history panel. */
 const ChatSidebar: React.FC = () => {
   return (
-    // The chat sidebar width is dictated by the grid column definition (350px).
-    // Remove the hard-coded width here so it naturally fills its grid cell.
-    <aside className="flex flex-col h-full border-l bg-white [grid-area:chat]">
-      <ChatPanel />
+    <aside className="grid-in-chat flex flex-col h-full border-l border-gray-200 bg-white">
+      {/* This component acts as a wrapper for the chat area, but the actual content (Panel and Input) is placed directly by the Layout grid. */}
     </aside>
   );
 };

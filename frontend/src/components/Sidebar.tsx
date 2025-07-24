@@ -1,5 +1,5 @@
 import React from 'react';
-import { HelpCircle, Box, Book } from 'lucide-react';
+import { HelpCircle, Box, Book, PanelLeftClose } from 'lucide-react';
 import { useAppStore, Route } from '../appStore';
 import { FileStagingArea } from './FileStagingArea';
 
@@ -8,7 +8,7 @@ const NAV_ITEMS = [
   { name: 'components', label: 'Components', icon: Box },
 ];
 
-const Sidebar = ({ isCollapsed }: { isCollapsed: boolean }) => {
+const Sidebar = ({ isCollapsed, toggleSidebar }: { isCollapsed: boolean; toggleSidebar: () => void }) => {
   const currentRoute = useAppStore((s) => s.route);
   const setRoute = useAppStore((s) => s.setRoute);
 
@@ -16,10 +16,19 @@ const Sidebar = ({ isCollapsed }: { isCollapsed: boolean }) => {
     // Remove the fixed width on the sidebar. The width is controlled by the grid
     // in Layout.tsx (64px when collapsed or 250px when expanded). Using h-full
     // allows the sidebar to stretch the full height of its grid row.
-    <aside className="grid-in-sidebar flex flex-col h-full bg-gray-50 border-r">
-      {/* App icon only – the title now lives in the header */}
-      <div className="h-16 flex items-center justify-center border-b">
-        <span className="text-2xl">🌀</span>
+    <aside className="grid-in-sidebar flex flex-col bg-white text-black border-r border-gray-200">
+      <div
+        className={`flex items-center p-4 h-16 border-b border-gray-200 ${isCollapsed ? 'justify-center' : 'justify-between'}`}
+      >
+        <a href="/" className="flex items-center gap-2">
+          <span className="text-2xl">🌀</span>
+          {!isCollapsed && <h1 className="text-xl font-bold">OriginFlow</h1>}
+        </a>
+        {!isCollapsed && (
+          <button onClick={toggleSidebar} className="p-1 rounded hover:bg-gray-100">
+            <PanelLeftClose />
+          </button>
+        )}
       </div>
 
       {/* Navigation */}
