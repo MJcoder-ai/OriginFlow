@@ -32,6 +32,11 @@ export async function listFiles(): Promise<FileAsset[]> {
   return resp.json();
 }
 
+/**
+ * Triggers the parsing of a previously uploaded datasheet.
+ * @param id The ID of the file asset to parse.
+ * @returns The file asset with its parsed payload.
+ */
 export async function parseDatasheet(id: string): Promise<FileAsset> {
   const res = await fetch(`${API_BASE_URL}/files/${id}/parse`, { method: 'POST' });
   if (!res.ok) {

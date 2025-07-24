@@ -15,21 +15,23 @@ const ChatFooter = () => {
 
   return (
     <div
-      className="grid-in-chat-footer p-2 bg-white border-t border-white flex items-center gap-2"
+      className="grid-in-chat-footer p-2 bg-white border-t border-white flex items-center justify-between"
       style={{ borderLeft: '1px solid #e5e7eb' }}
     >
-      <FileUploadButton />
-      <button
-        onClick={() => setVoiceMode('listening')}
-        className="p-2 rounded-md hover:bg-gray-100"
-        aria-label="Start voice input"
-      >
-        <Mic size={18} className="text-gray-600" />
-      </button>
+      <div className="flex gap-1 items-center">
+        <FileUploadButton />
+        <button
+          onClick={() => setVoiceMode('listening')}
+          className="p-2 rounded-md hover:bg-gray-100"
+          aria-label="Start voice input"
+        >
+          <Mic size={18} className="text-gray-600" />
+        </button>
+      </div>
       <button
         onClick={handleSend}
         disabled={!chatDraft.trim()}
-        className="ml-auto p-2 bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 text-white flex items-center gap-2 text-sm px-4"
+        className="p-2 bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 text-white flex items-center gap-2 text-sm px-4"
       >
         Send
         <ArrowUp size={16} />
