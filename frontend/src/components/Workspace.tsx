@@ -56,6 +56,7 @@ const CanvasCard: React.FC<{
   // Enable dragging of the card itself
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: component.id,
+    data: { type: 'canvas-card' },
   });
 
   // Apply transform during drag while keeping absolute positioning
