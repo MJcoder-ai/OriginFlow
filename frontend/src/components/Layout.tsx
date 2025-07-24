@@ -17,10 +17,16 @@ const Layout: React.FC = () => {
   return (
     <div className="h-screen flex flex-col">
       <div
-        className="grid h-full w-full transition-all duration-300 ease-in-out grid-areas-layout"
+        className="grid h-full w-full transition-all duration-300 ease-in-out"
         style={{
           gridTemplateColumns: `${isSidebarCollapsed ? '64px' : '250px'} 1fr 350px`,
           gridTemplateRows: '64px 48px 1fr 48px',
+          gridTemplateAreas: `
+            "header header header"
+            "toolbar toolbar toolbar"
+            "sidebar main chat"
+            "status status chatInput"
+          `,
         }}
       >
         {/* Header wrapper ensures grid area is applied to the correct element */}
