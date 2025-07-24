@@ -12,15 +12,16 @@
     @apply bg-gray-50 text-gray-800;
   }
 
+  /* Ensure the root, body and our application fill the full viewport height.
+     Reset the default body margin and hide overflowing scrollbars so that
+     the Layout grid doesn't cause unwanted scrolling. */
   html,
   body,
-  #root {
-    margin: 0;
-    padding: 0;
+  #root,
+  #root > .App {
     height: 100%;
-    width: 100%;
+    margin: 0;
     overflow: hidden;
-    background-color: #111827;
   }
 }
 
@@ -51,4 +52,25 @@
 /* Primary button styling used in ChatInput */
 .btn-primary {
   @apply px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded shadow-sm hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-400 disabled:cursor-not-allowed;
+}
+
+/* Custom CSS to define the grid areas for our layout.
+   These classes are kept for reference (not used directly) and match the
+   simplified wireframe: four rows (header, toolbar, main/workspace, bottom)
+   and three columns (sidebar, main panel, chat).  The bottom row spans the
+   status across the first two columns and the chat input in the last column. */
+.grid-areas-layout-desktop {
+  grid-template-areas:
+    "header header header"
+    "toolbar toolbar toolbar"
+    "sidebar main chat"
+    "status status chatInput";
+}
+
+.grid-areas-layout {
+  grid-template-areas:
+    "header header header"
+    "toolbar toolbar toolbar"
+    "sidebar main chat"
+    "status status chatInput";
 }
