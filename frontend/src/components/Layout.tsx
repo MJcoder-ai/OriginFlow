@@ -18,7 +18,7 @@ const Layout = () => {
       className="grid h-screen w-screen min-h-0 transition-all duration-300 ease-in-out"
       style={{
         gridTemplateColumns: `${isSidebarCollapsed ? '64px' : '250px'} 1fr 350px`,
-        gridTemplateRows: '64px 48px 1fr auto auto',
+        gridTemplateRows: `64px ${isSubNavVisible ? '48px' : '0px'} 1fr auto 48px`,
         gridTemplateAreas: `
           "sidebar-header header      chat-history"
           "sidebar        toolbar     chat-history"
