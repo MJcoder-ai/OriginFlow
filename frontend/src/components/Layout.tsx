@@ -23,12 +23,13 @@ const Layout: React.FC = () => {
           gridTemplateRows: '64px 48px 1fr 48px',
         }}
       >
-        <header className="grid-in-header">
+        {/* Header wrapper ensures grid area is applied to the correct element */}
+        <div className="grid-in-header">
           <Header
             toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
             toggleToolbar={() => setIsSubNavVisible(!isSubNavVisible)}
           />
-        </header>
+        </div>
 
         {isSubNavVisible && (
           <div className="grid-in-toolbar">
@@ -36,26 +37,25 @@ const Layout: React.FC = () => {
           </div>
         )}
 
-        <aside
-          className={`grid-in-sidebar transition-all duration-300 ease-in-out ${
-            isSidebarCollapsed ? 'w-16' : 'w-64'
-          }`}
+        <div
+          className="grid-in-sidebar transition-all duration-300 ease-in-out"
           aria-label="Main navigation"
         >
           <Sidebar isCollapsed={isSidebarCollapsed} />
-        </aside>
+        </div>
 
-        <main className="grid-in-main overflow-hidden">
+        <div className="grid-in-main overflow-hidden">
           {route === 'components' ? <ComponentCanvas /> : <ProjectCanvas />}
-        </main>
+        </div>
 
         <div className="grid-in-chat fixed right-0 top-0 h-full z-50 shadow-2xl xl:static xl:shadow-none">
           <ChatSidebar />
         </div>
 
-        <footer className="grid-in-status">
+        {/* Status bar wrapper avoids nested <footer> elements */}
+        <div className="grid-in-status">
           <StatusBar />
-        </footer>
+        </div>
 
         <div className="grid-in-chatInput">
           <ChatInput />
