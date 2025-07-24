@@ -13,9 +13,9 @@ const Sidebar = ({ isCollapsed }: { isCollapsed: boolean }) => {
 
   return (
     <aside className="w-[250px] flex flex-col bg-gray-50 border-r">
-      {/* Logo + Title */}
-      <div className="h-16 flex items-center justify-center border-b text-xl font-bold">
-        🌀 {!isCollapsed && <span className="ml-2">OriginFlow</span>}
+      {/* App icon only – the title now lives in the header */}
+      <div className="h-16 flex items-center justify-center border-b">
+        <span className="text-2xl">🌀</span>
       </div>
 
       {/* Navigation */}

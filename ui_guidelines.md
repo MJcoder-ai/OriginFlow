@@ -1,4 +1,4 @@
-# OriginFlow UI Guidelines (v3.2.1)
+# OriginFlow UI Guidelines (v3.2.2)
 
 This document defines the implementation specification for all major UI components in the OriginFlow app. It provides layout structure, behavior, styling patterns, accessibility expectations, and code patterns for consistent implementation.
 
@@ -35,6 +35,8 @@ The app layout is defined using **CSS Grid** inside a full-height flex container
   </div>
 </div>
 ```
+
+The app title "OriginFlow" is displayed in the header next to the sidebar toggle button. The sidebar itself now shows only the spiral icon.
 
 ### Grid Definitions
 
@@ -249,6 +251,7 @@ interface AppState {
 
 | Version | Date       | Notes                                                         |
 | ------- | ---------- | ------------------------------------------------------------- |
+| v3.2.2  | 2025-07-24 | Header now contains the app title; added grid area helpers and `.btn-primary` class |
 | v3.2.1  | 2024-07-23 | Added gaps, focus-trap snippet, severity colors, state fields |
 | v3.2    | 2024-06-15 | Initial release with grid-based layout                        |
 

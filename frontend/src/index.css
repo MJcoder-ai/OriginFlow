@@ -30,3 +30,30 @@
     "sidebar workspace chat"
     "sidebar statusbar chat";
 }
+/* Grid area utility classes for layout components */
+.grid-in-header {
+  grid-area: header;
+}
+.grid-in-toolbar {
+  grid-area: toolbar;
+}
+.grid-in-sidebar {
+  grid-area: sidebar;
+}
+.grid-in-main {
+  grid-area: main;
+}
+.grid-in-status {
+  grid-area: status;
+}
+.grid-in-chatInput {
+  grid-area: chatInput;
+}
+.grid-in-chat {
+  grid-area: chat;
+}
+
+/* Primary button styling used in ChatInput */
+.btn-primary {
+  @apply px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded shadow-sm hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-400 disabled:cursor-not-allowed;
+}
