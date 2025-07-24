@@ -153,7 +153,7 @@ const { chatOverlayOpen } = useAppStore();
 ## ChatPanel Enhancements
 
 ```tsx
-<div aria-live="polite" aria-atomic="false" className="chat-messages">
+<div aria-live="polite" aria-atomic="false" className="chat-messages overflow-y-auto p-4">
   {messages}
 </div>
 ```
