@@ -13,7 +13,10 @@ const Sidebar = ({ isCollapsed }: { isCollapsed: boolean }) => {
   const setRoute = useAppStore((s) => s.setRoute);
 
   return (
-    <aside className="w-[250px] flex flex-col bg-gray-50 border-r [grid-area:sidebar]">
+    // Remove the fixed width on the sidebar. The width is controlled by the grid
+    // in Layout.tsx (64px when collapsed or 250px when expanded). Using h-full
+    // allows the sidebar to stretch the full height of its grid row.
+    <aside className="flex flex-col h-full bg-gray-50 border-r [grid-area:sidebar]">
       {/* App icon only – the title now lives in the header */}
       <div className="h-16 flex items-center justify-center border-b">
         <span className="text-2xl">🌀</span>
