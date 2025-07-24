@@ -19,7 +19,7 @@ export const ChatInput: React.FC = () => {
   };
 
   return (
-    <div className="grid-in-chatInput p-3 bg-white border-t border-gray-200 flex flex-col gap-2">
+    <div className="grid-in-chatInput p-3 bg-white border-t border-white flex flex-col gap-2">
       <textarea
         value={input}
         onChange={handleInputChange}

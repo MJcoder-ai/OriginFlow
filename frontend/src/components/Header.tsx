@@ -1,5 +1,5 @@
 import React from 'react';
-import { Settings } from 'lucide-react';
+import { Settings, PanelLeftClose } from 'lucide-react';
 
 const Header = ({ toggleSidebar, toggleToolbar }: { toggleSidebar: () => void; toggleToolbar: () => void }) => (
   <header className="grid-in-header h-16 flex items-center justify-between px-4 bg-white text-black border-b border-gray-200">
@@ -10,10 +10,8 @@ const Header = ({ toggleSidebar, toggleToolbar }: { toggleSidebar: () => void; t
         className="p-2 rounded-md hover:bg-gray-100 focus:ring-2 focus:ring-blue-500"
         aria-label="Toggle sidebar"
       >
-        ☰
+        <PanelLeftClose size={24} />
       </button>
-      {/* Current view title */}
-      <span className="ml-2 text-lg font-bold">Projects</span>
     </div>
 
     {/* Center: Tabs + Gear */}

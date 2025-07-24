@@ -37,10 +37,7 @@ const Layout: React.FC = () => {
         toggleToolbar={() => setIsSubNavVisible(!isSubNavVisible)}
       />
       {isSubNavVisible && <Toolbar />}
-      <Sidebar
-        isCollapsed={isSidebarCollapsed}
-        toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-      />
+      <Sidebar isCollapsed={isSidebarCollapsed} />
 
       {/* Main content: swap between canvases based on the current route */}
       <div className="grid-in-main relative min-h-0 overflow-auto bg-gray-50">
