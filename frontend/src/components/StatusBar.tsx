@@ -16,7 +16,7 @@ const StatusBar: React.FC = () => {
     <footer
       role="status"
       aria-live="polite"
-      className={`grid-in-status h-12 flex items-center px-6 bg-white border-t shadow text-sm ${colorClass}`}
+      className={`grid-in-status flex items-center p-4 bg-white text-black border-t border-gray-200 text-sm ${colorClass}`}
     >
       {latest?.message ?? 'Ready'}
     </footer>
