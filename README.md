@@ -379,7 +379,7 @@ frontend/src/components/Workspace.tsx
 frontend/src/components/PropertiesPanel.tsx
 frontend/src/components/LinkLayer.tsx
 frontend/src/components/ChatPanel.tsx
-frontend/src/components/ChatInput.tsx
+frontend/src/components/ChatInputArea.tsx
 backend/__init__.py
 backend/api/__init__.py
 backend/api/routes/components.py
