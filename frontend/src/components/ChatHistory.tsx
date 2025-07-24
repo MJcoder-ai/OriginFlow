@@ -1,5 +1,5 @@
 import { useAppStore } from '../appStore';
-import ChatMessage from './ChatMessage';
+import { ChatMessage } from './ChatMessage';
 
 const ChatHistory = () => {
   const messages = useAppStore((state) => state.messages);
