@@ -29,7 +29,8 @@ const ChatPanel: React.FC = () => {
   }, [messages]);
 
   return (
-    <div ref={containerRef} className="flex-1 overflow-y-auto p-4 space-y-2">
+    <div className="grid-in-chat flex flex-col h-full bg-gray-800 overflow-y-auto">
+      <div ref={containerRef} className="flex-1 overflow-y-auto p-4 space-y-2">
       {messages.map((msg) => (
         <div
           key={msg.id}
@@ -45,6 +46,7 @@ const ChatPanel: React.FC = () => {
         </div>
       )}
       <div ref={endRef} />
+      </div>
     </div>
   );
 };

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Header from './Header';
 import Toolbar from './Toolbar';
 import Sidebar from './Sidebar';
-import ChatSidebar from './ChatSidebar';
+import ChatPanel from './ChatPanel';
 import StatusBar from './StatusBar';
 import { ChatInput } from './ChatInput';
 import ProjectCanvas from './ProjectCanvas';
@@ -20,15 +20,15 @@ const Layout: React.FC = () => {
       // Use h-full so the layout stretches to the height of its parent
       // container. This prevents double scrollbars and keeps the chat input
       // and status bar anchored within the viewport.
-      className="grid h-full w-full transition-all duration-300 ease-in-out"
+      className="grid h-full w-full min-h-0 transition-all duration-300 ease-in-out"
       style={{
         gridTemplateColumns: `${isSidebarCollapsed ? '64px' : '250px'} 1fr 350px`,
         gridTemplateRows: '64px 48px 1fr auto',
         gridTemplateAreas: `
-          "header header header"
-          "toolbar toolbar toolbar"
-          "sidebar main chat"
-          "status status chatInput"
+          "sidebar header  chat"
+          "sidebar toolbar chat"
+          "sidebar main    chat"
+          "sidebar status  chatInput"
         `,
       }}
     >
@@ -40,13 +40,13 @@ const Layout: React.FC = () => {
       <Sidebar isCollapsed={isSidebarCollapsed} />
 
       {/* Main content: swap between canvases based on the current route */}
-      <div className="overflow-hidden [grid-area:main]">
+      <div className="grid-in-main relative min-h-0 overflow-auto">
         {route === 'components' ? <ComponentCanvas /> : <ProjectCanvas />}
       </div>
 
-      <ChatSidebar />
-      <StatusBar />
+      <ChatPanel />
       <ChatInput />
+      <StatusBar />
     </div>
   );
 };

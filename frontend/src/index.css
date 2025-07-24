@@ -17,36 +17,24 @@
      the Layout grid doesn't cause unwanted scrolling. */
   html,
   body,
-  #root,
-  #root > .App {
+  #root {
     height: 100%;
     margin: 0;
+    padding: 0;
+    width: 100%;
     overflow: hidden;
+    background-color: #111827; /* bg-gray-900 */
   }
 }
 
-/* Custom CSS to define the grid areas for our layout */
-/* Grid area utility classes for layout components */
-.grid-in-header {
-  grid-area: header;
-}
-.grid-in-toolbar {
-  grid-area: toolbar;
-}
-.grid-in-sidebar {
-  grid-area: sidebar;
-}
-.grid-in-main {
-  grid-area: main;
-}
-.grid-in-status {
-  grid-area: status;
-}
-.grid-in-chatInput {
-  grid-area: chatInput;
-}
-.grid-in-chat {
-  grid-area: chat;
+@layer utilities {
+  .grid-in-header { grid-area: header; }
+  .grid-in-toolbar { grid-area: toolbar; }
+  .grid-in-sidebar { grid-area: sidebar; }
+  .grid-in-main { grid-area: main; }
+  .grid-in-status { grid-area: status; }
+  .grid-in-chatInput { grid-area: chatInput; }
+  .grid-in-chat { grid-area: chat; }
 }
 
 /* Primary button styling used in ChatInput */
