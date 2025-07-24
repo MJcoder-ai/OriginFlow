@@ -6,15 +6,15 @@ This document defines the implementation specification for all major UI componen
 
 ## ✨ Global Layout
 
-OriginFlow uses a **CSS Grid layout** wrapped in a full-height flex column to structure the app into consistent rows and columns.
+OriginFlow uses a **CSS Grid layout** wrapped in a full-height flex column to structure the app into consistent rows and columns. The layout now defines five grid rows, giving dedicated space for the toolbar and chat footer.
 
 ```tsx
 <div className="h-screen flex flex-col">
   <div
     className="grid h-full w-full"
     style={{
-      gridTemplateColumns: 'auto 1fr 350px',
-      gridTemplateRows: '64px 48px 1fr auto auto',
+      gridTemplateColumns: isSidebarCollapsed ? '64px 1fr 350px' : '250px 1fr 350px',
+      gridTemplateRows: '64px 48px 1fr auto auto', // 5 rows
       gridTemplateAreas: `
         "sidebar-header header      chat-history"
         "sidebar        toolbar     chat-history"
@@ -42,18 +42,18 @@ OriginFlow uses a **CSS Grid layout** wrapped in a full-height flex column to st
 
 ### Grid Area Definitions
 
-| Area           | Grid Area Name   |
-| -------------- | ---------------- |
-| Sidebar Header | `sidebar-header` |
-| Header         | `header`         |
-| Toolbar        | `toolbar`        |
-| Main Panel     | `main`           |
-| Sidebar        | `sidebar`        |
-| Sidebar Footer | `sidebar-footer` |
-| Chat History   | `chat-history`   |
-| Status Bar     | `status`         |
-| Chat Input Area | `chat-input`    |
-| Chat Footer    | `chat-footer`    |
+| Area            | Grid Area Name   | Notes                                                   |
+| --------------- | ---------------- | ------------------------------------------------------- |
+| Sidebar Header  | `sidebar-header` | Top-left section for the app logo.                      |
+| Sidebar         | `sidebar`        | Main navigation, spanning the three central rows.       |
+| Sidebar Footer  | `sidebar-footer` | Bottom-left section for "Help & Support".               |
+| Header          | `header`         | Top-center section with the sidebar toggle.             |
+| Toolbar         | `toolbar`        | Sits below the header.                                  |
+| Main Panel      | `main`           | Main content area, spans two rows to align with the chat. |
+| Status Bar      | `status`         | Sits in the bottom-center, aligned with other footers.  |
+| Chat History    | `chat-history`   | Main chat message area, spans the top three rows.       |
+| Chat Input Area | `chat-input`     | The text area for typing, sits above the chat footer.   |
+| Chat Footer     | `chat-footer`    | Bottom-right section for chat action buttons.           |
 
 ---
 
@@ -68,6 +68,7 @@ OriginFlow uses a **CSS Grid layout** wrapped in a full-height flex column to st
 - Component ports allow linking with mouse drag
 - Add visual border to canvas container (`border-dashed`)
 - Overflow should scroll when nodes exceed viewport
+- `MainPanel.tsx` applies outer padding using `p-4`; `Workspace.tsx` has no padding so the dashed border aligns near the panel edge
 
 ### Components View – Datasheet Split
 
@@ -169,6 +170,26 @@ useEffect(() => {
   if (!userScrolling) scrollToBottom();
 }, [chatMessages]);
 ```
+
+## 🎨 Styling & Borders
+
+### Vertical Separator
+
+The vertical line separating the main content from the chat column is created by applying a left border to each component in the chat column.
+
+- **Style:** `borderLeft: '1px solid #e5e7eb'`
+- **Components:** `ChatHistory`, `ChatInputArea`, `ChatFooter`
+- **Rationale:** Ensures a consistent line that matches the color and thickness of the sidebar's right border.
+
+### Invisible Borders
+
+To maintain structural alignment without adding visual clutter, some borders are made invisible by matching their color to the background.
+
+- **Class:** `border-white`
+- **Components:**
+  - ChatInputArea (top border)
+  - ChatFooter (top border)
+- **Rationale:** This reserves space for the border in layout calculations while hiding the line from the user.
 
 ---
 
