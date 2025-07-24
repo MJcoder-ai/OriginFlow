@@ -1,12 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import DatasheetSplitView from './DatasheetSplitView';
+import { useAppStore } from '../appStore';
 
 const ComponentCanvas: React.FC = () => {
   const { setNodeRef } = useDroppable({ id: 'component-canvas' });
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [parsedData, setParsedData] = useState<any | null>(null);
   const [assetId, setAssetId] = useState<string | null>(null);
+  const { activeDatasheet, setActiveDatasheet } = useAppStore((s) => ({
+    activeDatasheet: s.activeDatasheet,
+    setActiveDatasheet: s.setActiveDatasheet,
+  }));
+
+  useEffect(() => {
+    if (activeDatasheet) {
+      setPdfUrl(activeDatasheet.url);
+      setParsedData(activeDatasheet.payload);
+      setAssetId(activeDatasheet.id);
+    } else {
+      setPdfUrl(null);
+      setParsedData(null);
+      setAssetId(null);
+    }
+  }, [activeDatasheet]);
 
   const handleDrop = async (file: File) => {
     const formData = new FormData();
@@ -14,9 +31,11 @@ const ComponentCanvas: React.FC = () => {
     const res = await fetch('/api/v1/parse-datasheet', { method: 'POST', body: formData });
     const result = await res.json();
     const blobUrl = URL.createObjectURL(file);
-    setPdfUrl(blobUrl);
-    setParsedData(result.fields);
-    setAssetId(result.assetId || file.name);
+    setActiveDatasheet({
+      id: result.assetId || file.name,
+      url: blobUrl,
+      payload: result.fields,
+    });
   };
 
   return (
@@ -41,8 +60,7 @@ const ComponentCanvas: React.FC = () => {
           pdfUrl={pdfUrl}
           initialParsedData={parsedData}
           onClose={() => {
-            setPdfUrl(null);
-            setParsedData(null);
+            setActiveDatasheet(null);
           }}
           onSave={(id, payload) => {
             fetch(`/api/v1/components/${id}`, {

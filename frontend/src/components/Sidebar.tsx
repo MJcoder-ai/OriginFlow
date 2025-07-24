@@ -1,6 +1,7 @@
 import React from 'react';
 import { HelpCircle, Box, Book } from 'lucide-react';
-import { useAppStore } from '../appStore';
+import { useAppStore, Route } from '../appStore';
+import { FileStagingArea } from './FileStagingArea';
 
 const NAV_ITEMS = [
   { name: 'projects', label: 'Projects', icon: Book },
@@ -24,7 +25,7 @@ const Sidebar = ({ isCollapsed }: { isCollapsed: boolean }) => {
           {NAV_ITEMS.map((item) => (
             <li key={item.name}>
               <button
-                onClick={() => setRoute(item.name as any)}
+                onClick={() => setRoute(item.name as Route)}
                 className={`flex w-full items-center gap-3 p-3 rounded-r-lg transition-colors ${
                   isCollapsed ? 'justify-center' : ''
                 } ${currentRoute === item.name ? 'bg-blue-100 text-blue-600' : 'hover:bg-blue-50'}`}
@@ -37,6 +38,7 @@ const Sidebar = ({ isCollapsed }: { isCollapsed: boolean }) => {
             </li>
           ))}
         </ul>
+        {!isCollapsed && currentRoute === 'projects' && <FileStagingArea />}
       </nav>
 
     {/* Help aligned to status height */}
