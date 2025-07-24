@@ -132,10 +132,22 @@ interface AppState {
   /** Update AI processing flag. */
   setIsAiProcessing: (isProcessing: boolean) => void;
 
+  /** Draft text for the chat input */
+  chatDraft: string;
+  /** Update the chat draft */
+  setChatDraft: (draft: string) => void;
+  /** Clear the chat draft */
+  clearChatDraft: () => void;
+
   /** Current route of the main panel. */
   route: Route;
   /** Navigate to a new route. */
   setRoute: (r: Route) => void;
+
+  /** Visibility of the toolbar section */
+  isSubNavVisible: boolean;
+  /** Toggle toolbar visibility */
+  toggleSubNav: () => void;
 
   /** List of in-progress and completed uploads. */
   uploads: UploadEntry[];
@@ -175,14 +187,19 @@ export const useAppStore = create<AppState>((set, get) => ({
   chatMode: 'default',
   isAiProcessing: false,
   route: 'projects',
+  isSubNavVisible: true,
   uploads: [],
   voiceMode: 'idle',
   isContinuousConversation: false,
+  chatDraft: '',
   activeDatasheet: null,
   setActiveDatasheet: (data) => set({ activeDatasheet: data }),
   setVoiceMode: (mode) => set({ voiceMode: mode }),
   toggleContinuousConversation: () =>
     set((s) => ({ isContinuousConversation: !s.isContinuousConversation })),
+  setChatDraft: (draft) => set({ chatDraft: draft }),
+  clearChatDraft: () => set({ chatDraft: '' }),
+  toggleSubNav: () => set((s) => ({ isSubNavVisible: !s.isSubNavVisible })),
   addStatusMessage: (msg, icon) =>
     set((s) => ({
       statusMessages: [...s.statusMessages, { id: crypto.randomUUID(), message: msg, icon }],

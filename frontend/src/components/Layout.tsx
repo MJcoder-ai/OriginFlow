@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useAppStore } from '../appStore';
 import Header from './Header';
 import MainPanel from './MainPanel';
 import Sidebar from './Sidebar';
@@ -11,7 +12,8 @@ import ChatInputArea from './ChatInputArea';
 import ChatFooter from './ChatFooter';
 const Layout = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [isSubNavVisible, setIsSubNavVisible] = useState(true);
+  const isSubNavVisible = useAppStore((s) => s.isSubNavVisible);
+  const toggleSubNav = useAppStore((s) => s.toggleSubNav);
 
   return (
     <div
@@ -31,7 +33,7 @@ const Layout = () => {
       <SidebarHeader isCollapsed={isSidebarCollapsed} />
       <Header
         toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-        toggleToolbar={() => setIsSubNavVisible(!isSubNavVisible)}
+        toggleToolbar={toggleSubNav}
       />
       {isSubNavVisible && <Toolbar />}
       <Sidebar isCollapsed={isSidebarCollapsed} />
