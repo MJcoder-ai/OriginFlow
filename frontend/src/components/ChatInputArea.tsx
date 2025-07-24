@@ -8,7 +8,10 @@ const ChatInputArea = () => {
   };
 
   return (
-    <div className="grid-in-chat-input p-3 bg-white border-t border-gray-200">
+    <div
+      className="grid-in-chat-input p-3 bg-white border-t border-white"
+      style={{ borderLeft: '1px solid #e5e7eb' }}
+    >
       <textarea
         value={input}
         onChange={handleInputChange}
