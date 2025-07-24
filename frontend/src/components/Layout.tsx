@@ -1,51 +1,44 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import Header from './Header';
-import Toolbar from './Toolbar';
+import MainPanel from './MainPanel';
 import Sidebar from './Sidebar';
-import ChatPanel from './ChatPanel';
+import SidebarHeader from './SidebarHeader';
+import SidebarFooter from './SidebarFooter';
 import StatusBar from './StatusBar';
-import { ChatInput } from './ChatInput';
-import ProjectCanvas from './ProjectCanvas';
-import ComponentCanvas from './ComponentCanvas';
-import { useAppStore } from '../appStore';
-
-const Layout: React.FC = () => {
+import Toolbar from './Toolbar';
+import ChatHistory from './ChatHistory';
+import ChatFooter from './ChatFooter';
+const Layout = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isSubNavVisible, setIsSubNavVisible] = useState(true);
-  // Pull the current route from the Zustand store to decide what to render.
-  const route = useAppStore((state) => state.route);
 
   return (
     <div
-      // Use h-full so the layout stretches to the height of its parent
-      // container. This prevents double scrollbars and keeps the chat input
-      // and status bar anchored within the viewport.
-      className="grid h-full w-full min-h-0 transition-all duration-300 ease-in-out"
+      className="grid h-screen w-screen min-h-0 transition-all duration-300 ease-in-out"
       style={{
         gridTemplateColumns: `${isSidebarCollapsed ? '64px' : '250px'} 1fr 350px`,
         gridTemplateRows: '64px 48px 1fr auto',
         gridTemplateAreas: `
-          "sidebar header  chat"
-          "sidebar toolbar chat"
-          "sidebar main    chat"
-          "sidebar status  chatInput"
+          "sidebar-header header      chat-history"
+          "sidebar        toolbar     chat-history"
+          "sidebar        main        chat-history"
+          "sidebar-footer status      chat-footer"
         `,
       }}
     >
+      <SidebarHeader isCollapsed={isSidebarCollapsed} />
       <Header
         toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         toggleToolbar={() => setIsSubNavVisible(!isSubNavVisible)}
       />
       {isSubNavVisible && <Toolbar />}
       <Sidebar isCollapsed={isSidebarCollapsed} />
-
-      {/* Main content: swap between canvases based on the current route */}
       <div className="grid-in-main relative min-h-0 overflow-auto bg-gray-50">
-        {route === 'components' ? <ComponentCanvas /> : <ProjectCanvas />}
+        <MainPanel />
       </div>
-
-      <ChatPanel />
-      <ChatInput />
+      <ChatHistory />
+      <ChatFooter />
+      <SidebarFooter isCollapsed={isSidebarCollapsed} />
       <StatusBar />
     </div>
   );
