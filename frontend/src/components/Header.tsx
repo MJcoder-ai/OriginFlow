@@ -3,15 +3,17 @@ import { Settings } from 'lucide-react';
 
 const Header = ({ toggleSidebar, toggleToolbar }: { toggleSidebar: () => void; toggleToolbar: () => void }) => (
   <header className="h-16 flex items-center justify-between px-4 bg-white border-b shadow-sm">
-    {/* Left: ☰ Toggle only */}
-    <div className="flex items-center gap-4">
+    {/* Left: ☰ Toggle and App name */}
+    <div className="flex items-center gap-2">
       <button
         onClick={toggleSidebar}
-        className="ml-[4px] p-2 rounded-md hover:bg-gray-100 focus:ring-2 focus:ring-blue-500"
+        className="p-2 rounded-md hover:bg-gray-100 focus:ring-2 focus:ring-blue-500"
         aria-label="Toggle sidebar"
       >
         ☰
       </button>
+      {/* App title moves from the sidebar into the header */}
+      <span className="ml-2 text-lg font-bold">OriginFlow</span>
     </div>
 
     {/* Center: Tabs + Gear */}
