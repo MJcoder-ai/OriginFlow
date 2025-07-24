@@ -4,12 +4,16 @@ import Toolbar from './Toolbar';
 import Sidebar from './Sidebar';
 import ChatSidebar from './ChatSidebar';
 import StatusBar from './StatusBar';
-import MainPanel from './MainPanel';
 import { ChatInput } from './ChatInput';
+import ProjectCanvas from './ProjectCanvas';
+import ComponentCanvas from './ComponentCanvas';
+import { useAppStore } from '../appStore';
 
 const Layout: React.FC = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isSubNavVisible, setIsSubNavVisible] = useState(true);
+  // Pull the current route from the Zustand store to decide what to render.
+  const route = useAppStore((state) => state.route);
 
   return (
     <div
@@ -34,7 +38,12 @@ const Layout: React.FC = () => {
       />
       {isSubNavVisible && <Toolbar />}
       <Sidebar isCollapsed={isSidebarCollapsed} />
-      <MainPanel />
+
+      {/* Main content: swap between canvases based on the current route */}
+      <div className="overflow-hidden [grid-area:main]">
+        {route === 'components' ? <ComponentCanvas /> : <ProjectCanvas />}
+      </div>
+
       <ChatSidebar />
       <StatusBar />
       <ChatInput />
