@@ -50,9 +50,52 @@ The app layout is defined using **CSS Grid** inside a full-height flex container
 
 ---
 
-## Sidebar Width Sync
+## View-specific Layouts
 
-Define custom tokens:
+### Projects View – Canvas Builder
+
+When the route is set to `projects`, the main area should display a drag-and-drop canvas where users build connected component graphs. The canvas is implemented by the `Workspace` component inside `ProjectCanvas`.
+
+#### Key Behaviours:
+
+- **Component Library**: In the sidebar, below navigation, display a list of uploaded datasheets with status icons. Use `FileStagingArea`. Items are draggable via `@dnd-kit/core`.
+- **Canvas Interaction**: `Workspace` renders draggable component cards with ports, dashed canvas border, and scrolling for overflow.
+- **Status Bar**: Use `addStatusMessage` to show success/failure messages.
+
+### Components View – Datasheet Split
+
+When route is `components`, the main panel splits vertically into:
+
+- **Left Pane**: PDF preview using `iframe` or viewer, 50% width, scrollable.
+- **Right Pane**: Editable form of parsed data. Use `DatasheetSplitView`. Include Save and Confirm & Close buttons in a sticky header.
+- **Drag & Drop Parsing**: Dropping a PDF triggers `/api/v1/parse-datasheet` and opens the split view.
+
+### Navigation
+
+Switching between views should persist uploaded data and preserve active selection. Clicking a library item in Projects opens its view in Components.
+
+---
+
+## Adding New Views
+
+1. Extend the `route` enum/type in appStore.ts.
+2. Add a new `SidebarItem` for the route.
+3. Conditionally render the view inside `MainPanel`:
+
+```tsx
+const route = useAppStore((s) => s.route);
+return (
+  <main className="grid-in-main overflow-hidden">
+    {route === 'projects' && <ProjectCanvas />}
+    {route === 'components' && <ComponentCanvas />}
+    {/* future views */}
+  </main>
+);
+```
+
+---
+
+## Sidebar Width Sync
 
 ```css
 :root {
@@ -61,10 +104,8 @@ Define custom tokens:
 }
 ```
 
-Then apply:
-
 ```tsx
-<aside className={\`transition-[width] duration-200 \${sidebarCollapsed ? 'w-[var(--sidebar-width-collapsed)]' : 'w-[var(--sidebar-width-expanded)]'}\`}>
+<aside className={`transition-[width] duration-200 ${sidebarCollapsed ? 'w-[var(--sidebar-width-collapsed)]' : 'w-[var(--sidebar-width-expanded)]'}`} />
 ```
 
 ---
@@ -93,8 +134,6 @@ Then apply:
 }
 ```
 
-Use focus trap:
-
 ```tsx
 const { ref: chatRef } = useFocusTrap({ active: isChatOverlayOpen });
 ```
@@ -109,8 +148,6 @@ const { ref: chatRef } = useFocusTrap({ active: isChatOverlayOpen });
 </footer>
 ```
 
-Color styles:
-
 ```ts
 const statusColors = {
   success: 'text-green-700 bg-green-50 border-green-200',
@@ -118,8 +155,6 @@ const statusColors = {
   info:    'text-blue-700 bg-blue-50 border-blue-200',
 }
 ```
-
-Status interface:
 
 ```ts
 interface StatusMessage {
@@ -134,16 +169,15 @@ interface StatusMessage {
 
 ## ChatPanel Enhancements
 
-- Scroll-to-bottom on new message unless user is scrolling
-- Add `aria-live="polite"` to announce messages
-- Optional: Show timestamps
-
 ```tsx
 const [userScrolling, setUserScrolling] = useState(false);
 useEffect(() => {
   if (!userScrolling) scrollToBottom();
 }, [chatMessages]);
 ```
+
+- Use `aria-live="polite"` on chat area.
+- Optional: Show message timestamps.
 
 ---
 
@@ -194,11 +228,11 @@ const WARNING_THRESHOLD = 1800;
 
 ## Responsive Behavior
 
-| Width       | Behavior                    |
-| ----------- | --------------------------- |
-| ≥ 1280 px   | Full layout                 |
-| 768–1279 px | ChatSidebar becomes overlay |
-| < 768 px    | Stack Sidebar + Main layout |
+| Width       | Behavior                         |
+| ----------- | -------------------------------- |
+| ≥ 1280 px   | Full layout                      |
+| 768–1279 px | ChatSidebar becomes overlay      |
+| < 768 px    | Sidebar collapses, layout stacks |
 
 ### Mobile Drawer Spec
 
@@ -210,13 +244,13 @@ const WARNING_THRESHOLD = 1800;
 
 ---
 
-## Accessibility
+## Accessibility Summary
 
-- Landmarks: `<header>`, `<main>`, `<aside>`, `<footer>`
-- Buttons: `aria-label`, keyboard-accessible
-- Contrast: ≥ 4.5:1
-- Motion: optional disable via `prefers-reduced-motion`
-- Focus: `focus-visible:ring-1 ring-offset-1`
+- Use semantic tags: `<header>`, `<main>`, `<aside>`, `<footer>`
+- All buttons and inputs must be keyboard accessible
+- Use `aria-label`, `aria-live`, and `aria-current` where appropriate
+- Provide focus rings: `focus-visible:ring-1 ring-offset-1`
+- Minimum contrast ratio: 4.5:1
 
 ---
 
@@ -239,11 +273,12 @@ interface AppState {
 
 ## Documentation Changelog
 
-| Version | Date       | Notes                                                         |
-| ------- | ---------- | ------------------------------------------------------------- |
-| v3.2.1  | 2024-07-23 | Added gaps, focus-trap snippet, severity colors, state fields |
-| v3.2    | 2024-06-15 | Initial release with grid-based layout                        |
+| Version | Date       | Notes                                                               |
+| ------- | ---------- | ------------------------------------------------------------------- |
+| v3.2.1  | 2024-07-23 | Added layout routing, component view behaviors, and overlay support |
+| v3.2    | 2024-06-15 | Initial release with grid-based layout                              |
 
 ---
 
 This document serves as the single source of truth for UI development in OriginFlow. All future changes must respect the constraints and patterns defined here.
+
