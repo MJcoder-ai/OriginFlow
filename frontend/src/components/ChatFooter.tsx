@@ -2,7 +2,10 @@ import { ArrowUp, Mic, Paperclip } from 'lucide-react';
 
 const ChatFooter = () => {
   return (
-    <div className="grid-in-chat-footer p-3 bg-white border-t border-gray-200 flex items-center justify-between">
+    <div
+      className="grid-in-chat-footer p-3 bg-white border-t border-white flex items-center justify-between"
+      style={{ borderLeft: '1px solid #e5e7eb' }}
+    >
       <div className="flex gap-1">
         <button className="p-2 rounded-md hover:bg-gray-100">
           <Paperclip size={18} className="text-gray-600" />
