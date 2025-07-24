@@ -5,6 +5,7 @@ import { getFileStatus } from '../services/fileApi';
 
 const FileEntry: React.FC<{ u: UploadEntry }> = ({ u }) => {
   const setActiveDatasheet = useAppStore((s) => s.setActiveDatasheet);
+  const setRoute = useAppStore((s) => s.setRoute);
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `file-asset-${u.id}`,
     data: { type: 'file-asset', asset: u },
@@ -35,6 +36,7 @@ const FileEntry: React.FC<{ u: UploadEntry }> = ({ u }) => {
         if (u.parsing_status === 'success') {
           const asset = await getFileStatus(u.id);
           setActiveDatasheet({ id: asset.id, url: asset.url, payload: asset.parsed_payload });
+          setRoute('components');
         }
       }}
       className={clsx(

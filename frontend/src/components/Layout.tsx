@@ -3,13 +3,16 @@ import Header from './Header';
 import Toolbar from './Toolbar';
 import Sidebar from './Sidebar';
 import ProjectCanvas from './ProjectCanvas';
+import ComponentCanvas from './ComponentCanvas';
 import ChatSidebar from './ChatSidebar';
 import StatusBar from './StatusBar';
 import { ChatInput } from './ChatInput';
+import { useAppStore } from '../appStore';
 
 const Layout: React.FC = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isSubNavVisible, setIsSubNavVisible] = useState(true);
+  const route = useAppStore((s) => s.route);
 
   return (
     <div className="h-screen flex flex-col">
@@ -43,7 +46,7 @@ const Layout: React.FC = () => {
         </aside>
 
         <main className="grid-in-main overflow-hidden">
-          <ProjectCanvas />
+          {route === 'components' ? <ComponentCanvas /> : <ProjectCanvas />}
         </main>
 
         <div className="grid-in-chat fixed right-0 top-0 h-full z-50 shadow-2xl xl:static xl:shadow-none">
