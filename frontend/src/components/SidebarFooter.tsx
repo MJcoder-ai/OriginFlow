@@ -8,14 +8,16 @@ const SidebarFooter = ({ isCollapsed }: Props) => (
   <div className="grid-in-sidebar-footer p-2 border-t border-r border-gray-200 bg-white flex flex-col">
     <a
       href="#"
+      aria-label="Logout"
       className="flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-md hover:bg-gray-100"
     >
       <LogOut size={20} />
       {!isCollapsed && <span>Logout</span>}
     </a>
-    <div className="border-t my-2 mx-2 border-gray-200"></div>
+    <hr aria-hidden="true" className="border-t my-2 mx-2 border-gray-200" />
     <a
       href="#"
+      aria-label="Help and support"
       className="flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-md hover:bg-gray-100"
     >
       <LifeBuoy size={20} />
