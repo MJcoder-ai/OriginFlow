@@ -8,7 +8,8 @@ import Layout from './components/Layout';
 import { BomModal } from './components/BomModal';
 import { useAppStore, UploadEntry } from './appStore';
 import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { parseDatasheet } from './services/fileApi';
+import { parseDatasheet, getFileStatus } from './services/fileApi';
+import { API_BASE_URL } from './config';
 
 /** Main application component wrapping the Layout. */
 const App: React.FC = () => {
@@ -38,20 +39,36 @@ const App: React.FC = () => {
       return;
     }
 
-    // Drop from library onto the canvas to trigger parsing
+    // Drop from library onto the component canvas to trigger parsing
     if (over.id === 'component-canvas-area' && active.data.current?.type === 'file-asset') {
       const asset = active.data.current.asset as UploadEntry;
+      // Immediately mark the upload as processing and switch the view
       updateUpload(asset.id, { parsing_status: 'processing' });
       setRoute('components');
 
-      parseDatasheet(asset.id)
-        .then((parsed) => {
-          updateUpload(asset.id, { parsing_status: 'success' });
-          setActiveDatasheet({ id: parsed.id, url: parsed.url, payload: parsed.parsed_payload });
-        })
-        .catch((err) => {
-          updateUpload(asset.id, { parsing_status: 'failed', parsing_error: err.message });
-        });
+      // Kick off the parsing job (runs async on the backend)
+      parseDatasheet(asset.id).catch((err) => {
+        updateUpload(asset.id, { parsing_status: 'failed', parsing_error: err.message });
+      });
+
+      // Poll for status until completed
+      const poll = setInterval(async () => {
+        try {
+          const updatedAsset = await getFileStatus(asset.id);
+          if (updatedAsset.parsing_status === 'success') {
+            clearInterval(poll);
+            updateUpload(asset.id, { parsing_status: 'success', parsing_error: null });
+            const absoluteUrl = `${API_BASE_URL.replace('/api/v1','')}${updatedAsset.url}`;
+            setActiveDatasheet({ id: updatedAsset.id, url: absoluteUrl, payload: updatedAsset.parsed_payload });
+          } else if (updatedAsset.parsing_status === 'failed') {
+            clearInterval(poll);
+            updateUpload(asset.id, { parsing_status: 'failed', parsing_error: updatedAsset.parsing_error });
+          }
+        } catch (err: any) {
+          clearInterval(poll);
+          updateUpload(asset.id, { parsing_status: 'failed', parsing_error: err.message || 'Failed to fetch status' });
+        }
+      }, 2000);
 
       return;
     }

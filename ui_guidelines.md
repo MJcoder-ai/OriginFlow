@@ -76,7 +76,8 @@ OriginFlow uses a **CSS Grid layout** wrapped in a full-height flex column to st
 - Left pane: PDF viewer (using `react-pdf` with pagination, 50% width)
 - Right pane: Form with editable parsed data, grouped into sections
 - Include Save and Confirm & Close buttons in sticky toolbar
-- ComponentCanvas handles drag/drop from sidebar and triggers `/api/v1/parse-datasheet`
+- ComponentCanvas handles drag/drop from the library or native desktop and triggers asynchronous parsing via `POST /files/{id}/parse`,
+  then polls `GET /files/{id}` until `parsing_status` resolves.
 
 ### Dynamic Routing Example
 

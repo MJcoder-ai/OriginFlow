@@ -32,21 +32,27 @@ const FileEntry: React.FC<{ u: UploadEntry }> = ({ u }) => {
 
   const handleParse = async () => {
     try {
-      updateUpload(u.id, { parsing_status: 'processing' });
-      await parseDatasheet(u.id);
+        updateUpload(u.id, { parsing_status: 'processing' });
+        await parseDatasheet(u.id);
 
-      const poll = setInterval(async () => {
-        const updatedAsset = await getFileStatus(u.id);
-        if (updatedAsset.parsing_status === 'success') {
-          clearInterval(poll);
-          updateUpload(u.id, { parsing_status: 'success', parsing_error: null });
-          setActiveDatasheet({ id: updatedAsset.id, url: updatedAsset.url, payload: updatedAsset.parsed_payload });
-          setRoute('components');
-        } else if (updatedAsset.parsing_status === 'failed') {
-          clearInterval(poll);
-          updateUpload(u.id, { parsing_status: 'failed', parsing_error: updatedAsset.parsing_error });
-        }
-      }, 2000);
+        const poll = setInterval(async () => {
+            try {
+                const updatedAsset = await getFileStatus(u.id);
+                if (updatedAsset.parsing_status === 'success') {
+                    clearInterval(poll);
+                    updateUpload(u.id, { parsing_status: 'success', parsing_error: null });
+                    const absoluteUrl = `${API_BASE_URL.replace('/api/v1','')}${updatedAsset.url}`;
+                    setActiveDatasheet({ id: updatedAsset.id, url: absoluteUrl, payload: updatedAsset.parsed_payload });
+                    setRoute('components');
+                } else if (updatedAsset.parsing_status === 'failed') {
+                    clearInterval(poll);
+                    updateUpload(u.id, { parsing_status: 'failed', parsing_error: updatedAsset.parsing_error });
+                }
+            } catch (err: any) {
+                clearInterval(poll);
+                updateUpload(u.id, { parsing_status: 'failed', parsing_error: err.message || 'Failed to fetch status' });
+            }
+        }, 2000);
     } catch (err: any) {
       console.error(err);
       updateUpload(u.id, {
