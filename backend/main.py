@@ -6,6 +6,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 
 from backend.config import settings
 
@@ -37,7 +38,11 @@ app.add_middleware(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-app.mount("/static", StaticFiles(directory="backend/static"), name="static")
+# <codex-marker>
+# Resolve the static directory relative to this file and ensure it exists
+_static_root = Path(__file__).resolve().parent / "static"
+_static_root.mkdir(parents=True, exist_ok=True)
+app.mount("/static", StaticFiles(directory=str(_static_root)), name="static")
 
 app.include_router(components.router, prefix=settings.api_prefix)
 app.include_router(links.router, prefix=settings.api_prefix)

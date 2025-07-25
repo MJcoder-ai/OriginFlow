@@ -312,6 +312,13 @@ If running the frontend on a different host or port, update the `origins` list i
 5. **Review & Confirm** – The split view includes a Save button and a "Confirm & Close" action. The chat history and input remain visible in the Properties panel on the right so you can ask questions while editing.
 6. **In-Canvas Split View** – The datasheet view now opens directly inside the Components workspace, so no separate overlay element is required.
 
+
+### 6.11 PDF Viewer Errors
+If the PDF viewer reports "Failed to load PDF" in the UI:
+1. Confirm the backend is running on the URL configured in `VITE_API_URL`.
+2. Ensure the backend created `backend/static/uploads` and is serving `/static` files. The directory is created at startup relative to `backend/main.py`.
+3. Verify the file's URL points to `http://<backend-host>/static/uploads/{asset_id}/{filename}`.
+
 ---
 
 ## 7. Architecture & Design

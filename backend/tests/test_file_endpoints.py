@@ -41,7 +41,7 @@ def test_upload_file(tmp_path, monkeypatch):
     assert data["mime"] == "text/plain"
     assert data["size"] == 5
     # Verify file was saved in static uploads directory
-    saved = Path("backend/static/uploads") / data["id"] / "foo.txt"
+    saved = Path(__file__).resolve().parents[2] / "backend" / "static" / "uploads" / data["id"] / "foo.txt"
     assert saved.exists()
 
 
