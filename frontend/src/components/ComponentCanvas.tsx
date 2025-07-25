@@ -9,6 +9,7 @@ import {
   getFileStatus,
 } from '../services/fileApi';
 import { API_BASE_URL } from '../config';
+import { makeAbsoluteUrl } from '../utils/url';
 
 const ComponentCanvas: React.FC = () => {
   const activeDatasheet = useAppStore((s) => s.activeDatasheet);
@@ -53,7 +54,7 @@ const ComponentCanvas: React.FC = () => {
             if (updated.parsing_status === 'success') {
               clearInterval(poll);
               updateUpload(uploaded.id, { parsing_status: 'success', parsing_error: null });
-              const absoluteUrl = `${API_BASE_URL.replace('/api/v1','')}${updated.url}`;
+              const absoluteUrl = makeAbsoluteUrl(updated.url, API_BASE_URL);
               setActiveDatasheet({ id: updated.id, url: absoluteUrl, payload: updated.parsed_payload });
             } else if (updated.parsing_status === 'failed') {
               clearInterval(poll);
@@ -91,7 +92,7 @@ const ComponentCanvas: React.FC = () => {
   const handleSave = (assetId: string, updatedData: any) => {
     updateParsedData(assetId, updatedData)
       .then((updated) => {
-        const absoluteUrl = `${API_BASE_URL.replace('/api/v1','')}${updated.url}`;
+        const absoluteUrl = makeAbsoluteUrl(updated.url, API_BASE_URL);
         setActiveDatasheet({ id: updated.id, url: absoluteUrl, payload: updated.parsed_payload });
       })
       .catch((err) => {
@@ -110,7 +111,7 @@ const ComponentCanvas: React.FC = () => {
         if (updated.parsing_status === 'success') {
           clearInterval(poll);
           updateUpload(assetId, { parsing_status: 'success', parsing_error: null });
-          const absoluteUrl = `${API_BASE_URL.replace('/api/v1','')}${updated.url}`;
+          const absoluteUrl = makeAbsoluteUrl(updated.url, API_BASE_URL);
           setActiveDatasheet({ id: updated.id, url: absoluteUrl, payload: updated.parsed_payload });
         } else if (updated.parsing_status === 'failed') {
           clearInterval(poll);
