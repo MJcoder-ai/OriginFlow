@@ -32,8 +32,14 @@ export const FileUploadButton = () => {
 
     try {
       const asset = await uploadFile(file, (p) => updateUpload(tempId, { progress: p }));
-      // Replace temp entry with the real uploaded asset but leave parsing null
-      updateUpload(tempId, { ...asset, id: asset.id, progress: 101, parsing_status: null });
+      // Replace the temp entry with the real one but leave parsing_status null (unparsed)
+      updateUpload(tempId, {
+        ...asset,
+        id: asset.id,
+        progress: 101,
+        parsing_status: null,
+        parsing_error: null,
+      });
       addMessage({ author: 'user', text: `Uploaded ${file.name}` });
     } catch (error) {
       console.error('Upload failed', error);

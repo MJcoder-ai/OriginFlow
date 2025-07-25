@@ -9,14 +9,10 @@ const MainPanel: React.FC = () => {
   return (
     <main className="grid-in-main flex flex-col bg-gray-50 text-black h-full w-full p-2 overflow-hidden">
       {route === 'projects' && <Workspace />}
-      {route === 'components' &&
-        (activeDatasheet ? (
-          <ComponentCanvas />
-        ) : (
-          <div className="flex-1 flex items-center justify-center text-gray-400 border-2 border-dashed rounded-lg">
-            Drag or select a datasheet from the library to start parsing.
-          </div>
-        ))}
+      {route === 'components' && (
+        // Always render the ComponentCanvas so the droppable area is available.
+        <ComponentCanvas />
+      )}
     </main>
   );
 };

@@ -8,6 +8,7 @@ import {
   updateParsedData,
   getFileStatus,
 } from '../services/fileApi';
+import { API_BASE_URL } from '../config';
 
 const ComponentCanvas: React.FC = () => {
   const activeDatasheet = useAppStore((s) => s.activeDatasheet);
@@ -17,6 +18,7 @@ const ComponentCanvas: React.FC = () => {
 
   const handleNativeDrop = useCallback(
     async (file: File) => {
+      // Add a temporary upload entry while uploading
       const tempId = `temp-${Date.now()}`;
       addUpload({
         id: tempId,
@@ -32,22 +34,34 @@ const ComponentCanvas: React.FC = () => {
       });
 
       try {
+        // Upload the file and track progress
         const uploaded = await uploadFile(file, (p) => updateUpload(tempId, { progress: p }));
-
+        // Replace the temp entry with the real asset and mark processing
         updateUpload(uploaded.id, { ...uploaded, parsing_status: 'processing' });
+        // Show the components view
         setRoute('components');
 
-        await parseDatasheet(uploaded.id);
+        // Trigger parsing asynchronously
+        parseDatasheet(uploaded.id).catch((err) => {
+          updateUpload(uploaded.id, { parsing_status: 'failed', parsing_error: err.message });
+        });
 
+        // Poll backend until parsing finishes
         const poll = setInterval(async () => {
-          const updated = await getFileStatus(uploaded.id);
-          if (updated.parsing_status === 'success') {
+          try {
+            const updated = await getFileStatus(uploaded.id);
+            if (updated.parsing_status === 'success') {
+              clearInterval(poll);
+              updateUpload(uploaded.id, { parsing_status: 'success', parsing_error: null });
+              const absoluteUrl = `${API_BASE_URL.replace('/api/v1','')}${updated.url}`;
+              setActiveDatasheet({ id: updated.id, url: absoluteUrl, payload: updated.parsed_payload });
+            } else if (updated.parsing_status === 'failed') {
+              clearInterval(poll);
+              updateUpload(uploaded.id, { parsing_status: 'failed', parsing_error: updated.parsing_error });
+            }
+          } catch (err: any) {
             clearInterval(poll);
-            updateUpload(uploaded.id, { parsing_status: 'success' });
-            setActiveDatasheet({ id: updated.id, url: updated.url, payload: updated.parsed_payload });
-          } else if (updated.parsing_status === 'failed') {
-            clearInterval(poll);
-            updateUpload(uploaded.id, { parsing_status: 'failed', parsing_error: updated.parsing_error });
+            updateUpload(uploaded.id, { parsing_status: 'failed', parsing_error: err.message || 'Failed to fetch status' });
           }
         }, 2000);
       } catch (err: any) {
@@ -73,22 +87,40 @@ const ComponentCanvas: React.FC = () => {
 
   const onDragOver = (e: React.DragEvent<HTMLDivElement>) => e.preventDefault();
 
-  const handleSave = (payload: any) => {
-    if (!activeDatasheet) return;
-    updateParsedData(activeDatasheet.id, payload).then((updated) => {
-      setActiveDatasheet({ id: updated.id, url: updated.url, payload: updated.parsed_payload });
-    });
-  };
-
-  const handleAnalyze = () => {
-    if (!activeDatasheet) return;
-    parseDatasheet(activeDatasheet.id)
-      .then((parsed) => {
-        setActiveDatasheet({ id: parsed.id, url: parsed.url, payload: parsed.parsed_payload });
+  // Save edits back to the backend (PATCH /files/{id}) and update the view
+  const handleSave = (assetId: string, updatedData: any) => {
+    updateParsedData(assetId, updatedData)
+      .then((updated) => {
+        const absoluteUrl = `${API_BASE_URL.replace('/api/v1','')}${updated.url}`;
+        setActiveDatasheet({ id: updated.id, url: absoluteUrl, payload: updated.parsed_payload });
       })
       .catch((err) => {
-        console.error('Re-analyze failed', err);
+        console.error('Failed to save datasheet', err);
       });
+  };
+
+  // Trigger a fresh parse and poll until complete (for “Re-Analyze”)
+  const handleAnalyze = (assetId: string) => {
+    parseDatasheet(assetId).catch((err) => {
+      console.error('Re-Analyze failed', err);
+    });
+    const poll = setInterval(async () => {
+      try {
+        const updated = await getFileStatus(assetId);
+        if (updated.parsing_status === 'success') {
+          clearInterval(poll);
+          updateUpload(assetId, { parsing_status: 'success', parsing_error: null });
+          const absoluteUrl = `${API_BASE_URL.replace('/api/v1','')}${updated.url}`;
+          setActiveDatasheet({ id: updated.id, url: absoluteUrl, payload: updated.parsed_payload });
+        } else if (updated.parsing_status === 'failed') {
+          clearInterval(poll);
+          updateUpload(assetId, { parsing_status: 'failed', parsing_error: updated.parsing_error });
+        }
+      } catch (err: any) {
+        clearInterval(poll);
+        updateUpload(assetId, { parsing_status: 'failed', parsing_error: err.message || 'Failed to fetch status' });
+      }
+    }, 2000);
   };
 
   const handleClose = () => setActiveDatasheet(null);
