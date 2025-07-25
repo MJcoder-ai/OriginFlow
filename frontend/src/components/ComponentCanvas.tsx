@@ -1,75 +1,91 @@
-import React, { useState, useEffect } from 'react';
-import { useDroppable } from '@dnd-kit/core';
-import DatasheetSplitView from './DatasheetSplitView';
+import React, { useCallback } from 'react';
 import { useAppStore } from '../appStore';
+import { DatasheetSplitView } from './DatasheetSplitView';
+import { API_BASE_URL } from '../config';
+import { useDroppable } from '@dnd-kit/core';
+import { uploadFile, parseDatasheet, updateParsedData, getFileStatus } from '../services/fileApi';
 
 const ComponentCanvas: React.FC = () => {
-  const { setNodeRef } = useDroppable({ id: 'component-canvas' });
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [parsedData, setParsedData] = useState<any | null>(null);
-  const [assetId, setAssetId] = useState<string | null>(null);
-  const { activeDatasheet, setActiveDatasheet } = useAppStore((s) => ({
-    activeDatasheet: s.activeDatasheet,
-    setActiveDatasheet: s.setActiveDatasheet,
-  }));
+  const activeDatasheet = useAppStore((s) => s.activeDatasheet);
+  const setActiveDatasheet = useAppStore((s) => s.setActiveDatasheet);
+  const { addUpload, updateUpload, setRoute } = useAppStore();
+  const { setNodeRef } = useDroppable({ id: 'component-canvas-area' });
 
-  useEffect(() => {
-    if (activeDatasheet) {
-      setPdfUrl(activeDatasheet.url);
-      setParsedData(activeDatasheet.payload);
-      setAssetId(activeDatasheet.id);
-    } else {
-      setPdfUrl(null);
-      setParsedData(null);
-      setAssetId(null);
-    }
-  }, [activeDatasheet]);
+  const handleNativeDrop = useCallback(
+    async (file: File) => {
+      const tempId = `temp-${Date.now()}`;
+      addUpload({
+        id: tempId,
+        name: file.name,
+        size: file.size,
+        mime: file.type,
+        progress: 0,
+        assetType: 'component',
+        parsed_at: null,
+        parsing_status: null,
+        parsing_error: null,
+        is_human_verified: false,
+      });
 
-  const handleDrop = async (file: File) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    const res = await fetch('/api/v1/parse-datasheet', { method: 'POST', body: formData });
-    const result = await res.json();
-    const blobUrl = URL.createObjectURL(file);
-    setActiveDatasheet({
-      id: result.assetId || file.name,
-      url: blobUrl,
-      payload: result.fields,
-    });
-  };
+      try {
+        const uploaded = await uploadFile(file, (p) => updateUpload(tempId, { progress: p }));
+
+        updateUpload(uploaded.id, { ...uploaded, parsing_status: 'processing' });
+        setRoute('components');
+
+        await parseDatasheet(uploaded.id);
+
+        const poll = setInterval(async () => {
+          const updated = await getFileStatus(uploaded.id);
+          if (updated.parsing_status === 'success') {
+            clearInterval(poll);
+            updateUpload(uploaded.id, { parsing_status: 'success' });
+            setActiveDatasheet({ id: updated.id, url: updated.url, payload: updated.parsed_payload });
+          } else if (updated.parsing_status === 'failed') {
+            clearInterval(poll);
+            updateUpload(uploaded.id, { parsing_status: 'failed', parsing_error: updated.parsing_error });
+          }
+        }, 2000);
+      } catch (err: any) {
+        console.error(err);
+        updateUpload(tempId, { parsing_status: 'failed', parsing_error: 'Upload or parse failed' });
+      }
+    },
+    [addUpload, updateUpload, setActiveDatasheet, setRoute],
+  );
+
+  const onDrop = useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        const file = e.dataTransfer.files[0];
+        if (file.type === 'application/pdf') {
+          void handleNativeDrop(file);
+        }
+      }
+    },
+    [handleNativeDrop],
+  );
+
+  const onDragOver = (e: React.DragEvent<HTMLDivElement>) => e.preventDefault();
 
   return (
-    <div
-      ref={setNodeRef}
-      className="w-full h-full bg-white border border-gray-200 rounded-md flex overflow-hidden"
-      onDrop={(e) => {
-        e.preventDefault();
-        const file = e.dataTransfer.files?.[0];
-        if (file?.type === 'application/pdf') handleDrop(file);
-      }}
-      onDragOver={(e) => e.preventDefault()}
-    >
-      {!pdfUrl && (
-        <div className="flex-1 flex items-center justify-center text-gray-400">
-          Drag a datasheet from the library or your desktop here to parse it.
-        </div>
-      )}
-      {pdfUrl && parsedData && assetId && (
+    <div ref={setNodeRef} className="w-full h-full flex flex-col" onDrop={onDrop} onDragOver={onDragOver}>
+      {activeDatasheet ? (
         <DatasheetSplitView
-          assetId={assetId}
-          pdfUrl={pdfUrl}
-          initialParsedData={parsedData}
-          onClose={() => {
-            setActiveDatasheet(null);
-          }}
-          onSave={(id, payload) => {
-            fetch(`/api/v1/components/${id}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload),
+          pdfUrl={`${API_BASE_URL}${activeDatasheet.url}`}
+          parsedData={activeDatasheet.payload}
+          onSave={(payload) => {
+            updateParsedData(activeDatasheet.id, payload).then((updated) => {
+              setActiveDatasheet({ id: updated.id, url: updated.url, payload: updated.parsed_payload });
             });
           }}
+          onClose={() => setActiveDatasheet(null)}
         />
+      ) : (
+        <div className="flex-1 flex items-center justify-center text-gray-400 border-2 border-dashed rounded-lg pointer-events-none">
+          <p>Drop a component from the library or a PDF from your computer to begin.</p>
+        </div>
       )}
     </div>
   );
