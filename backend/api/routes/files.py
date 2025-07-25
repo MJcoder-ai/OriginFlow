@@ -14,6 +14,7 @@ from fastapi import (
     status,
     BackgroundTasks,
 )
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from openai import AsyncOpenAI
@@ -125,4 +126,24 @@ async def update_parsed_data(
 
     updated = await FileService.update_asset(asset, update_data, session)
     return FileAssetRead.model_validate(updated)
+
+
+@router.get(
+    "/files/{file_id}/file",
+    response_class=FileResponse,
+    summary="Download original file for preview",
+)
+async def download_file(
+    file_id: str, session: AsyncSession = Depends(get_session)
+) -> FileResponse:
+    """Stream the original uploaded file from disk."""
+    asset = await FileService.get(session, file_id)
+    if not asset:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    return FileResponse(
+        path=str(asset.local_path),
+        media_type=asset.mime,
+        filename=asset.filename,
+    )
 
