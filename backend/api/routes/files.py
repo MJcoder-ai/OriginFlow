@@ -26,8 +26,11 @@ from backend.utils.id import generate_id
 router = APIRouter()
 
 
-# Create the uploads directory if it doesn't exist
-UPLOADS_DIR = Path("backend/static/uploads")
+# Create the uploads directory if it doesn't exist.
+# <codex-marker>
+# Resolve path relative to the backend package so changes to the working
+# directory do not break file serving.
+UPLOADS_DIR = Path(__file__).resolve().parents[2] / "static" / "uploads"
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 
