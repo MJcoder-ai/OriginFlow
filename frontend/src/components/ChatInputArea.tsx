@@ -4,7 +4,7 @@ const ChatInputArea = () => {
   const input = useAppStore((s) => s.chatDraft);
   const setInput = useAppStore((s) => s.setChatDraft);
   const analyzeAndExecute = useAppStore((s) => s.analyzeAndExecute);
-  const clearDraft = useAppStore((s) => s.clearChatDraft);
+  const clearChatDraft = useAppStore((s) => s.clearChatDraft);
 
   return (
     <div
@@ -19,7 +19,7 @@ const ChatInputArea = () => {
             e.preventDefault();
             if (input.trim()) {
               analyzeAndExecute(input);
-              clearDraft();
+              clearChatDraft();
             }
           }
         }}
