@@ -6,8 +6,7 @@
 import { CanvasComponent, Link } from '../appStore';
 import { AiAction } from '../types/ai';
 import { DesignSnapshot } from '../types/analysis';
-
-export const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api/v1';
+import { API_BASE_URL } from '../config';
 
 export type ComponentCreateDTO = Omit<CanvasComponent, 'id' | 'ports'>;
 /** Payload for creating a link via the backend API. */

@@ -6,12 +6,22 @@
 import React, { useEffect } from 'react';
 import Layout from './components/Layout';
 import { BomModal } from './components/BomModal';
-import { useAppStore } from './appStore';
+import { useAppStore, UploadEntry } from './appStore';
 import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { parseDatasheet } from './services/fileApi';
 
 /** Main application component wrapping the Layout. */
 const App: React.FC = () => {
-  const { bomItems, setBom, loadUploads, addComponent, updateComponentPosition } = useAppStore();
+  const {
+    bomItems,
+    setBom,
+    loadUploads,
+    addComponent,
+    updateComponentPosition,
+    updateUpload,
+    setActiveDatasheet,
+    setRoute,
+  } = useAppStore();
   const sensors = useSensors(useSensor(PointerSensor));
 
   const handleDragEnd = (event: any) => {
@@ -25,6 +35,24 @@ const App: React.FC = () => {
         type: asset.mime,
         standard_code: asset.id,
       });
+      return;
+    }
+
+    // Drop from library onto the canvas to trigger parsing
+    if (over.id === 'component-canvas-area' && active.data.current?.type === 'file-asset') {
+      const asset = active.data.current.asset as UploadEntry;
+      updateUpload(asset.id, { parsing_status: 'processing' });
+      setRoute('components');
+
+      parseDatasheet(asset.id)
+        .then((parsed) => {
+          updateUpload(asset.id, { parsing_status: 'success' });
+          setActiveDatasheet({ id: parsed.id, url: parsed.url, payload: parsed.parsed_payload });
+        })
+        .catch((err) => {
+          updateUpload(asset.id, { parsing_status: 'failed', parsing_error: err.message });
+        });
+
       return;
     }
 

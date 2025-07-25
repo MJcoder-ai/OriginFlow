@@ -1,5 +1,5 @@
 import { FileAsset } from './types';
-import { API_BASE_URL } from './api';
+import { API_BASE_URL } from '../config';
 
 export async function uploadFile(
   file: File,

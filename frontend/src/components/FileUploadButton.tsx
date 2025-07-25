@@ -7,7 +7,7 @@ import { useRef } from 'react';
 
 export const FileUploadButton = () => {
   const inputRef = useRef<HTMLInputElement>(null);
-  const { addUpload, updateUpload } = useAppStore();
+  const { addUpload, updateUpload, addMessage } = useAppStore();
 
   const choose = () => inputRef.current?.click();
 
@@ -32,23 +32,13 @@ export const FileUploadButton = () => {
 
     try {
       const asset = await uploadFile(file, (p) => updateUpload(tempId, { progress: p }));
-      updateUpload(tempId, {
-        id: asset.id,
-        progress: 101,
-        parsing_status: asset.parsing_status ?? null,
-        parsing_error: asset.parsing_error ?? null,
-        is_human_verified: asset.is_human_verified ?? false,
-      });
-      useAppStore.getState().addMessage({ id: generateId('msg'), author: 'AI', text: `✅ Uploaded *${file.name}* (${prettyBytes(file.size)})` });
-      if (asset.parsed_payload) {
-        useAppStore
-          .getState()
-          .setActiveDatasheet({ id: asset.id, url: asset.url, payload: asset.parsed_payload });
-      }
+      // Replace temp entry with the real uploaded asset but leave parsing null
+      updateUpload(tempId, { ...asset, id: asset.id, progress: 101, parsing_status: null });
+      addMessage({ author: 'user', text: `Uploaded ${file.name}` });
     } catch (error) {
       console.error('Upload failed', error);
       updateUpload(tempId, { progress: -1 });
-      useAppStore.getState().addMessage({ id: generateId('msg'), author: 'AI', text: `❌ Upload failed for *${file.name}*` });
+      addMessage({ author: 'user', text: `❌ Upload failed for ${file.name}` });
     }
   };
 

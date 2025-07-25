@@ -32,10 +32,20 @@ const FileEntry: React.FC<{ u: UploadEntry }> = ({ u }) => {
   const handleParse = async () => {
     try {
       updateUpload(u.id, { parsing_status: 'processing' });
-      const asset = await parseDatasheet(u.id);
-      updateUpload(u.id, { parsing_status: 'success', parsing_error: null });
-      setActiveDatasheet({ id: asset.id, url: asset.url, payload: asset.parsed_payload });
-      setRoute('components');
+      await parseDatasheet(u.id);
+
+      const poll = setInterval(async () => {
+        const updatedAsset = await getFileStatus(u.id);
+        if (updatedAsset.parsing_status === 'success') {
+          clearInterval(poll);
+          updateUpload(u.id, { parsing_status: 'success', parsing_error: null });
+          setActiveDatasheet({ id: updatedAsset.id, url: updatedAsset.url, payload: updatedAsset.parsed_payload });
+          setRoute('components');
+        } else if (updatedAsset.parsing_status === 'failed') {
+          clearInterval(poll);
+          updateUpload(u.id, { parsing_status: 'failed', parsing_error: updatedAsset.parsing_error });
+        }
+      }, 2000);
     } catch (err: any) {
       console.error(err);
       updateUpload(u.id, {
