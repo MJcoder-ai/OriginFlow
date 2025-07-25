@@ -2,6 +2,7 @@ import { useAppStore, UploadEntry } from '../appStore';
 import clsx from 'clsx';
 import { useDraggable } from '@dnd-kit/core';
 import { getFileStatus, parseDatasheet } from '../services/fileApi';
+import { API_BASE_URL } from '../config';
 
 const FileEntry: React.FC<{ u: UploadEntry }> = ({ u }) => {
   const setActiveDatasheet = useAppStore((s) => s.setActiveDatasheet);
@@ -62,7 +63,8 @@ const FileEntry: React.FC<{ u: UploadEntry }> = ({ u }) => {
       onClick={async () => {
         if (u.parsing_status === 'success') {
           const asset = await getFileStatus(u.id);
-          setActiveDatasheet({ id: asset.id, url: asset.url, payload: asset.parsed_payload });
+          const absoluteUrl = `${API_BASE_URL.replace('/api/v1', '')}${asset.url}`;
+          setActiveDatasheet({ id: asset.id, url: absoluteUrl, payload: asset.parsed_payload });
           setRoute('components');
         }
       }}

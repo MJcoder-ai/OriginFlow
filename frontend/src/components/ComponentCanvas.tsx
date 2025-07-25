@@ -1,9 +1,13 @@
 import React, { useCallback } from 'react';
 import { useAppStore } from '../appStore';
 import { DatasheetSplitView } from './DatasheetSplitView';
-import { API_BASE_URL } from '../config';
 import { useDroppable } from '@dnd-kit/core';
-import { uploadFile, parseDatasheet, updateParsedData, getFileStatus } from '../services/fileApi';
+import {
+  uploadFile,
+  parseDatasheet,
+  updateParsedData,
+  getFileStatus,
+} from '../services/fileApi';
 
 const ComponentCanvas: React.FC = () => {
   const activeDatasheet = useAppStore((s) => s.activeDatasheet);
@@ -69,18 +73,36 @@ const ComponentCanvas: React.FC = () => {
 
   const onDragOver = (e: React.DragEvent<HTMLDivElement>) => e.preventDefault();
 
+  const handleSave = (payload: any) => {
+    if (!activeDatasheet) return;
+    updateParsedData(activeDatasheet.id, payload).then((updated) => {
+      setActiveDatasheet({ id: updated.id, url: updated.url, payload: updated.parsed_payload });
+    });
+  };
+
+  const handleAnalyze = () => {
+    if (!activeDatasheet) return;
+    parseDatasheet(activeDatasheet.id)
+      .then((parsed) => {
+        setActiveDatasheet({ id: parsed.id, url: parsed.url, payload: parsed.parsed_payload });
+      })
+      .catch((err) => {
+        console.error('Re-analyze failed', err);
+      });
+  };
+
+  const handleClose = () => setActiveDatasheet(null);
+
   return (
     <div ref={setNodeRef} className="w-full h-full flex flex-col" onDrop={onDrop} onDragOver={onDragOver}>
       {activeDatasheet ? (
         <DatasheetSplitView
-          pdfUrl={`${API_BASE_URL}${activeDatasheet.url}`}
-          parsedData={activeDatasheet.payload}
-          onSave={(payload) => {
-            updateParsedData(activeDatasheet.id, payload).then((updated) => {
-              setActiveDatasheet({ id: updated.id, url: updated.url, payload: updated.parsed_payload });
-            });
-          }}
-          onClose={() => setActiveDatasheet(null)}
+          assetId={activeDatasheet.id}
+          pdfUrl={activeDatasheet.url}
+          initialParsedData={activeDatasheet.payload}
+          onSave={handleSave}
+          onAnalyze={handleAnalyze}
+          onClose={handleClose}
         />
       ) : (
         <div className="flex-1 flex items-center justify-center text-gray-400 border-2 border-dashed rounded-lg pointer-events-none">
