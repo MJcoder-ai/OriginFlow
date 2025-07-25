@@ -73,7 +73,7 @@ OriginFlow uses a **CSS Grid layout** wrapped in a full-height flex column to st
 ### Components View – Datasheet Split
 
 - Render `<DatasheetSplitView />` in the `main` area
-- Left pane: PDF viewer (`<iframe>`, 50% width, scrollable)
+- Left pane: PDF viewer (using `react-pdf` with pagination, 50% width)
 - Right pane: Form with editable parsed data, grouped into sections
 - Include Save and Confirm & Close buttons in sticky toolbar
 - ComponentCanvas handles drag/drop from sidebar and triggers `/api/v1/parse-datasheet`
