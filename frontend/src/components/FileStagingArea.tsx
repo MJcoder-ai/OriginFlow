@@ -3,7 +3,6 @@ import clsx from 'clsx';
 import { useDraggable } from '@dnd-kit/core';
 import { getFileStatus, parseDatasheet } from '../services/fileApi';
 import { API_BASE_URL } from '../config';
-import { makeAbsoluteUrl } from '../utils/url';
 
 const FileEntry: React.FC<{ u: UploadEntry }> = ({ u }) => {
   const setActiveDatasheet = useAppStore((s) => s.setActiveDatasheet);
@@ -42,8 +41,8 @@ const FileEntry: React.FC<{ u: UploadEntry }> = ({ u }) => {
                 if (updatedAsset.parsing_status === 'success') {
                     clearInterval(poll);
                     updateUpload(u.id, { parsing_status: 'success', parsing_error: null });
-                    const absoluteUrl = makeAbsoluteUrl(updatedAsset.url, API_BASE_URL);
-                    setActiveDatasheet({ id: updatedAsset.id, url: absoluteUrl, payload: updatedAsset.parsed_payload });
+                    const fileUrl = `${API_BASE_URL}/files/${updatedAsset.id}/file`;
+                    setActiveDatasheet({ id: updatedAsset.id, url: fileUrl, payload: updatedAsset.parsed_payload });
                     setRoute('components');
                 } else if (updatedAsset.parsing_status === 'failed') {
                     clearInterval(poll);
@@ -70,8 +69,8 @@ const FileEntry: React.FC<{ u: UploadEntry }> = ({ u }) => {
       onClick={async () => {
         if (u.parsing_status === 'success') {
           const asset = await getFileStatus(u.id);
-          const absoluteUrl = makeAbsoluteUrl(asset.url, API_BASE_URL);
-          setActiveDatasheet({ id: asset.id, url: absoluteUrl, payload: asset.parsed_payload });
+          const fileUrl = `${API_BASE_URL}/files/${asset.id}/file`;
+          setActiveDatasheet({ id: asset.id, url: fileUrl, payload: asset.parsed_payload });
           setRoute('components');
         }
       }}
