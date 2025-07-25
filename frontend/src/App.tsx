@@ -10,6 +10,7 @@ import { useAppStore, UploadEntry } from './appStore';
 import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { parseDatasheet, getFileStatus } from './services/fileApi';
 import { API_BASE_URL } from './config';
+import { makeAbsoluteUrl } from './utils/url';
 
 /** Main application component wrapping the Layout. */
 const App: React.FC = () => {
@@ -58,7 +59,7 @@ const App: React.FC = () => {
           if (updatedAsset.parsing_status === 'success') {
             clearInterval(poll);
             updateUpload(asset.id, { parsing_status: 'success', parsing_error: null });
-            const absoluteUrl = `${API_BASE_URL.replace('/api/v1','')}${updatedAsset.url}`;
+            const absoluteUrl = makeAbsoluteUrl(updatedAsset.url, API_BASE_URL);
             setActiveDatasheet({ id: updatedAsset.id, url: absoluteUrl, payload: updatedAsset.parsed_payload });
           } else if (updatedAsset.parsing_status === 'failed') {
             clearInterval(poll);
