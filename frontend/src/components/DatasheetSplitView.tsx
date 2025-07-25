@@ -3,23 +3,20 @@ import { Document, Page } from 'react-pdf';
 
 interface DatasheetSplitViewProps {
   pdfUrl: string;
-  // Keep the other props as they are for the right-side form
-  initialParsedData: any;
-  assetId: string;
-  onSave: (assetId: string, updatedData: any) => void;
-  onAnalyze: (assetId: string) => void;
+  parsedData: any;
+  onSave: (data: any) => void;
+  onClose: () => void;
 }
 
 const DatasheetSplitView: React.FC<DatasheetSplitViewProps> = ({
   pdfUrl,
-  initialParsedData,
-  assetId,
+  parsedData: initialData,
   onSave,
-  onAnalyze,
+  onClose,
 }) => {
   const [numPages, setNumPages] = useState<number | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
-  const [parsedData, setParsedData] = useState(initialParsedData);
+  const [parsedData, setParsedData] = useState(initialData);
 
   // Callback function when the document is successfully loaded
   function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
@@ -34,17 +31,13 @@ const DatasheetSplitView: React.FC<DatasheetSplitViewProps> = ({
   const goToNextPage = () =>
     setPageNumber((prevPage) => Math.min(prevPage + 1, numPages || 1));
 
-  // ... (keep your existing handleSave, handleAnalyze, and handleDataChange functions)
+  // ... (keep your existing handleSave and handleDataChange functions)
   const handleDataChange = (field: string, value: any) => {
     setParsedData((prev: any) => ({ ...prev, [field]: value }));
   };
 
   const handleSave = () => {
-    onSave(assetId, parsedData);
-  };
-
-  const handleAnalyze = () => {
-    onAnalyze(assetId);
+    onSave(parsedData);
   };
 
   return (
@@ -104,18 +97,18 @@ const DatasheetSplitView: React.FC<DatasheetSplitViewProps> = ({
             ))}
           </div>
         </div>
-        <div className="p-4 border-t bg-white flex justify-end space-x-2">
-            <button
-                onClick={handleAnalyze}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none"
-            >
-                Analyze
-            </button>
+        <div className="p-4 border-t bg-white flex justify-end">
             <button
                 onClick={handleSave}
                 className="px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md shadow-sm hover:bg-green-700 focus:outline-none"
             >
                 Save
+            </button>
+            <button
+                onClick={onClose}
+                className="ml-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50"
+            >
+                Close
             </button>
         </div>
       </div>
@@ -123,4 +116,4 @@ const DatasheetSplitView: React.FC<DatasheetSplitViewProps> = ({
   );
 };
 
-export default DatasheetSplitView;
+export { DatasheetSplitView };
