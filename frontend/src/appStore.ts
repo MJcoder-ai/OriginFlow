@@ -167,8 +167,10 @@ interface AppState {
   useOcrFallback: boolean;
   setExtractionSetting: (key: 'useRuleBased' | 'useTableExtraction' | 'useAiExtraction' | 'useOcrFallback', value: boolean) => void;
 
-  /** List of in-progress and completed uploads. */
-  uploads: UploadEntry[];
+  /** List of all file assets, including upload status and parsing results. */
+  // This now serves as the main Component Library data source.
+  // It will contain both parsed components and unparsed file uploads.
+  componentLibrary: UploadEntry[];
   /** Add a new upload entry. */
   addUpload: (u: UploadEntry) => void;
   /** Update an existing upload entry. */
@@ -185,11 +187,7 @@ interface AppState {
   /** Toggle continuous conversation mode. */
   toggleContinuousConversation: () => void;
 
-  /**
-   * Current transcript captured from the microphone. This is updated with
-   * interim results while listening and cleared when a final transcript
-   * has been processed.
-   */
+  /** Current transcript captured from the microphone. */
   voiceTranscript: string;
   /** Whether speech synthesis is enabled for AI replies. */
   voiceOutputEnabled: boolean;
@@ -201,6 +199,10 @@ interface AppState {
   updateVoiceTranscript: (text: string) => void;
   /** Toggle whether speech synthesis is enabled for AI replies. */
   toggleVoiceOutput: () => void;
+
+  // This function will now add files directly to the component library
+  // with a status indicating they are new and unparsed.
+  addFilesToLibrary: (files: File[]) => void;
 
   /** Currently opened datasheet split view */
   activeDatasheet: { url: string; payload: any; id: string } | null;
@@ -225,7 +227,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isSubNavVisible: true,
   fileStagingAreaVisible: false,
   stagedFiles: [],
-  uploads: [],
+  componentLibrary: [],
   // Default extraction settings. These flags control how the backend parses
   // datasheets. They match the toggles in the Settings panel.
   useRuleBased: true,
@@ -270,6 +272,24 @@ export const useAppStore = create<AppState>((set, get) => ({
       stagedFiles: [...state.stagedFiles, ...files],
       fileStagingAreaVisible: true,
     })),
+
+  addFilesToLibrary: (files) => {
+    const newEntries: UploadEntry[] = files.map((file) => ({
+      id: crypto.randomUUID(),
+      name: file.name,
+      size: file.size,
+      mime: file.type,
+      progress: 0,
+      assetType: 'component',
+      parsed_at: null,
+      parsing_status: null,
+      parsing_error: null,
+      is_human_verified: false,
+    }));
+    set((state) => ({
+      componentLibrary: [...state.componentLibrary, ...newEntries],
+    }));
+  },
   // Update a parsing flag by key. The key must be one of the
   // four extraction settings defined above.
   setExtractionSetting: (key, value) =>
@@ -481,18 +501,20 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ route: r });
   },
   addUpload(u) {
-    set((s) => ({ uploads: [...s.uploads, u] }));
+    set((s) => ({ componentLibrary: [...s.componentLibrary, u] }));
   },
   updateUpload(id, patch) {
     set((s) => ({
-      uploads: s.uploads.map((u) => (u.id === id ? { ...u, ...patch } : u)),
+      componentLibrary: s.componentLibrary.map((u) =>
+        u.id === id ? { ...u, ...patch } : u,
+      ),
     }));
   },
   async loadUploads() {
     try {
       const assets = await listFiles();
       set({
-        uploads: assets.map((a) => ({
+        componentLibrary: assets.map((a) => ({
           id: a.id,
           name: a.filename,
           size: a.size,

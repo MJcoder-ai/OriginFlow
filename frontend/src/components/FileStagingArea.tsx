@@ -111,7 +111,7 @@ const FileEntry: React.FC<{ u: UploadEntry }> = ({ u }) => {
 };
 
 export const FileStagingArea = () => {
-  const uploads = useAppStore((s) => s.uploads.filter((u) => u.progress > 100));
+  const uploads = useAppStore((s) => s.componentLibrary);
   if (!uploads.length) return null;
 
   return (
