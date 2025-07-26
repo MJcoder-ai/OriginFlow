@@ -12,7 +12,8 @@ const ChatInputArea = () => {
   const voiceMode = useAppStore((s) => s.voiceMode);
   const startListening = useAppStore((s) => s.startListening);
   const stopListening = useAppStore((s) => s.stopListening);
-  const addFilesToLibrary = useAppStore((s) => s.addFilesToLibrary);
+  const toggleFileStagingArea = useAppStore((s) => s.toggleFileStagingArea);
+  const addStagedFiles = useAppStore((s) => s.addStagedFiles);
   const voiceTranscript = useAppStore((s) => s.voiceTranscript);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -34,13 +35,14 @@ const ChatInputArea = () => {
 
   const handleAttachClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    // Programmatically click the hidden file input
     fileInputRef.current?.click();
+    toggleFileStagingArea();
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // When files are selected, add them directly to the main component library.
-    if (e.target.files) addFilesToLibrary(Array.from(e.target.files));
+    if (e.target.files) {
+      addStagedFiles(Array.from(e.target.files));
+    }
   };
 
   const isListening = voiceMode === 'listening';
