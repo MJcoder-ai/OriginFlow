@@ -1,15 +1,16 @@
 """Table extraction utilities.
 
 This module provides functions to extract tabular data from PDFs.  It
-uses a multi-step pipeline with Camelot and optionally Tabula for PDF
+uses a multi-step pipeline with Camelot, Tabula and pdfplumber for PDF
 table detection and extraction.  Each
 extracted table is annotated with a ``table_type`` based on simple
 keyword heuristics, making it easier for downstream code (or an AI
 model) to identify what kind of information the table contains.
 
-If Camelot is not installed, an ImportError will be raised when
-attempting to call the extraction function.  Tabula support is optional
-and will be skipped if its Java dependencies are missing.
+If Camelot is not installed, extraction will skip directly to the next
+available method. Tabula support is optional and will be skipped if its
+Java dependencies are missing. pdfplumber is used as a lightweight
+fallback when other libraries fail to detect tables.
 """
 
 from __future__ import annotations
@@ -18,7 +19,7 @@ from typing import Any, List, Dict
 import logging
 
 # Note: we will attempt to use multiple extraction engines (Camelot stream,
-# Camelot lattice and Tabula) in sequence.  The first engine that
+# Camelot lattice, Tabula and pdfplumber) in sequence.  The first engine that
 # produces non-empty tables will be used.  This gives us flexibility
 # across a wide variety of PDF layouts.  If none of the engines
 # successfully extract any tables, an empty list will be returned.
@@ -130,6 +131,47 @@ def _extract_tables_tabula(pdf_path: str) -> List[Dict[str, Any]]:
     return results
 
 
+def _extract_tables_pdfplumber(pdf_path: str) -> List[Dict[str, Any]]:
+    """Extract tables from a PDF using pdfplumber.
+
+    This is a fallback extractor used if Camelot and Tabula fail to
+    detect tables.  pdfplumber can extract simple tables without
+    requiring external dependencies like Java or Ghostscript.  Each
+    table is returned as a dict with ``table_type`` and ``rows`` keys.
+
+    Returns:
+        A list of tables.  If pdfplumber is not installed or no tables
+        are found, an empty list is returned.
+    """
+    try:
+        import pdfplumber  # type: ignore
+    except ImportError:
+        logger.debug("pdfplumber is not installed; skipping pdfplumber extraction")
+        return []
+
+    results: List[Dict[str, Any]] = []
+    try:
+        with pdfplumber.open(pdf_path) as pdf:
+            for page in pdf.pages:
+                try:
+                    tables = page.extract_tables() or []
+                except Exception:
+                    continue
+                for table in tables:
+                    if not table:
+                        continue
+                    rows = [
+                        [str(cell) if cell is not None else "" for cell in row]
+                        for row in table
+                    ]
+                    table_type = infer_table_type(rows)
+                    results.append({"table_type": table_type, "rows": rows})
+    except Exception as exc:
+        logger.debug("pdfplumber failed: %s", exc)
+        return []
+    return results
+
+
 def _filter_empty_tables(tables: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Remove tables that contain no non-empty cells.
 
@@ -158,6 +200,7 @@ def extract_tables(pdf_path: str) -> List[Dict[str, Any]]:
     1. Camelot with the 'stream' flavor.
     2. Camelot with the 'lattice' flavor.
     3. Tabula (Java-based) via the tabula-py wrapper.
+    4. pdfplumber for simple heuristic extraction.
 
     Args:
         pdf_path: Absolute path to the PDF file.
@@ -175,6 +218,7 @@ def extract_tables(pdf_path: str) -> List[Dict[str, Any]]:
         lambda: _filter_empty_tables(_extract_tables_camelot(pdf_path, "stream")),
         lambda: _filter_empty_tables(_extract_tables_camelot(pdf_path, "lattice")),
         lambda: _filter_empty_tables(_extract_tables_tabula(pdf_path)),
+        lambda: _filter_empty_tables(_extract_tables_pdfplumber(pdf_path)),
     ]
     for extractor in extractors:
         try:
