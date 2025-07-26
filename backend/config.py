@@ -21,6 +21,14 @@ class Settings(BaseSettings):
     max_tokens: int = 512
     commands_per_minute: int = 30
 
+    # Datasheet extraction flags. These booleans control which parsing
+    # strategies are applied by `run_parsing_job()`. They can be toggled
+    # via environment variables or via a future API.
+    use_rule_based: bool = True
+    use_table_extraction: bool = True
+    use_ai_extraction: bool = True
+    use_ocr_fallback: bool = False
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
