@@ -8,16 +8,16 @@ import ReactDOM from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 import { pdfjs } from 'react-pdf';
-import 'react-pdf/dist/Page/AnnotationLayer.css';
-import 'react-pdf/dist/Page/TextLayer.css';
 
-// Configure the PDF.js worker to load from the local pdfjs-dist package. Vite
-// bundles this worker file so the version always matches react-pdf and avoids
-// any external CDN requests that could trigger CORS errors during development.
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/legacy/build/pdf.worker.min.js',
-  import.meta.url,
-).toString();
+// Use the ESM styles for React‑PDF 10.
+import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
+import 'react-pdf/dist/esm/Page/TextLayer.css';
+
+// Import the PDF.js worker via Vite’s ?url mechanism.  This tells Vite to
+// bundle the worker from node_modules and return its URL, ensuring it loads
+// correctly in both dev and production.
+import pdfWorkerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.js?url';
+pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 const rootEl = document.getElementById('root');
 const root = rootEl ? ReactDOM.createRoot(rootEl) : null;
