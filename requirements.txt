@@ -24,4 +24,4 @@ python-dotenv==1.0.1
 tenacity==8.2.3
 deprecated==1.2.14
 pdfminer.six==20250506
-pdfplumber==0.11.7
+camelot-py==0.11.0

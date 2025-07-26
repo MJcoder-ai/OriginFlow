@@ -36,7 +36,7 @@ deprecated = "^1.2.14"
 aiosqlite = "^0.20.0"
 python-multipart = "^0.0.20"
 "pdfminer.six" = "^20250506"
-pdfplumber = "^0.11.7"
+camelot-py = "^0.11.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.0"

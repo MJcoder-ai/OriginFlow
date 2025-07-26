@@ -13,7 +13,8 @@ from datetime import datetime, timezone
 from openai import AsyncOpenAI
 from pdfminer.high_level import extract_text
 import re
-import pdfplumber
+# Use our dedicated table extraction module.  This relies on Camelot
+from backend.parsers.table_extractor import extract_tables
 
 from backend.config import settings
 
@@ -31,6 +32,9 @@ class ParsedSchema(TypedDict, total=False):
     category: str
     parameters: dict[str, Any]
     ratings: dict[str, Any]
+    # Structured tables extracted from the datasheet.  Each table has a
+    # ``table_type`` and ``rows`` property.
+    tables: list[dict[str, Any]]
 
 
 async def run_parsing_job(asset_id: str, session: AsyncSession, ai_client: AsyncOpenAI) -> None:
@@ -46,7 +50,7 @@ async def run_parsing_job(asset_id: str, session: AsyncSession, ai_client: Async
             raise ValueError("Low quality text extracted. Potential scanned document.")
 
         extraction_result: dict[str, Any] = {}
-        tables: list[list[list[str]]] = []
+        parsed_tables: list[dict[str, Any]] = []
 
         # ------------------------------------------------------------------
         # Rule-based extraction via regex heuristics
@@ -71,20 +75,13 @@ async def run_parsing_job(asset_id: str, session: AsyncSession, ai_client: Async
             extraction_result.update(fields)
 
         # ------------------------------------------------------------------
-        # Table extraction using pdfplumber
+        # Table extraction using Camelot
         # ------------------------------------------------------------------
         if settings.use_table_extraction:
             try:
-                with pdfplumber.open(asset.local_path) as pdf:
-                    for page in pdf.pages:
-                        for table in page.extract_tables() or []:
-                            normalized = [
-                                [cell if cell is not None else "" for cell in row]
-                                for row in table
-                            ]
-                            tables.append(normalized)
-                if tables:
-                    extraction_result["tables"] = tables
+                parsed_tables = extract_tables(asset.local_path)
+                if parsed_tables:
+                    extraction_result["tables"] = parsed_tables
             except Exception:
                 extraction_result.setdefault("tables", [])
 
@@ -99,11 +96,16 @@ async def run_parsing_job(asset_id: str, session: AsyncSession, ai_client: Async
                 "Ensure numbers are returned as numbers where appropriate and leave null or empty structures for missing fields.",
                 "\n\nDatasheet text:\n---\n" + pdf_text[:20_000] + "\n---",
             ]
-            if tables:
-                table_md_list = [
-                    "\n".join([" | ".join([cell.strip() for cell in row]) for row in t])
-                    for t in tables
-                ]
+            if parsed_tables:
+                # Convert parsed tables into markdown.  Include the table type as
+                # a heading so the AI knows what each table represents.  Each
+                # row is joined by pipes for readability.  Separate multiple
+                # tables with blank lines.
+                table_md_list: list[str] = []
+                for tbl in parsed_tables:
+                    rows = [" | ".join(cell.strip() for cell in row) for row in tbl.get("rows", [])]
+                    header = f"**{tbl.get('table_type', 'unknown table')}**"
+                    table_md_list.append(header + "\n" + "\n".join(rows))
                 tables_md = "\n\nExtracted tables:\n---\n" + "\n\n".join(table_md_list) + "\n---"
                 prompt_parts.append(tables_md)
 
