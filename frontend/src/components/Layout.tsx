@@ -10,13 +10,18 @@ import Toolbar from './Toolbar';
 import ChatHistory from './ChatHistory';
 import ChatInputArea from './ChatInputArea';
 import ChatFooter from './ChatFooter';
+import VoiceRecorder from './VoiceRecorder';
+import SpeechOutput from './SpeechOutput';
 const Layout = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const isSubNavVisible = useAppStore((s) => s.isSubNavVisible);
   const toggleSubNav = useAppStore((s) => s.toggleSubNav);
 
   return (
-    <div
+    <>
+      <VoiceRecorder />
+      <SpeechOutput />
+      <div
       className="grid h-screen w-screen min-h-0 transition-all duration-300 ease-in-out"
       style={{
         gridTemplateColumns: `${isSidebarCollapsed ? '64px' : '250px'} 1fr 350px`,
@@ -46,6 +51,7 @@ const Layout = () => {
       <SidebarFooter isCollapsed={isSidebarCollapsed} />
       <StatusBar />
     </div>
+    </>
   );
 };
 
