@@ -1,8 +1,6 @@
-import React, { useRef } from 'react';
-import { Textarea } from './ui/textarea';
-import { Button } from './ui/button';
-import { Mic, Send, Bot, Paperclip } from 'lucide-react';
 import { useAppStore } from '../appStore';
+import { Mic, Send, Bot } from 'lucide-react';
+import React from 'react';
 
 const ChatInputArea = () => {
   const input = useAppStore((s) => s.chatDraft);
@@ -12,38 +10,7 @@ const ChatInputArea = () => {
   const voiceMode = useAppStore((s) => s.voiceMode);
   const startListening = useAppStore((s) => s.startListening);
   const stopListening = useAppStore((s) => s.stopListening);
-  const toggleFileStagingArea = useAppStore((s) => s.toggleFileStagingArea);
-  const addStagedFiles = useAppStore((s) => s.addStagedFiles);
   const voiceTranscript = useAppStore((s) => s.voiceTranscript);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleSend = () => {
-    if (input.trim()) {
-      analyzeAndExecute(input);
-      clearChatDraft();
-    }
-  };
-
-  const handleMicClick = () => {
-    if (isListening) {
-      stopListening();
-    } else {
-      startListening();
-    }
-  };
-
-  const handleAttachClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    fileInputRef.current?.click();
-    toggleFileStagingArea();
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      addStagedFiles(Array.from(e.target.files));
-    }
-  };
 
   const isListening = voiceMode === 'listening';
   const isSpeaking = voiceMode === 'speaking';
@@ -54,7 +21,7 @@ const ChatInputArea = () => {
       style={{ borderLeft: '1px solid #e5e7eb' }}
     >
       <div className="relative">
-      <Textarea
+      <textarea
         value={isListening ? voiceTranscript : input}
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={(e) => {
@@ -67,45 +34,39 @@ const ChatInputArea = () => {
           }
         }}
         placeholder={isListening ? 'Listening...' : isSpeaking ? 'Echo is speaking...' : 'Ask Echo to do something...'}
-        className="w-full h-full resize-none pr-20"
+        className="w-full h-full p-2 border border-gray-300 rounded bg-white text-black placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none pr-20"
         rows={2}
         readOnly={isListening || isSpeaking}
-      />
+        />
         <div className="absolute right-2 bottom-2 flex gap-2">
-          <Button
-            onClick={handleAttachClick}
-            size="icon"
-            variant="ghost"
-            disabled={isListening || isSpeaking}
-            aria-label="Attach file"
-          >
-            <Paperclip className="h-5 w-5" />
-          </Button>
-          <Button
-            onClick={handleMicClick}
-            size="icon"
-            variant={isListening ? 'destructive' : 'ghost'}
-            disabled={isSpeaking}
-            aria-label="Record voice command"
-          >
-            {isSpeaking ? <Bot className="h-5 w-5 animate-pulse" /> : <Mic className="h-5 w-5" />}
-          </Button>
-          <Button
-            onClick={handleSend}
-            disabled={isListening || isSpeaking}
-            size="icon"
-            aria-label="Send message"
-          >
-            <Send className="h-5 w-5" />
-          </Button>
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-            className="hidden"
-            multiple
-          />
-        </div>
+          <button
+          onClick={() => {
+            if (isListening) {
+              stopListening();
+            } else {
+              startListening();
+            }
+          }}
+          className={`p-2 rounded-md ${isListening ? 'bg-red-600 text-white' : 'bg-gray-100'}`}
+          aria-label="Record voice command"
+          disabled={isSpeaking}
+        >
+          {isSpeaking ? <Bot className="h-5 w-5 animate-pulse" /> : <Mic className="h-5 w-5" />}
+        </button>
+        <button
+          onClick={() => {
+            if (input.trim()) {
+              analyzeAndExecute(input);
+              clearChatDraft();
+            }
+          }}
+          disabled={isListening || isSpeaking}
+          className="p-2 bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 text-white"
+          aria-label="Send message"
+        >
+          <Send className="h-5 w-5" />
+        </button>
+      </div>
       </div>
     </div>
   );
