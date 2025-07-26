@@ -11,8 +11,9 @@ import { pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
-// Configure the worker to load from the CDN
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
+// Configure the worker to load from a CDN with permissive CORS headers
+// Using jsDelivr prevents CORS issues that occur with unpkg
+pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
 
 const rootEl = document.getElementById('root');
 const root = rootEl ? ReactDOM.createRoot(rootEl) : null;
