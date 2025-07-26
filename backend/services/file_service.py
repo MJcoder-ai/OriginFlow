@@ -94,7 +94,8 @@ async def run_parsing_job(asset_id: str, session: AsyncSession, ai_client: Async
         if settings.use_ai_extraction:
             prompt_parts = [
                 "You are an expert electronics datasheet extractor. Read the text and extracted tables below and return a comprehensive JSON object with as many relevant fields as possible.",
-                "The JSON should include keys like part_number, manufacturer, description, package, category, recommended_operating_conditions, electrical_parameters, absolute_maximum_ratings, pin_configuration, dimensions, safety_certifications, and any other relevant data you can infer.",
+                # Make mechanical_characteristics, packaging_configuration and warranty explicit objects.
+                "The JSON should include keys like part_number, manufacturer, description, package, category, recommended_operating_conditions, electrical_parameters, absolute_maximum_ratings, pin_configuration, dimensions, safety_certifications, mechanical_characteristics, packaging_configuration, warranty, and any other relevant data you can infer. For mechanical_characteristics, extract an object with the keys: cell_type, number_of_cells, dimensions, weight, front_glass, frame, junction_box and output_cables. For packaging_configuration, extract an object with the keys: pallets_per_stack, pcs_per_pallet, pcs_per_stack and pcs_per_container. For warranty, extract an object with the keys: product_years and power_years.",
                 "Ensure numbers are returned as numbers where appropriate and leave null or empty structures for missing fields.",
                 "\n\nDatasheet text:\n---\n" + pdf_text[:20_000] + "\n---",
             ]
