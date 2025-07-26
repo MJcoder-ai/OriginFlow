@@ -11,6 +11,8 @@ const SpeechOutput = () => {
   const voiceOutputEnabled = useAppStore((s) => s.voiceOutputEnabled);
   const isContinuousConversation = useAppStore((s) => s.isContinuousConversation);
   const startListening = useAppStore((s) => s.startListening);
+  const stopListening = useAppStore((s) => s.stopListening);
+  const setVoiceMode = useAppStore((s) => s.setVoiceMode);
   const lastSpokenId = useRef<string | null>(null);
 
   useEffect(() => {
@@ -23,16 +25,22 @@ const SpeechOutput = () => {
     const synth = (window as any).speechSynthesis;
     if (!synth) return;
 
+    // Stop any current listening before speaking
+    stopListening();
+    setVoiceMode('speaking');
+
     const text = (lastMessage as any).summary || lastMessage.text;
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.onend = () => {
       if (isContinuousConversation) {
         startListening();
+      } else {
+        setVoiceMode('idle');
       }
     };
     synth.speak(utterance);
     lastSpokenId.current = lastMessage.id;
-  }, [messages, voiceOutputEnabled, isContinuousConversation, startListening]);
+  }, [messages, voiceOutputEnabled, isContinuousConversation, startListening, stopListening, setVoiceMode]);
 
   return null;
 };
