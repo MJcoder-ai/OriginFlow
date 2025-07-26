@@ -32,8 +32,9 @@ class ParsedSchema(TypedDict, total=False):
     category: str
     parameters: dict[str, Any]
     ratings: dict[str, Any]
-    # Structured tables extracted from the datasheet.  Each table has a
-    # ``table_type`` and ``rows`` property.
+    # Structured tables extracted from the datasheet.  Each entry has a
+    # ``table_type`` and ``rows`` property.  This field is optional and may
+    # be omitted or an empty list if no tables were detected or extracted.
     tables: list[dict[str, Any]]
 
 
