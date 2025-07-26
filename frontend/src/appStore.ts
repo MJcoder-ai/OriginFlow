@@ -167,6 +167,23 @@ interface AppState {
   /** Toggle continuous conversation mode. */
   toggleContinuousConversation: () => void;
 
+  /**
+   * Current transcript captured from the microphone. This is updated with
+   * interim results while listening and cleared when a final transcript
+   * has been processed.
+   */
+  voiceTranscript: string;
+  /** Whether speech synthesis is enabled for AI replies. */
+  voiceOutputEnabled: boolean;
+  /** Start listening for a voice command. */
+  startListening: () => void;
+  /** Stop listening. If a final transcript is provided it is submitted as a command. */
+  stopListening: (finalTranscript?: string) => void;
+  /** Update the interim voice transcript while listening. */
+  updateVoiceTranscript: (text: string) => void;
+  /** Toggle whether speech synthesis is enabled for AI replies. */
+  toggleVoiceOutput: () => void;
+
   /** Currently opened datasheet split view */
   activeDatasheet: { url: string; payload: any; id: string } | null;
   setActiveDatasheet: (data: { url: string; payload: any; id: string } | null) => void;
@@ -191,12 +208,30 @@ export const useAppStore = create<AppState>((set, get) => ({
   uploads: [],
   voiceMode: 'idle',
   isContinuousConversation: false,
+  voiceTranscript: '',
+  voiceOutputEnabled: false,
   chatDraft: '',
   activeDatasheet: null,
   setActiveDatasheet: (data) => set({ activeDatasheet: data }),
   setVoiceMode: (mode) => set({ voiceMode: mode }),
   toggleContinuousConversation: () =>
     set((s) => ({ isContinuousConversation: !s.isContinuousConversation })),
+
+  startListening: () => {
+    set({ voiceTranscript: '', voiceMode: 'listening' });
+  },
+
+  stopListening: (finalTranscript?: string) => {
+    set({ voiceMode: 'idle', voiceTranscript: '' });
+    if (finalTranscript && finalTranscript.trim()) {
+      get().analyzeAndExecute(finalTranscript.trim());
+    }
+  },
+
+  updateVoiceTranscript: (text) => set({ voiceTranscript: text }),
+
+  toggleVoiceOutput: () =>
+    set((s) => ({ voiceOutputEnabled: !s.voiceOutputEnabled })),
   setChatDraft: (draft) => set({ chatDraft: draft }),
   clearChatDraft: () => set({ chatDraft: '' }),
   toggleSubNav: () => set((s) => ({ isSubNavVisible: !s.isSubNavVisible })),

@@ -1,41 +1,45 @@
-import { ArrowUp, Mic } from 'lucide-react';
+import React from 'react';
 import { useAppStore } from '../appStore';
-import { FileUploadButton } from './FileUploadButton';
 
-const ChatFooter = () => {
-  const { analyzeAndExecute, setVoiceMode, chatDraft, clearChatDraft } = useAppStore();
-
-  const handleSend = () => {
-    const text = chatDraft.trim();
-    if (text) {
-      analyzeAndExecute(text);
-      clearChatDraft();
-    }
-  };
+const ChatFooter: React.FC = () => {
+  const {
+    voiceOutputEnabled,
+    toggleVoiceOutput,
+    isContinuousConversation,
+    toggleContinuousConversation,
+  } = useAppStore();
 
   return (
-    <div
-      className="grid-in-chat-footer p-2 bg-white border-t border-white flex items-center justify-between"
-      style={{ borderLeft: '1px solid #e5e7eb' }}
-    >
-      <div className="flex gap-1 items-center">
-        <FileUploadButton />
-        <button
-          onClick={() => setVoiceMode('listening')}
-          className="p-2 rounded-md hover:bg-gray-100"
-          aria-label="Start voice input"
-        >
-          <Mic size={18} className="text-gray-600" />
-        </button>
+    <div className="p-4 border-t border-gray-200">
+      <div className="flex justify-between items-center gap-4">
+        <div className="flex items-center space-x-2">
+          <input
+            id="voice-output"
+            type="checkbox"
+            className="form-checkbox"
+            checked={voiceOutputEnabled}
+            onChange={toggleVoiceOutput}
+          />
+          <label htmlFor="voice-output" className="text-sm font-medium">
+            Voice Output
+          </label>
+        </div>
+        <div className="flex items-center space-x-2">
+          <input
+            id="continuous-conversation"
+            type="checkbox"
+            className="form-checkbox"
+            checked={isContinuousConversation}
+            onChange={toggleContinuousConversation}
+          />
+          <label htmlFor="continuous-conversation" className="text-sm font-medium">
+            Continuous Conversation
+          </label>
+        </div>
       </div>
-      <button
-        onClick={handleSend}
-        disabled={!chatDraft.trim()}
-        className="p-2 bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 text-white flex items-center gap-2 text-sm px-4"
-      >
-        Send
-        <ArrowUp size={16} />
-      </button>
+      <p className="mt-4 text-xs text-gray-500">
+        OriginFlow is a prototype. Responses may be inaccurate.
+      </p>
     </div>
   );
 };
