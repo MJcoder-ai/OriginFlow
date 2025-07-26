@@ -26,3 +26,4 @@ class FileAssetRead(FileAssetBase):
 
 class FileAssetUpdate(BaseModel):
     parsed_payload: dict
+    is_human_verified: bool | None = None

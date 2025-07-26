@@ -194,8 +194,9 @@ class FileService:
         """Update parsed payload and mark the asset as verified."""
         asset.parsed_payload = update_data.parsed_payload
         asset.parsed_at = datetime.now(timezone.utc)
-        # Mark datasheet as manually verified when saved via the UI
-        asset.is_human_verified = True
+        # Only update the human verification flag if explicitly supplied in the request.
+        if update_data.is_human_verified is not None:
+            asset.is_human_verified = update_data.is_human_verified
         session.add(asset)
         await session.commit()
         await session.refresh(asset)

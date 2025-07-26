@@ -316,6 +316,7 @@ If running the frontend on a different host or port, update the `origins` list i
 4. **AI Assistant** – Alternatively say, "Add the SUN2000-150K-MG0.pdf datasheet to the project" and the assistant will place it for you.
 5. **Review & Confirm** – The split view includes a Save button and a "Confirm & Close" action. The chat history and input remain visible in the Properties panel on the right so you can ask questions while editing.
 6. **In-Canvas Split View** – The datasheet view now opens directly inside the Components workspace, so no separate overlay element is required.
+7. **Optional Tables** – If no tables are detected, the parsed payload may omit the `tables` field entirely. Treat this as a normal condition.
 
 
 ### 6.11 PDF Viewer Errors
