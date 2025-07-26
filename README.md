@@ -318,6 +318,7 @@ If the PDF viewer reports "Failed to load PDF" in the UI:
 1. Confirm the backend is running on the URL configured in `VITE_API_URL`.
 2. Ensure the backend created `backend/static/uploads` and is serving `/static` files. The directory is created at startup relative to `backend/main.py`.
 3. Verify the file preview loads from `http://<backend-host>/api/v1/files/{asset_id}/file`.
+4. Check that `frontend/src/main.tsx` configures the PDF.js worker from the local `pdfjs-dist` package. Using a CDN can trigger CORS errors.
 
 ---
 
