@@ -1,5 +1,6 @@
 import { useAppStore } from '../appStore';
 import { Mic, Send, Bot } from 'lucide-react';
+import { FileUploadButton } from './FileUploadButton';
 import React from 'react';
 
 const ChatInputArea = () => {
@@ -39,11 +40,13 @@ const ChatInputArea = () => {
         readOnly={isListening || isSpeaking}
         />
         <div className="absolute right-2 bottom-2 flex gap-2">
+          {/* File upload button (paperclip) */}
+          <FileUploadButton />
           <button
-          onClick={() => {
-            if (isListening) {
-              stopListening();
-            } else {
+            onClick={() => {
+              if (isListening) {
+                stopListening();
+              } else {
               startListening();
             }
           }}

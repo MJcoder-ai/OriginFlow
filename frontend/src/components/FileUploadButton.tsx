@@ -40,11 +40,13 @@ export const FileUploadButton = () => {
         parsing_status: null,
         parsing_error: null,
       });
-      addMessage({ author: 'user', text: `Uploaded ${file.name}` });
+      // Use capitalised author to align with the Message type
+      addMessage({ author: 'User', text: `Uploaded ${file.name}` });
     } catch (error) {
       console.error('Upload failed', error);
       updateUpload(tempId, { progress: -1 });
-      addMessage({ author: 'user', text: `❌ Upload failed for ${file.name}` });
+      // Use capitalised author to align with the Message type
+      addMessage({ author: 'User', text: `❌ Upload failed for ${file.name}` });
     }
   };
 
