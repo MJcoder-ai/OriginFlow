@@ -6,6 +6,7 @@ interface DatasheetSplitViewProps {
   pdfUrl: string;
   initialParsedData: any;
   onSave: (assetId: string, updatedData: any) => void;
+  onConfirm: (assetId: string, updatedData: any) => void;
   onAnalyze: (assetId: string) => void;
   onClose: () => void;
 }
@@ -15,12 +16,14 @@ const DatasheetSplitView: React.FC<DatasheetSplitViewProps> = ({
   pdfUrl,
   initialParsedData,
   onSave,
+  onConfirm,
   onAnalyze,
   onClose,
 }) => {
   const [numPages, setNumPages] = useState<number | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
   const [parsedData, setParsedData] = useState(initialParsedData);
+  const [isDirty, setIsDirty] = useState(false);
 
   // Callback function when the document is successfully loaded
   function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
@@ -37,18 +40,43 @@ const DatasheetSplitView: React.FC<DatasheetSplitViewProps> = ({
 
   const handleDataChange = (field: string, value: any) => {
     setParsedData((prev: any) => ({ ...prev, [field]: value }));
+    setIsDirty(true);
   };
 
   const handleSave = () => {
+    // Persist the current edits without marking the file as confirmed.
+    // Reset the dirty flag so the user won’t be prompted unnecessarily.
     onSave(assetId, parsedData);
+    setIsDirty(false);
   };
 
   const handleAnalyze = () => {
+    // If there are unsaved edits, prompt the user before discarding.  If
+    // the user chooses Cancel, bail out.
+    if (isDirty) {
+      const proceed = window.confirm(
+        'You have unsaved changes. Re-analysing will discard your edits. Do you want to continue?'
+      );
+      if (!proceed) return;
+    }
     onAnalyze(assetId);
   };
 
   const handleConfirmAndClose = () => {
-    handleSave();
+    // Persist the current edits and mark them as human verified.  Once
+    // saved, clear the dirty flag and close the editor.
+    onConfirm(assetId, parsedData);
+    setIsDirty(false);
+    onClose();
+  };
+
+  const handleClose = () => {
+    if (isDirty) {
+      const proceed = window.confirm(
+        'You have unsaved changes. Close without saving?'
+      );
+      if (!proceed) return;
+    }
     onClose();
   };
 
@@ -99,7 +127,7 @@ const DatasheetSplitView: React.FC<DatasheetSplitViewProps> = ({
         <div className="p-4 flex justify-between items-center border-b">
           <h2 className="text-lg font-semibold">Review & Confirm</h2>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="p-2 rounded-full hover:bg-gray-200"
             aria-label="Close"
           >

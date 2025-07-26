@@ -55,11 +55,20 @@ export async function getFileStatus(id: string): Promise<FileAsset> {
   return res.json();
 }
 
-export async function updateParsedData(id: string, payload: any): Promise<FileAsset> {
+export async function updateParsedData(
+  id: string,
+  payload: any,
+  isHumanVerified?: boolean,
+): Promise<FileAsset> {
+  const body: any = { parsed_payload: payload };
+  // Include the is_human_verified flag only when explicitly provided.
+  if (typeof isHumanVerified === 'boolean') {
+    body.is_human_verified = isHumanVerified;
+  }
   const res = await fetch(`${API_BASE_URL}/files/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ parsed_payload: payload }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     const error = await res.json();

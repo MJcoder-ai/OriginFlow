@@ -22,6 +22,7 @@ const App: React.FC = () => {
     updateUpload,
     setActiveDatasheet,
     setRoute,
+    addStatusMessage,
   } = useAppStore();
   const sensors = useSensors(useSensor(PointerSensor));
 
@@ -42,16 +43,33 @@ const App: React.FC = () => {
     // Drop from library onto the component canvas to trigger parsing
     if (over.id === 'component-canvas-area' && active.data.current?.type === 'file-asset') {
       const asset = active.data.current.asset as UploadEntry;
-      // Immediately mark the upload as processing and switch the view
+      // If already parsed, load the existing payload and skip re-parsing
+      if (asset.parsing_status === 'success') {
+        setRoute('components');
+        (async () => {
+          try {
+            const updatedAsset = await getFileStatus(asset.id);
+            const fileUrl = `${API_BASE_URL}/files/${updatedAsset.id}/file`;
+            setActiveDatasheet({ id: updatedAsset.id, url: fileUrl, payload: updatedAsset.parsed_payload });
+          } catch (err: any) {
+            console.error('Failed to load parsed datasheet:', err);
+            updateUpload(asset.id, { parsing_status: 'failed', parsing_error: err.message || 'Failed to fetch status' });
+            addStatusMessage('Failed to load datasheet', 'error');
+          }
+        })();
+        return;
+      }
+      // Otherwise, run the parsing pipeline
       updateUpload(asset.id, { parsing_status: 'processing' });
       setRoute('components');
+      // Inform the user that parsing has started
+      addStatusMessage('Parsing datasheet...', 'info');
 
-      // Kick off the parsing job (runs async on the backend)
       parseDatasheet(asset.id).catch((err) => {
         updateUpload(asset.id, { parsing_status: 'failed', parsing_error: err.message });
+        addStatusMessage('Datasheet parsing failed', 'error');
       });
 
-      // Poll for status until completed
       const poll = setInterval(async () => {
         try {
           const updatedAsset = await getFileStatus(asset.id);
@@ -60,13 +78,16 @@ const App: React.FC = () => {
             updateUpload(asset.id, { parsing_status: 'success', parsing_error: null });
             const fileUrl = `${API_BASE_URL}/files/${updatedAsset.id}/file`;
             setActiveDatasheet({ id: updatedAsset.id, url: fileUrl, payload: updatedAsset.parsed_payload });
+            addStatusMessage('Datasheet parsed successfully', 'success');
           } else if (updatedAsset.parsing_status === 'failed') {
             clearInterval(poll);
             updateUpload(asset.id, { parsing_status: 'failed', parsing_error: updatedAsset.parsing_error });
+            addStatusMessage('Datasheet parsing failed', 'error');
           }
         } catch (err: any) {
           clearInterval(poll);
           updateUpload(asset.id, { parsing_status: 'failed', parsing_error: err.message || 'Failed to fetch status' });
+          addStatusMessage('Datasheet parsing failed', 'error');
         }
       }, 2000);
 
