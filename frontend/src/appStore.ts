@@ -149,6 +149,17 @@ interface AppState {
   /** Toggle toolbar visibility */
   toggleSubNav: () => void;
 
+  /** Visibility of the file staging area */
+  fileStagingAreaVisible: boolean;
+  /** Toggle the file staging area */
+  toggleFileStagingArea: () => void;
+  /** Set the visibility of the file staging area. */
+  setFileStagingAreaVisible: (visible: boolean) => void;
+  /** Files that have been selected by the user but not yet processed. */
+  stagedFiles: File[];
+  /** Add files to the staging area. */
+  addStagedFiles: (files: File[]) => void;
+
   /** Parsing settings controlling the backend pipeline. */
   useRuleBased: boolean;
   useTableExtraction: boolean;
@@ -212,6 +223,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   isAiProcessing: false,
   route: 'projects',
   isSubNavVisible: true,
+  fileStagingAreaVisible: false,
+  stagedFiles: [],
   uploads: [],
   // Default extraction settings. These flags control how the backend parses
   // datasheets. They match the toggles in the Settings panel.
@@ -248,6 +261,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   setChatDraft: (draft) => set({ chatDraft: draft }),
   clearChatDraft: () => set({ chatDraft: '' }),
   toggleSubNav: () => set((s) => ({ isSubNavVisible: !s.isSubNavVisible })),
+  toggleFileStagingArea: () =>
+    set((s) => ({ fileStagingAreaVisible: !s.fileStagingAreaVisible })),
+  setFileStagingAreaVisible: (visible) =>
+    set({ fileStagingAreaVisible: visible }),
+  addStagedFiles: (files) =>
+    set((state) => ({
+      stagedFiles: [...state.stagedFiles, ...files],
+      fileStagingAreaVisible: true,
+    })),
   // Update a parsing flag by key. The key must be one of the
   // four extraction settings defined above.
   setExtractionSetting: (key, value) =>

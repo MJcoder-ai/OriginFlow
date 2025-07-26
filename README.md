@@ -309,9 +309,9 @@ If running the frontend on a different host or port, update the `origins` list i
 
 ### 6.10 Adding Components via Datasheets
 
-1. **Upload a Datasheet** – Click the paperclip icon and select a PDF. It appears in the Component Library on the left.
+1. **Upload a Datasheet** – Click the paperclip icon and select one or more files. Each file appears under *Staged Files* in the sidebar.
    Uploaded files are persisted on the backend and automatically reloaded when you refresh the page.
-2. **Drag from Library** – Drag the uploaded component from the library onto the canvas to create an instance.
+2. **Drag from Library** – Drag the staged file from the sidebar onto the workflow canvas to create an instance.
 3. **Manual Parsing** – Uploading no longer parses the PDF automatically. Drag the datasheet onto the canvas or click the "Parse" link in the library to start analysis. The UI polls the file status until parsing finishes, then opens the split view.
 4. **AI Assistant** – Alternatively say, "Add the SUN2000-150K-MG0.pdf datasheet to the project" and the assistant will place it for you.
 5. **Review & Confirm** – The split view includes a Save button and a "Confirm & Close" action. The chat history and input remain visible in the Properties panel on the right so you can ask questions while editing.
