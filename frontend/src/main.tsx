@@ -11,9 +11,13 @@ import { pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
-// Configure the worker to load from a CDN with permissive CORS headers
-// Using jsDelivr prevents CORS issues that occur with unpkg
-pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
+// Configure the PDF.js worker to load from the local pdfjs-dist package. Vite
+// bundles this worker file so the version always matches react-pdf and avoids
+// any external CDN requests that could trigger CORS errors during development.
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/legacy/build/pdf.worker.min.js',
+  import.meta.url,
+).toString();
 
 const rootEl = document.getElementById('root');
 const root = rootEl ? ReactDOM.createRoot(rootEl) : null;
