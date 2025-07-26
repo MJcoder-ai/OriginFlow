@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Book, Settings as SettingsIcon } from 'lucide-react';
 import { useAppStore, Route } from '../appStore';
-import StagedFiles from './StagedFiles';
+import { FileStagingArea } from './FileStagingArea';
 
 // Extended navigation to include a Settings view. Each name maps to a route.
 const NAV_ITEMS = [
@@ -39,7 +39,8 @@ const Sidebar = ({ isCollapsed }: Props) => {
             </li>
           ))}
         </ul>
-        {!isCollapsed && fileStagingAreaVisible && <StagedFiles />}
+        {/* It will render items from the unified `componentLibrary` state */}
+        {!isCollapsed && <FileStagingArea />}
       </nav>
     </div>
   );

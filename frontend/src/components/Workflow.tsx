@@ -1,35 +1,17 @@
+/**
+ * This component has been restored to its original function.
+ * It is responsible for rendering the main project canvas for arranging
+ * and connecting components. It is NOT a file drop zone.
+ *
+ * The actual rendering logic is handled by the `Workspace` component,
+ * which this component can wrap or be replaced by, depending on architecture.
+ * For now, we restore its clean state.
+ */
 import React from 'react';
-import { useAppStore } from '../appStore';
 
 const Workflow: React.FC = () => {
-  const analyzeAndExecute = useAppStore((s) => s.analyzeAndExecute);
-
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const data = e.dataTransfer.getData('application/json');
-    if (data) {
-      const { type, name } = JSON.parse(data);
-      if (type === 'file') {
-        const dropX = e.clientX;
-        const dropY = e.clientY;
-        analyzeAndExecute(
-          `Parse the file "${name}" and place the components at coordinates (${dropX}, ${dropY}).`,
-        );
-      }
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-  };
-
-  return (
-    <div className="flex-1 bg-white" onDrop={handleDrop} onDragOver={handleDragOver}>
-      <div className="p-8 text-center text-gray-400">
-        <p>Drop files here to begin parsing</p>
-      </div>
-    </div>
-  );
+  // This area would contain the React Flow provider and canvas
+  return <div className="flex-1 bg-white">{/* Project Canvas Renders Here */}</div>;
 };
 
 export default Workflow;
