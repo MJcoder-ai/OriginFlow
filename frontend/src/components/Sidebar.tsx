@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Book, Settings as SettingsIcon } from 'lucide-react';
 import { useAppStore, Route } from '../appStore';
-import { FileStagingArea } from './FileStagingArea';
+import StagedFiles from './StagedFiles';
 
 // Extended navigation to include a Settings view. Each name maps to a route.
 const NAV_ITEMS = [
@@ -17,6 +17,7 @@ interface Props {
 const Sidebar = ({ isCollapsed }: Props) => {
   const currentRoute = useAppStore((s) => s.route);
   const setRoute = useAppStore((s) => s.setRoute);
+  const fileStagingAreaVisible = useAppStore((s) => s.fileStagingAreaVisible);
 
   return (
     <div className="grid-in-sidebar flex flex-col bg-white text-black border-r border-gray-200">
@@ -38,7 +39,7 @@ const Sidebar = ({ isCollapsed }: Props) => {
             </li>
           ))}
         </ul>
-        {!isCollapsed && <FileStagingArea />}
+        {!isCollapsed && fileStagingAreaVisible && <StagedFiles />}
       </nav>
     </div>
   );
