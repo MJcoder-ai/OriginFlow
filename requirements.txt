@@ -25,3 +25,4 @@ tenacity==8.2.3
 deprecated==1.2.14
 pdfminer.six==20250506
 camelot-py==0.11.0
+tabula-py==2.7.0

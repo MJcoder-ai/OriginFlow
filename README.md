@@ -111,7 +111,8 @@ See `.env.example` for required environment variables:
 - `VITE_API_URL`: Frontend base URL for the backend API.
 - `TEMPORAL_HOST`: Host for self-hosted Temporal.io.
 - `USE_RULE_BASED`: Enable regex-based parsing.
-- `USE_TABLE_EXTRACTION`: Extract tables via Camelot.
+- `USE_TABLE_EXTRACTION`: Extract tables using a multi-step pipeline
+  (Camelot and Tabula).
 - `USE_AI_EXTRACTION`: Use AI to parse datasheet text and tables.
 - `USE_OCR_FALLBACK`: Run OCR if initial text extraction fails.
 
