@@ -159,9 +159,9 @@ interface AppState {
   loadUploads: () => Promise<void>;
 
   /** Voice command state. */
-  voiceMode: 'idle' | 'listening' | 'processing';
+  voiceMode: 'idle' | 'listening' | 'processing' | 'speaking';
   /** Update voice command state. */
-  setVoiceMode: (mode: 'idle' | 'listening' | 'processing') => void;
+  setVoiceMode: (mode: 'idle' | 'listening' | 'processing' | 'speaking') => void;
   /** Continuous conversation flag. */
   isContinuousConversation: boolean;
   /** Toggle continuous conversation mode. */
@@ -427,11 +427,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     } finally {
       // 4. Reset processing state
       setIsAiProcessing(false);
-      if (get().isContinuousConversation) {
-        get().setVoiceMode('listening');
-      } else {
-        get().setVoiceMode('idle');
-      }
     }
   },
   setBom(items) {
