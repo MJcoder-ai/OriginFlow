@@ -22,7 +22,7 @@ export interface UploadEntry {
   is_human_verified: boolean;
 }
 
-export type Route = 'projects' | 'components';
+export type Route = 'projects' | 'components' | 'settings';
 
 /** Connection port available on a component. */
 export interface Port {
@@ -149,6 +149,13 @@ interface AppState {
   /** Toggle toolbar visibility */
   toggleSubNav: () => void;
 
+  /** Parsing settings controlling the backend pipeline. */
+  useRuleBased: boolean;
+  useTableExtraction: boolean;
+  useAiExtraction: boolean;
+  useOcrFallback: boolean;
+  setExtractionSetting: (key: 'useRuleBased' | 'useTableExtraction' | 'useAiExtraction' | 'useOcrFallback', value: boolean) => void;
+
   /** List of in-progress and completed uploads. */
   uploads: UploadEntry[];
   /** Add a new upload entry. */
@@ -206,6 +213,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   route: 'projects',
   isSubNavVisible: true,
   uploads: [],
+  // Default extraction settings. These flags control how the backend parses
+  // datasheets. They match the toggles in the Settings panel.
+  useRuleBased: true,
+  useTableExtraction: true,
+  useAiExtraction: true,
+  useOcrFallback: false,
   voiceMode: 'idle',
   isContinuousConversation: false,
   voiceTranscript: '',
@@ -235,6 +248,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   setChatDraft: (draft) => set({ chatDraft: draft }),
   clearChatDraft: () => set({ chatDraft: '' }),
   toggleSubNav: () => set((s) => ({ isSubNavVisible: !s.isSubNavVisible })),
+  // Update a parsing flag by key. The key must be one of the
+  // four extraction settings defined above.
+  setExtractionSetting: (key, value) =>
+    set((s) => ({ ...s, [key]: value })),
   addStatusMessage: (msg, icon) =>
     set((s) => ({
       statusMessages: [...s.statusMessages, { id: crypto.randomUUID(), message: msg, icon }],

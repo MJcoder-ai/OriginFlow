@@ -1,11 +1,13 @@
 import React from 'react';
-import { Box, Book } from 'lucide-react';
+import { Box, Book, Settings as SettingsIcon } from 'lucide-react';
 import { useAppStore, Route } from '../appStore';
 import { FileStagingArea } from './FileStagingArea';
 
+// Extended navigation to include a Settings view. Each name maps to a route.
 const NAV_ITEMS = [
   { name: 'projects', label: 'Projects', icon: Book },
   { name: 'components', label: 'Components', icon: Box },
+  { name: 'settings', label: 'Settings', icon: SettingsIcon },
 ];
 
 interface Props {

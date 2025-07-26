@@ -12,6 +12,10 @@ import json
 from datetime import datetime, timezone
 from openai import AsyncOpenAI
 from pdfminer.high_level import extract_text
+import re
+import pdfplumber
+
+from backend.config import settings
 
 from backend.models.file_asset import FileAsset
 from backend.schemas.file_asset import FileAssetUpdate
@@ -30,54 +34,106 @@ class ParsedSchema(TypedDict, total=False):
 
 
 async def run_parsing_job(asset_id: str, session: AsyncSession, ai_client: AsyncOpenAI) -> None:
-    """Background job that extracts text and parses a datasheet via AI."""
+    """Background job that extracts text and parses a datasheet using multiple techniques."""
     asset = await FileService.get(session, asset_id)
     if not asset:
         return
 
     try:
-        pdf_text = await asyncio.to_thread(extract_text, asset.local_path)
+        # Extract raw text using pdfminer first. Abort early if too little text was found.
+        pdf_text: str = await asyncio.to_thread(extract_text, asset.local_path)
         if not pdf_text or len(pdf_text.strip()) < 100:
             raise ValueError("Low quality text extracted. Potential scanned document.")
 
-        extractor_prompt = (
-            "You are an expert electronics datasheet extractor. Analyze the text provided. "
-            "First, find the part number. Second, find the main description. "
-            "Third, find all key electrical parameters and their values. "
-            "Fourth, find all absolute maximum ratings. "
-            "Finally, assemble this into a single JSON object. Ensure all values are correctly typed as numbers or strings.\n\n"
-            f"Datasheet text:\n---\n{pdf_text[:20_000]}\n---"
-        )
+        extraction_result: dict[str, Any] = {}
+        tables: list[list[list[str]]] = []
 
-        extractor_resp = await ai_client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": extractor_prompt}],
-            response_format={"type": "json_object"},
-        )
-        extracted_json_str = extractor_resp.choices[0].message.content
+        # ------------------------------------------------------------------
+        # Rule-based extraction via regex heuristics
+        # ------------------------------------------------------------------
+        if settings.use_rule_based:
+            fields: dict[str, Any] = {}
+            m = re.search(r"part\s*number[:\s]+([^\n]+)", pdf_text, re.IGNORECASE)
+            if m:
+                fields["part_number"] = m.group(1).strip()
+            m = re.search(r"description[:\s]+([^\n]+)", pdf_text, re.IGNORECASE)
+            if m:
+                fields["description"] = m.group(1).strip()
+            m = re.search(r"manufacturer[:\s]+([^\n]+)", pdf_text, re.IGNORECASE)
+            if m:
+                fields["manufacturer"] = m.group(1).strip()
+            m = re.search(r"package[:\s]+([^\n]+)", pdf_text, re.IGNORECASE)
+            if m:
+                fields["package"] = m.group(1).strip()
+            m = re.search(r"category[:\s]+([^\n]+)", pdf_text, re.IGNORECASE)
+            if m:
+                fields["category"] = m.group(1).strip()
+            extraction_result.update(fields)
 
-        validator_prompt = (
-            "You are a validation AI. The following JSON was extracted from a component datasheet. "
-            "Review it for correctness and adherence to the schema. "
-            "Correct any obvious typos or formatting errors. Ensure values that should be numbers are not strings. "
-            "Return ONLY the cleaned, validated JSON object. Do not add any commentary.\n\n"
-            f"Input JSON:\n---\n{extracted_json_str}\n---"
-        )
+        # ------------------------------------------------------------------
+        # Table extraction using pdfplumber
+        # ------------------------------------------------------------------
+        if settings.use_table_extraction:
+            try:
+                with pdfplumber.open(asset.local_path) as pdf:
+                    for page in pdf.pages:
+                        for table in page.extract_tables() or []:
+                            normalized = [
+                                [cell if cell is not None else "" for cell in row]
+                                for row in table
+                            ]
+                            tables.append(normalized)
+                if tables:
+                    extraction_result["tables"] = tables
+            except Exception:
+                extraction_result.setdefault("tables", [])
 
-        validator_resp = await ai_client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": validator_prompt}],
-            response_format={"type": "json_object"},
-        )
-        final_payload = json.loads(validator_resp.choices[0].message.content)
+        # ------------------------------------------------------------------
+        # AI-driven extraction combining text and tables
+        # ------------------------------------------------------------------
+        if settings.use_ai_extraction:
+            prompt_parts = [
+                "You are an expert electronics datasheet extractor. Read the text and extracted tables below and return a comprehensive JSON object with as many relevant fields as possible.",
+                "The JSON should include keys like part_number, manufacturer, description, package, category, recommended_operating_conditions, electrical_parameters, absolute_maximum_ratings, pin_configuration, dimensions, safety_certifications, and any other relevant data you can infer.",
+                "Ensure numbers are returned as numbers where appropriate and leave null or empty structures for missing fields.",
+                "\n\nDatasheet text:\n---\n" + pdf_text[:20_000] + "\n---",
+            ]
+            if tables:
+                table_md_list = [
+                    "\n".join([" | ".join([cell.strip() for cell in row]) for row in t])
+                    for t in tables
+                ]
+                tables_md = "\n\nExtracted tables:\n---\n" + "\n\n".join(table_md_list) + "\n---"
+                prompt_parts.append(tables_md)
 
-        asset.parsed_payload = final_payload
+            extractor_resp = await ai_client.chat.completions.create(
+                model=settings.openai_model_router,
+                messages=[{"role": "user", "content": "\n\n".join(prompt_parts)}],
+                response_format={"type": "json_object"},
+            )
+            extracted_json_str = extractor_resp.choices[0].message.content
+            validator_prompt = (
+                "You are a validation AI. The following JSON was extracted from a component datasheet. "
+                "Review it for correctness and adherence to the schema. "
+                "Correct any obvious typos or formatting errors. Ensure values that should be numbers are numbers. "
+                "Return ONLY the cleaned, validated JSON object. Do not add any commentary.\n\n"
+                f"Input JSON:\n---\n{extracted_json_str}\n---"
+            )
+            validator_resp = await ai_client.chat.completions.create(
+                model=settings.openai_model_router,
+                messages=[{"role": "user", "content": validator_prompt}],
+                response_format={"type": "json_object"},
+            )
+            ai_payload = json.loads(validator_resp.choices[0].message.content)
+            extraction_result.update(ai_payload)
+
+        # Persist success results
+        asset.parsed_payload = extraction_result
         asset.parsing_status = "success"
         asset.parsed_at = datetime.now(timezone.utc)
-    except Exception as e:  # pragma: no cover - log error
+    except Exception as e:
         asset.parsing_status = "failed"
         asset.parsing_error = str(e)
-
     session.add(asset)
     await session.commit()
 
