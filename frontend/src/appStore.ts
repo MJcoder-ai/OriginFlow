@@ -20,6 +20,11 @@ export interface UploadEntry {
   parsing_status: 'pending' | 'processing' | 'success' | 'failed' | null;
   parsing_error: string | null;
   is_human_verified: boolean;
+  /**
+   * True while the file upload is actively in progress (progress < 100).
+   * Used to display spinners/badges on the upload button.
+   */
+  inProgress?: boolean;
 }
 
 export type Route = 'projects' | 'components' | 'settings';
@@ -93,7 +98,11 @@ interface AppState {
   /** The current status message for the UI. */
   status: AppStatus;
   statusMessages: { id: string; message: string; icon?: string }[];
-  addStatusMessage: (msg: string, icon?: string) => void;
+  /**
+   * Add a status message.  Optionally specify an icon and a timeout in
+   * milliseconds after which the message will disappear automatically.
+   */
+  addStatusMessage: (msg: string, icon?: string, timeout?: number) => void;
   removeStatusMessage: (id: string) => void;
   selectComponent: (id: string | null) => void;
   /** Fetch the entire project from the backend API. */
@@ -252,10 +261,17 @@ export const useAppStore = create<AppState>((set, get) => ({
   // four extraction settings defined above.
   setExtractionSetting: (key, value) =>
     set((s) => ({ ...s, [key]: value })),
-  addStatusMessage: (msg, icon) =>
+  addStatusMessage: (msg, icon, timeout = 4000) => {
+    const id = crypto.randomUUID();
     set((s) => ({
-      statusMessages: [...s.statusMessages, { id: crypto.randomUUID(), message: msg, icon }],
-    })),
+      statusMessages: [...s.statusMessages, { id, message: msg, icon }],
+    }));
+    // Automatically remove the message after the provided timeout
+    setTimeout(() => {
+      // Use get() here to avoid capturing stale closures
+      get().removeStatusMessage(id);
+    }, timeout);
+  },
   removeStatusMessage: (id) =>
     set((s) => ({ statusMessages: s.statusMessages.filter((m) => m.id !== id) })),
   addMessage: (message) => set((state) => ({ messages: [...state.messages, message] })),
@@ -459,11 +475,24 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ route: r });
   },
   addUpload(u) {
-    set((s) => ({ uploads: [...s.uploads, u] }));
+    // Initialise inProgress based on the initial progress (default to true for new uploads)
+    const withProgressFlag = {
+      ...u,
+      inProgress: typeof u.progress === 'number' ? u.progress < 100 : true,
+    };
+    set((s) => ({ uploads: [...s.uploads, withProgressFlag] }));
   },
   updateUpload(id, patch) {
     set((s) => ({
-      uploads: s.uploads.map((u) => (u.id === id ? { ...u, ...patch } : u)),
+      uploads: s.uploads.map((u) => {
+        if (u.id !== id) return u;
+        const updated = { ...u, ...patch };
+        // Keep inProgress flag in sync with progress updates
+        if (typeof (patch as any).progress === 'number') {
+          updated.inProgress = (patch as any).progress < 100;
+        }
+        return updated;
+      }),
     }));
   },
   async loadUploads() {
@@ -481,6 +510,8 @@ export const useAppStore = create<AppState>((set, get) => ({
           parsing_status: a.parsing_status ?? null,
           parsing_error: a.parsing_error ?? null,
           is_human_verified: a.is_human_verified ?? false,
+          // Completed uploads should not be marked in progress
+          inProgress: false,
         })),
       });
     } catch (error) {

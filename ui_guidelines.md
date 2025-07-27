@@ -63,6 +63,7 @@ OriginFlow uses a **CSS Grid layout** wrapped in a full-height flex column to st
 
 - Render `<ProjectCanvas />` in the `main` area
 - Sidebar contains `FileStagingArea` for component uploads (PDF/CSV)
+- The paperclip upload button shows a spinner and badge while uploads are in progress
 - Users drag datasheets into canvas to create nodes
 - Canvas uses `<Workspace />` with draggable and connectable components
 - Component ports allow linking with mouse drag
@@ -217,12 +218,15 @@ const WARNING_THRESHOLD = 1800;
 </form>
 ```
 
+- Disable the microphone and Send buttons whenever the AI is processing a request.
+- Show a spinner at the bottom of `ChatHistory` while the AI is thinking.
+
 ---
 
 ## 📢 StatusBar State Handling
 
 - Must always be visible
-- Accepts messages via `addStatusMessage()`
+ - Accepts messages via `addStatusMessage()` with optional `icon` and `timeout` parameters
 - Uses severity color mapping
 
 ```tsx

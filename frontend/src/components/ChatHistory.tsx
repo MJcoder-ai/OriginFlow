@@ -1,8 +1,10 @@
 import { useAppStore } from '../appStore';
 import { ChatMessage } from './ChatMessage';
+import { Loader2 } from 'lucide-react';
 
 const ChatHistory = () => {
   const messages = useAppStore((state) => state.messages);
+  const isProcessing = useAppStore((s) => s.isAiProcessing);
 
   return (
     <div
@@ -13,6 +15,14 @@ const ChatHistory = () => {
         {messages.map((m, index) => (
           <ChatMessage key={index} message={m} />
         ))}
+        {isProcessing && (
+          <div className="w-full flex justify-start mt-2" aria-live="polite" aria-label="AI processing indicator">
+            <div className="flex items-center space-x-2 bg-gray-200 text-gray-800 px-4 py-2 rounded-2xl text-sm">
+              <Loader2 className="animate-spin h-4 w-4" />
+              <span>Echo is thinking…</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

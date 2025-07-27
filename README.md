@@ -20,7 +20,8 @@
 - **Observability**: Grafana dashboards, OpenTelemetry traces, and Workflow Visibility Dashboard for monitoring.
 - **Chat Sidebar**: Dedicated panel for collaborating with the AI assistant. Includes voice mode input and persists conversation history.
  - **Voice Mode Chat Input**: Click the microphone icon to dictate messages. A continuous conversation mode lets the mic automatically re-engage after each AI reply. Say "stop listening" to end.
-- **Datasheet Upload Button**: Use the paperclip icon next to the mic to upload PDF datasheets into the Component Library.
+ - **AI Processing Indicator**: While Echo is thinking, a subtle spinner appears at the bottom of the chat history.
+ - **Datasheet Upload Button**: Use the paperclip icon next to the mic to upload PDF datasheets into the Component Library. A spinner and badge show progress while files upload.
 - **Multi-Line Chat Input**: Compose longer messages in a textarea that auto-resizes as you type.
 - **Component Deletion by Name**: Remove components via the AI assistant or UI by referencing the component's name.
 - **AI Governance**: MLMD for model versioning and drift detection.
@@ -311,7 +312,7 @@ If running the frontend on a different host or port, update the `origins` list i
 ### 6.10 Adding Components via Datasheets
 
 1. **Upload a Datasheet** – Click the paperclip icon and select a PDF. It appears in the Component Library on the left.
-   Uploaded files are persisted on the backend and automatically reloaded when you refresh the page.
+   Uploaded files are persisted on the backend and automatically reloaded when you refresh the page. A badge shows how many uploads are still in progress.
 2. **Drag from Library** – Drag the uploaded component from the library onto the canvas to create an instance.
 3. **Manual Parsing** – Uploading no longer parses the PDF automatically. Drag the datasheet onto the canvas or click the "Parse" link in the library to start analysis. The UI polls the file status until parsing finishes, then opens the split view.
 4. **AI Assistant** – Alternatively say, "Add the SUN2000-150K-MG0.pdf datasheet to the project" and the assistant will place it for you.
