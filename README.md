@@ -25,6 +25,7 @@
 - **Multi-Line Chat Input**: Compose longer messages in a textarea that auto-resizes as you type.
 - **Component Deletion by Name**: Remove components via the AI assistant or UI by referencing the component's name.
 - **AI Governance**: MLMD for model versioning and drift detection.
+- **Component Master Database**: Central inventory of manufacturer parts and specifications.
 - **Performance Benchmarks**:
   | **Nodes** | **CPU (cores)** | **RAM (GB)** |
   |-----------|-----------------|--------------|
@@ -171,6 +172,9 @@ The API responds with an array of `AiAction` objects that the UI can apply.
 * **analyse / validate** – full snapshot audit.
 * **what is the bill of materials** – shows modal with unique part list.
 * **organise / optimise layout** – neatly re-positions nodes.
+* **design a 5 kW solar system** – suggests major components.
+* **find panels 500W** – searches the inventory database.
+* **datasheet for ABC123** – fetches and parses a datasheet (stub).
 
 ---
 
