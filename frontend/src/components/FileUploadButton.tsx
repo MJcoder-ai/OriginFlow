@@ -1,13 +1,13 @@
-import { Paperclip } from 'lucide-react';
+import { Paperclip, Loader2 } from 'lucide-react';
 import { uploadFile } from '../services/fileApi';
 import { useAppStore } from '../appStore';
-import prettyBytes from 'pretty-bytes';
+// pretty-bytes is not used here
 import { generateId } from '../utils/id';
 import { useRef } from 'react';
 
 export const FileUploadButton = () => {
   const inputRef = useRef<HTMLInputElement>(null);
-  const { addUpload, updateUpload, addMessage } = useAppStore();
+  const { addUpload, updateUpload, addMessage, addStatusMessage, uploads } = useAppStore();
 
   const choose = () => inputRef.current?.click();
 
@@ -30,6 +30,9 @@ export const FileUploadButton = () => {
       is_human_verified: false,
     });
 
+    // Inform the user that the upload has started
+    addStatusMessage(`Uploading ${file.name}…`, 'info');
+
     try {
       const asset = await uploadFile(file, (p) => updateUpload(tempId, { progress: p }));
       // Replace the temp entry with the real one but leave parsing_status null (unparsed)
@@ -40,21 +43,43 @@ export const FileUploadButton = () => {
         parsing_status: null,
         parsing_error: null,
       });
-      // Use capitalised author to align with the Message type
+      // Capitalised author to conform to Message type
       addMessage({ author: 'User', text: `Uploaded ${file.name}` });
+      addStatusMessage('Upload complete', 'success');
     } catch (error) {
       console.error('Upload failed', error);
       updateUpload(tempId, { progress: -1 });
-      // Use capitalised author to align with the Message type
+      // Use capitalised author to match the Message type
       addMessage({ author: 'User', text: `❌ Upload failed for ${file.name}` });
+      addStatusMessage('Upload failed', 'error');
     }
   };
 
   return (
     <>
       <input type="file" ref={inputRef} onChange={onSelect} className="hidden" />
-      <button onClick={choose} className="p-2 text-gray-500 hover:text-blue-600 transition-colors">
+      <button
+        onClick={choose}
+        className="relative p-2 text-gray-500 hover:text-blue-600 transition-colors"
+        aria-label="Upload file"
+      >
+        {/* Base paperclip icon */}
         <Paperclip size={20} />
+        {/* Spinner shows when any uploads are in progress */}
+        {uploads.some((u) => u.inProgress) && (
+          <Loader2 size={14} className="absolute top-0 right-0 text-blue-600 animate-spin" />
+        )}
+        {/* Badge displays the count of active uploads */}
+        {(() => {
+          const count = uploads.filter((u) => u.inProgress).length;
+          return count > 0 ? (
+            <span
+              className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full text-xs w-4 h-4 flex items-center justify-center"
+            >
+              {count}
+            </span>
+          ) : null;
+        })()}
       </button>
     </>
   );
