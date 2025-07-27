@@ -16,6 +16,9 @@ import backend.agents.link_agent  # noqa: F401
 import backend.agents.layout_agent  # noqa: F401
 import backend.agents.auditor_agent  # noqa: F401
 import backend.agents.bom_agent  # noqa: F401
+import backend.agents.inventory_agent  # noqa: F401
+import backend.agents.datasheet_fetch_agent  # noqa: F401
+import backend.agents.system_design_agent  # noqa: F401
 # ----------------------------------------------------------------
 
 from backend.api.routes import components, links, ai, analyze, files, ai_tools, datasheet_parse

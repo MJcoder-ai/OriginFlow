@@ -24,7 +24,15 @@ class DummyAgent(AgentBase):
         return [{"action": "noop", "payload": {}, "version": 1}]
 
 # register dummy specialist agents for routing
-for _name in ("component_agent", "link_agent", "layout_agent", "bom_agent"):
+for _name in (
+    "component_agent",
+    "link_agent",
+    "layout_agent",
+    "bom_agent",
+    "inventory_agent",
+    "datasheet_fetch_agent",
+    "system_design_agent",
+):
     register(type("DA", (DummyAgent,), {"name": _name})())
 
 @pytest.mark.asyncio
@@ -33,7 +41,13 @@ async def test_router_examples(monkeypatch):
 
     async def fake_create(**kwargs):
         content = kwargs["messages"][-1]["content"].lower()
-        if "link" in content:
+        if "datasheet" in content:
+            agent = "datasheet_fetch_agent"
+        elif "find" in content:
+            agent = "inventory_agent"
+        elif "design" in content:
+            agent = "system_design_agent"
+        elif "link" in content:
             agent = "link_agent"
         elif "layout" in content:
             agent = "layout_agent"
@@ -58,6 +72,9 @@ async def test_router_examples(monkeypatch):
         ("link X to Y", "link_agent"),
         ("organise layout", "layout_agent"),
         ("what is the bill of materials", "bom_agent"),
+        ("design a 5 kW solar system", "system_design_agent"),
+        ("find panels 500", "inventory_agent"),
+        ("datasheet for ABC123", "datasheet_fetch_agent"),
     ]:
         out = await router.handle(cmd)
         assert any(a["action"] for a in out)

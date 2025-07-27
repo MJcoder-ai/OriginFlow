@@ -38,6 +38,9 @@ class RouterAgent(AgentBase):
             {"user": "organise the layout", "agent": "layout_agent"},
             {"user": "validate my design", "agent": "auditor_agent"},
             {"user": "what is the bill of materials", "agent": "bom_agent"},
+            {"user": "design a 5 kW solar system", "agent": "system_design_agent"},
+            {"user": "find panels", "agent": "inventory_agent"},
+            {"user": "datasheet for ABC123", "agent": "datasheet_fetch_agent"},
         ]
         msgs = [{"role": "system", "content": system_prompt}]
         for ex in examples:

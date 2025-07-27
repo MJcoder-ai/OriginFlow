@@ -1,0 +1,30 @@
+"""ORM model representing a master component record."""
+from __future__ import annotations
+
+from sqlalchemy import String, Integer, Float, Boolean, JSON
+from sqlalchemy.orm import Mapped, mapped_column
+
+from backend.models import Base
+
+
+class ComponentMaster(Base):
+    """Table storing manufacturer component data and specs."""
+
+    __tablename__ = "component_master"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    part_number: Mapped[str] = mapped_column(String, unique=True, index=True)
+    name: Mapped[str] = mapped_column(String, index=True)
+    manufacturer: Mapped[str] = mapped_column(String, index=True)
+    category: Mapped[str] = mapped_column(String, index=True)
+    description: Mapped[str] = mapped_column(String, nullable=True)
+    voltage: Mapped[float] = mapped_column(Float, nullable=True)
+    current: Mapped[float] = mapped_column(Float, nullable=True)
+    power: Mapped[float] = mapped_column(Float, nullable=True)
+    specs: Mapped[dict] = mapped_column(JSON, nullable=True)
+    price: Mapped[float] = mapped_column(Float, nullable=True)
+    availability: Mapped[int] = mapped_column(Integer, nullable=True)
+    deprecated: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return f"ComponentMaster(part_number={self.part_number!r}, manufacturer={self.manufacturer!r})"
