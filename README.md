@@ -5,7 +5,7 @@
 ---
 
 ## 1. Overview
-`OriginFlow` is a browser-based, AI-powered design environment that converts rough engineering sketches and customer inputs into fully-connected, standards-compliant schematics and bills-of-materials. It supports both engineers and non-technical users, offering features like drag-and-drop datasheets, AI auto-completion, and real-time compliance checks. The platform is built to be modular, scalable, and extensible, with a focus on reliability and user experience.
+OriginFlow is a browser-based, AI-powered design environment that converts rough engineering sketches and customer inputs into standards-compliant schematics and bills-of-materials. It supports both engineers and non-technical users, offering features like drag-and-drop datasheets, AI auto-completion, and real-time compliance checks. The platform is built to be modular, scalable, and extensible, with a focus on reliability and user experience. Now with integrated AI agents for end-to-end automation (design, sales, support).
 
 ---
 
@@ -24,7 +24,7 @@
  - **Datasheet Upload Button**: Use the paperclip icon next to the mic to upload PDF datasheets into the Component Library. A spinner and badge show progress while files upload.
 - **Multi-Line Chat Input**: Compose longer messages in a textarea that auto-resizes as you type.
 - **Component Deletion by Name**: Remove components via the AI assistant or UI by referencing the component's name.
-- **AI Governance**: MLMD for model versioning and drift detection.
+- **AI Agents**: Modular agents for marketing, design, procurement, and more (see AGENT_TAXONOMY.md).
 - **Component Master Database**: Central inventory of manufacturer parts and specifications.
 - **Performance Benchmarks**:
   | **Nodes** | **CPU (cores)** | **RAM (GB)** |
@@ -32,6 +32,12 @@
   | 100       | 2               | 4            |
   | 1000      | 4               | 8            |
   | 2000      | 8               | 16           |
+### 2.5 AI Agents
+OriginFlow uses AI agents for non-physical tasks across the lifecycle. Examples:
+- SystemDesignAgent: Orchestrates schematics and BOMs.
+- LeadDiscoveryAgent: Finds prospects via web/X search.
+
+See AGENT_TAXONOMY.md for the full list; ENGINEERING_PLAYBOOK.md for building/extending agents.
 
 ---
 
@@ -73,7 +79,23 @@ curl -X POST -H "Authorization: Bearer $EMERGENCY_TOKEN" \
   https://api.originflow.com/emergency_shutdown
 ```
 
-### 4.4 UI Development
+### 4.4 AI Agent Development
+Define Spec Card in ENGINEERING_PLAYBOOK.md.
+Implement in backend/agents/ (e.g., inherit from AgentInterface).
+Register in backend/agents/init.py.
+Test with pytest backend/agents/.
+Example (SystemDesignAgent stub):
+
+```python
+from backend.agents.base_agent import AgentInterface
+
+class SystemDesignAgent(AgentInterface):
+    def execute(self, input: dict) -> dict:
+        return {"design": "Generated schematic"}
+```
+The UI calls agents via /api/agents/execute.
+
+### 4.5 UI Development
 ```bash
 cd frontend
 npm install
@@ -350,9 +372,16 @@ If running the frontend on a different host or port, update the `origins` list i
 5. **Review & Confirm** – The split view includes a Save button and a "Confirm & Close" action. The chat history and input remain visible in the Properties panel on the right so you can ask questions while editing.
 6. **In-Canvas Split View** – The datasheet view now opens directly inside the Components workspace, so no separate overlay element is required.
 7. **Optional Tables** – If no tables are detected, the parsed payload may omit the `tables` field entirely. Treat this as a normal condition.
+### 6.11 Invoking an AI Agent
+```python
+from backend.agents.orchestrator import OrchestratorAgent
+
+orchestrator = OrchestratorAgent()
+result = orchestrator.execute({"command": "Design 5kW PV system"})
+```
 
 
-### 6.11 PDF Viewer Errors
+### 6.12 PDF Viewer Errors
 If the PDF viewer reports "Failed to load PDF" in the UI:
 1. Confirm the backend is running on the URL configured in `VITE_API_URL`.
 2. Ensure the backend created `backend/static/uploads` and is serving `/static` files. The directory is created at startup relative to `backend/main.py`.
@@ -377,6 +406,7 @@ graph TD
         G[Workflow Engine]
         H[Compliance Engine]
         I[Datasheet Processor]
+        Agents[AI Agents]
     end
     subgraph AI Services
         J[AI Models]
@@ -391,6 +421,10 @@ graph TD
     F --> G
     F --> H
     F --> I
+    F --> Agents
+    Agents --> Orchestrator[BusinessOrchestratorAgent]
+    Orchestrator --> SystemDesign[SystemDesignAgent]
+    Orchestrator --> LeadGen[LeadDiscoveryAgent]
     G --> J
     H --> J
     I --> J
