@@ -166,6 +166,33 @@ Where `snapshot.json` looks like:
 
 The API responds with an array of `AiAction` objects that the UI can apply.
 
+### Resetting the Component Master Database
+
+During development you may need to clear the `component_master` table and
+rebuild the component library.  A helper method `delete_all` is provided on
+`ComponentDBService` for this purpose.  To reset the component master table:
+
+1. Ensure migrations are up to date:
+   ```bash
+   poetry run alembic upgrade head
+   ```
+2. Use the following script to delete all existing component records:
+   ```python
+   import asyncio
+   from backend.services.component_db_service import ComponentDBService
+   from backend.database.session import SessionMaker
+
+   async def reset_db():
+       async with SessionMaker() as session:
+           svc = ComponentDBService(session)
+           deleted = await svc.delete_all()
+           print(f"Deleted {deleted} component master records")
+
+   asyncio.run(reset_db())
+   ```
+3. Seed the database with fresh components using `bulk_create` or `create`.  See
+   the PRD for recommended attributes.
+
 ### New AI commands
 
 * **remove _{name}_** – deletes by name.
@@ -173,7 +200,7 @@ The API responds with an array of `AiAction` objects that the UI can apply.
 * **what is the bill of materials** – shows modal with unique part list.
 * **organise / optimise layout** – neatly re-positions nodes.
 * **design a 5 kW solar system** – suggests major components.
-* **find panels 500W** – searches the inventory database.
+* **find panels 400** – searches the inventory database.
 * **datasheet for ABC123** – fetches and parses a datasheet (stub).
 
 ---
