@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -68,6 +68,17 @@ class ComponentDBService:
             stmt = stmt.where(ComponentMaster.power <= max_power)
         result = await self.session.execute(stmt)
         return result.scalars().all()
+
+    async def delete_all(self) -> int:
+        """Delete all records from the component master table.
+
+        Useful during development to reset the component library.
+        Returns the number of rows removed.
+        """
+        stmt = delete(ComponentMaster)
+        result = await self.session.execute(stmt)
+        await self.session.commit()
+        return result.rowcount
 
 
 async def get_component_db_service() -> ComponentDBService:
