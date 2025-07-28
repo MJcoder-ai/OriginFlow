@@ -100,14 +100,7 @@ OriginFlow/
 │   ├── integration/
 │   └── e2e/
 
-text
 
-Collapse
-
-Wrap
-
-Copy
----
 
 ## 2. Key Abstract Interfaces
 
@@ -152,15 +145,7 @@ class AgentInterface(ABC):
         return []  # e.g., [{"name": "web_search", "scopes": ["query:public"]}]
 ```
 Deprecation Example
-python
 
-Collapse
-
-Wrap
-
-Run
-
-Copy
 from deprecated import deprecated
 
 class APIEndpoints(ABC):
@@ -185,15 +170,8 @@ JavaScript: Use console.log with appropriate levels (info, warn, error).
 Imports: Absolute from repo root (e.g., from backend.models.data_models import Component).
 Error Handling: Use tenacity.retry for network calls in Python.
 Compliance Tagging: Use @compliance_tag for auditable actions (e.g., component creation, workflow execution).
-python
 
-Collapse
 
-Wrap
-
-Run
-
-Copy
 from shared.compliance.regulatory_checks import compliance_tag
 
 @compliance_tag(regulation="IEC 81346")
@@ -201,15 +179,7 @@ def create_component(standard_code: str):
     return Component(standard_code=standard_code)
 ## 4. Extension Playbooks
 ### 4.1 Add a New Component
-python
 
-Collapse
-
-Wrap
-
-Run
-
-Copy
 from backend.models.data_models import Component
 from shared.compliance.regulatory_checks import compliance_tag
 
@@ -221,26 +191,12 @@ class NewComponent(Component):
         self.description = "Custom component"
 Add to shared/config/backend.yaml:
 
-yaml
 
-Collapse
-
-Wrap
-
-Copy
 components:
   - standard_code: IEC-PV-300WXYZ-v1
     short_name: 300W Solar Panel
 ### 4.2 Add a New API Endpoint
-python
 
-Collapse
-
-Wrap
-
-Run
-
-Copy
 from fastapi import APIRouter
 from shared.compliance.regulatory_checks import compliance_tag
 
@@ -251,15 +207,7 @@ router = APIRouter()
 async def new_endpoint():
     return {"message": "New endpoint"}
 ### 4.3 Add a New AI Model
-python
 
-Collapse
-
-Wrap
-
-Run
-
-Copy
 from ai_services.models.ai_models import AIServices
 from shared.compliance.regulatory_checks import compliance_tag
 
@@ -271,27 +219,13 @@ class NewAIModel(AIServices):
         self.model_path = "/path/to/new_model"
 Register in shared/config/backend.yaml:
 
-yaml
 
-Collapse
-
-Wrap
-
-Copy
 ai_services:
   models:
     - name: NewAIModel
       version: "1.0"
 ### 4.4 Add a New Workflow
-python
 
-Collapse
-
-Wrap
-
-Run
-
-Copy
 from backend.services.workflow_engine import WorkflowEngine
 from shared.compliance.regulatory_checks import compliance_tag
 
@@ -303,28 +237,12 @@ class NewWorkflow(WorkflowEngine):
         self.nodes = [{"id": "node1", "type": "custom_action"}]
 Register in shared/config/backend.yaml:
 
-yaml
-
-Collapse
-
-Wrap
-
-Copy
 workflows:
   - name: NewWorkflow
     version: 1
 ### 4.5 Add a New AI Agent (New)
 Follow the Engineering Playbook (ENGINEERING_PLAYBOOK.md). Example:
 
-python
-
-Collapse
-
-Wrap
-
-Run
-
-Copy
 from backend.agents.base_agent import AgentInterface
 from langchain.tools import tool
 
@@ -347,15 +265,6 @@ Register: register(NewAgent()) in backend/agents/init.py.
 ## 5. Environment Variables
 Secrets are managed via HashiCorp Vault:
 
-python
-
-Collapse
-
-Wrap
-
-Run
-
-Copy
 from shared.utils.security import get_secret
 
 api_key = get_secret("API_KEY")
@@ -369,15 +278,7 @@ OPENAI_API_KEY: For LLM agents.
 Pytest: Use for Python tests with pytest-asyncio and -n auto.
 Jest: Use for JavaScript tests.
 Property-Based Testing:
-python
 
-Collapse
-
-Wrap
-
-Run
-
-Copy
 from hypothesis import given
 from hypothesis.strategies import text
 from backend.models.data_models import Component
@@ -387,29 +288,13 @@ def test_component_creation(standard_code):
     component = Component(standard_code=standard_code)
     assert component.standard_code == standard_code
 LLM Output Validation:
-python
 
-Collapse
-
-Wrap
-
-Run
-
-Copy
 @pytest.mark.llm
 def test_response_schema():
     response = {"standard_code": "IEC-PV-300WXYZ-v1", "data": {}}
     assert validate_llm_output(response, JSON_SCHEMA)
 For agents, test LLM outputs with mock responses; use LangChain evaluators for hallucinations. Example:
-python
 
-Collapse
-
-Wrap
-
-Run
-
-Copy
 from langchain.evaluation import load_evaluator
 
 def test_agent_output():
@@ -457,15 +342,7 @@ Inconsistent SchemasData integrity issuesValidate against retention_policy in Da
 LLM HallucinationsInaccurate designsUse RAG grounding and temperature=0; add bias checks if bias_guard: true.
 ## 10. Common Recipes
 ### 10.1 Add a New Component
-python
 
-Collapse
-
-Wrap
-
-Run
-
-Copy
 from backend.models.data_models import Component
 from shared.compliance.regulatory_checks import compliance_tag
 
@@ -476,42 +353,18 @@ class NewComponent(Component):
         # Additional initialization
         self.description = "Custom component"
 ### 10.2 Emit a Metric
-python
 
-Collapse
-
-Wrap
-
-Run
-
-Copy
-from shared.utils.metrics import emit_metric
+hared.utils.metrics import emit_metric
 
 emit_metric("component_creation", standard_code="IEC-PV-300WXYZ-v1", value=1)
 ### 10.3 Test LLM Output
-python
 
-Collapse
-
-Wrap
-
-Run
-
-Copy
 @pytest.mark.llm
 def test_response_schema():
     response = {"standard_code": "IEC-PV-300WXYZ-v1", "data": {}}
     assert validate_llm_output(response, JSON_SCHEMA)
 ### 10.4 Add a New Workflow
-python
 
-Collapse
-
-Wrap
-
-Run
-
-Copy
 from backend.services.workflow_engine import WorkflowEngine
 from shared.compliance.regulatory_checks import compliance_tag
 
@@ -522,15 +375,7 @@ class NewWorkflow(WorkflowEngine):
         # Workflow-specific initialization
         self.nodes = [{"id": "node1", "type": "custom_action"}]
 ### 10.5 Integrate LLM in Agent
-python
 
-Collapse
-
-Wrap
-
-Run
-
-Copy
 from backend.agents.base_agent import AgentInterface
 from langchain.tools import tool
 
@@ -549,13 +394,7 @@ class NewAgent(AgentInterface):
         response = self.llm.call(prompt, tools=self.tools)  # OpenAI function-calling
         return {"output": response}
 ## 11. Repository Manifest
-text
 
-Collapse
-
-Wrap
-
-Copy
 OriginFlow/
 ├── .env.example
 ├── pyproject.toml
