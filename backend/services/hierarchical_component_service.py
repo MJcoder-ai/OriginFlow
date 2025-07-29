@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.session import SessionMaker
@@ -20,7 +20,12 @@ class HierarchicalComponentService:
         """Return components filtered by domain if provided."""
         stmt = select(HierarchicalComponent)
         if domain:
-            stmt = stmt.where(HierarchicalComponent.domain.contains([domain]))
+            stmt = stmt.where(
+                or_(
+                    HierarchicalComponent.domain.like(f'%"{domain}"%'),
+                    HierarchicalComponent.domain.like(f'%{domain},%'),
+                )
+            )
         result = await self.session.execute(stmt)
         return result.scalars().all()
 
