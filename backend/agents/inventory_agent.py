@@ -107,3 +107,7 @@ class InventoryAgent(AgentBase):
         ).model_dump()
         return [action]
 
+
+# instantiate the agent so the registry stores an instance
+inventory_agent = register(InventoryAgent())
+

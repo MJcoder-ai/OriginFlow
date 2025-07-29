@@ -103,3 +103,7 @@ class SystemDesignAgent(AgentBase):
         ).model_dump()
         return [action]
 
+
+# instantiate the agent so the registry stores an instance
+system_design_agent = register(SystemDesignAgent())
+

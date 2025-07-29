@@ -38,3 +38,7 @@ class DatasheetFetchAgent(AgentBase):
         ).model_dump()
         return [action]
 
+
+# instantiate the agent so the registry stores an instance
+datasheet_fetch_agent = register(DatasheetFetchAgent())
+
