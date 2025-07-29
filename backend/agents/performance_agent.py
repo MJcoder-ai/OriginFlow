@@ -25,3 +25,6 @@ class PerformanceAgent(AgentBase):
         ).model_dump()
         return [action]
 
+
+# instantiate the agent so the registry stores an instance
+performance_agent = register(PerformanceAgent())
