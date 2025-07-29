@@ -13,26 +13,29 @@ By participating in this project, you agree to abide by our Code of Conduct (COD
 5. **Test Locally**: Run `./scripts/lint.sh && ./scripts/test.sh`. For agents, add unit/e2e tests (>90% coverage).
 6. **Push and PR**: Push to your fork and open a PR against main. Use the PR template below.
 
-## PR Template
+## Pull Request Template
 Use this in your PR description:
-Description
+
+**Description**
 Brief overview of changes (e.g., "Adds LeadDiscoveryAgent with web_search tool").
 
-Related Issues
+**Related Issues**
 Closes #123
 
-Changes
-Added backend/agents/lead_discovery_agent.py
-Updated AGENT_TAXONOMY.md
-Testing
-Unit: pytest backend/agents/test_lead_discovery.py
-Manual: Ran agent execute with sample input
-Checklist
- Tests pass
- Docs updated (e.g., README.md, AGENTS.md)
- Spec Card added for new agents
- Bias/ethics audit if bias_guard: true
- No breaking changes (or deprecated)
+**Changes**
+- Added backend/agents/lead_discovery_agent.py
+- Updated AGENT_TAXONOMY.md
+
+**Testing**
+- Unit: pytest backend/agents/test_lead_discovery.py
+- Manual: Ran agent execute with sample input
+
+**Checklist**
+- Tests pass
+- Docs updated (e.g., README.md, AGENTS.md)
+- Spec Card added for new agents
+- Bias/ethics audit if bias_guard: true
+- No breaking changes (or deprecated)
 
 ## For AI Agents
 - Follow ENGINEERING_PLAYBOOK.md: Start with Spec Card, implement AgentInterface.
