@@ -32,6 +32,8 @@ for _name in (
     "inventory_agent",
     "datasheet_fetch_agent",
     "system_design_agent",
+    "wiring_agent",
+    "performance_agent",
 ):
     register(type("DA", (DummyAgent,), {"name": _name})())
 
@@ -53,6 +55,10 @@ async def test_router_examples(monkeypatch):
             agent = "layout_agent"
         elif "bill of materials" in content:
             agent = "bom_agent"
+        elif "wiring" in content:
+            agent = "wiring_agent"
+        elif "performance" in content:
+            agent = "performance_agent"
         else:
             agent = "component_agent"
         class Choice:
@@ -75,6 +81,9 @@ async def test_router_examples(monkeypatch):
         ("design a 5 kW solar system", "system_design_agent"),
         ("find panels 500", "inventory_agent"),
         ("datasheet for ABC123", "datasheet_fetch_agent"),
+        ("size wiring for 5 kW over 20 m", "wiring_agent"),
+        ("estimate system performance", "performance_agent"),
     ]:
         out = await router.handle(cmd)
         assert any(a["action"] for a in out)
+

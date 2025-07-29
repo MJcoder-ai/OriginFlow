@@ -11,7 +11,7 @@ from backend.models import Base
 class Component(Base):
     """Database model for a schematic component."""
 
-    __tablename__ = "components"
+    __tablename__ = "schematic_components"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String, index=True)
@@ -22,3 +22,4 @@ class Component(Base):
 
     def __repr__(self) -> str:  # pragma: no cover - simple repr
         return f"Component(id={self.id!r}, name={self.name!r})"
+

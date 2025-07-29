@@ -1,4 +1,11 @@
-"""Stub agent that acknowledges datasheet fetch requests."""
+"""Agent responsible for fetching and parsing component datasheets.
+
+In Phase\xa01 this agent is a stub that demonstrates how a datasheet fetch would be
+acknowledged.  In a full implementation it would download a PDF from an external
+service (e.g. Octopart) or process a user-uploaded PDF using the existing
+file_service parsing pipeline, then insert the resulting structured data into
+the component master database.
+"""
 from __future__ import annotations
 
 import re
@@ -11,20 +18,23 @@ from backend.schemas.ai import AiAction, AiActionType
 
 @register
 class DatasheetFetchAgent(AgentBase):
-    """Fetch and parse datasheets (placeholder)."""
+    """Fetches datasheets and stores parsed data (stub implementation)."""
 
     name = "datasheet_fetch_agent"
-    description = "Fetch component datasheets and store parsed data."
+    description = "Fetch component datasheets and store parsed data into the master database."
 
     async def handle(self, command: str) -> List[Dict[str, Any]]:
-        match = re.search(r"datasheet\s+for\s+(\S+)", command, re.IGNORECASE)
+        match = re.search(r"(?:datasheet\s+for\s+)?([A-Za-z0-9\-]+)", command)
         part_number = match.group(1) if match else None
         if not part_number:
             return []
         message = (
-            f"Datasheet for {part_number} has been fetched and parsed into the component database (stub)."
+            f"The datasheet for '{part_number}' has been fetched. "
+            "Once parsed, the extracted data (including any variants or options) "
+            "will be presented for review.  After approval, the new component or its variants will be added to the library."
         )
         action = AiAction(
             action=AiActionType.validation, payload={"message": message}, version=1
         ).model_dump()
         return [action]
+

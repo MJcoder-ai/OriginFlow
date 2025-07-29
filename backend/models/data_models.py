@@ -14,7 +14,7 @@ from . import Base
 class Component(Base):
     """Database model for a schematic component."""
 
-    __tablename__ = "components"
+    __tablename__ = "schematic_components"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String, index=True)
@@ -34,10 +34,10 @@ class Link(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, index=True)
     source_id: Mapped[str] = mapped_column(
-        String, ForeignKey("components.id", ondelete="CASCADE")
+        String, ForeignKey("schematic_components.id", ondelete="CASCADE")
     )
     target_id: Mapped[str] = mapped_column(
-        String, ForeignKey("components.id", ondelete="CASCADE")
+        String, ForeignKey("schematic_components.id", ondelete="CASCADE")
     )
 
     source: Mapped[Component] = relationship("Component", foreign_keys=[source_id])
@@ -47,3 +47,4 @@ class Link(Base):
         return f"Link(id={self.id!r}, source_id={self.source_id!r}, target_id={self.target_id!r})"
 
 # Additional models such as Project will be added here in the future.
+
