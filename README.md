@@ -15,6 +15,7 @@ OriginFlow is a browser-based, AI-powered design environment that converts rough
 - **AI-Driven Datasheet Processing**: Asynchronous parsing pipeline with status tracking, Chain-of-Thought extraction and a Reviewer AI for higher accuracy.
 - **Media Management**: Upload or capture component images/videos, validated by AI with Octopart API integration.
 - **Standards Compliance Engine**: Real-time validation against industry standards (e.g., IEC 81346) with webhook-driven revalidation.
+- **Deterministic Rule Engine**: Provides verifiable wire sizing calculations and other safety-critical lookups.
 - **Workflow Orchestration**: Self-hosted Temporal.io for reliable execution of complex workflows, including Saga Pattern for rollbacks.
 - **Extensibility**: Plug-in framework for components, AI models, and workflows via Component Pack Studio and marketplace.
 - **Observability**: Grafana dashboards, OpenTelemetry traces, and Workflow Visibility Dashboard for monitoring.
@@ -226,7 +227,7 @@ part number while leaving the rest of the data intact.  To reset the table:
 * **design a 5 kW solar system** – suggests major components.
 * **find panels 400** – searches the inventory database.
 * **datasheet for ABC123** – fetches and parses a datasheet (stub).
-* **size wiring for 5 kW over 20 m** – placeholder wiring calculations.
+* **size wiring for 5 kW over 20 m** – deterministic wire gauge and fuse sizing.
 * **estimate system performance** – returns a stub performance report.
 
 ---
