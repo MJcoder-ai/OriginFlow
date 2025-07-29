@@ -26,6 +26,7 @@ OriginFlow is a browser-based, AI-powered design environment that converts rough
 - **Component Deletion by Name**: Remove components via the AI assistant or UI by referencing the component's name.
 - **AI Agents**: Modular agents for marketing, design, procurement, and more (see AGENT_TAXONOMY.md).
 - **Component Master Database**: Central inventory of manufacturer parts and specifications.
+- **Hierarchical Component Schema**: Supports product families, variants and shared documents for richer inventory management.
 - **Performance Benchmarks**:
   | **Nodes** | **CPU (cores)** | **RAM (GB)** |
   |-----------|-----------------|--------------|
@@ -190,9 +191,10 @@ The API responds with an array of `AiAction` objects that the UI can apply.
 
 ### Resetting the Component Master Database
 
-During development you may need to clear the `component_master` table and
-rebuild the component library.  A helper method `delete_all` is provided on
-`ComponentDBService` for this purpose.  To reset the component master table:
+During development you may need to remove erroneous entries from the
+`component_master` table and rebuild the component library.  Use the
+`delete_by_part_number` helper on `ComponentDBService` to remove a specific
+part number while leaving the rest of the data intact.  To reset the table:
 
 1. Ensure migrations are up to date:
    ```bash
@@ -207,8 +209,8 @@ rebuild the component library.  A helper method `delete_all` is provided on
    async def reset_db():
        async with SessionMaker() as session:
            svc = ComponentDBService(session)
-           deleted = await svc.delete_all()
-           print(f"Deleted {deleted} component master records")
+           deleted = await svc.delete_by_part_number("ABC123")
+           print(f"Deleted {deleted} component master records with part number ABC123")
 
    asyncio.run(reset_db())
    ```
@@ -224,6 +226,8 @@ rebuild the component library.  A helper method `delete_all` is provided on
 * **design a 5 kW solar system** – suggests major components.
 * **find panels 400** – searches the inventory database.
 * **datasheet for ABC123** – fetches and parses a datasheet (stub).
+* **size wiring for 5 kW over 20 m** – placeholder wiring calculations.
+* **estimate system performance** – returns a stub performance report.
 
 ---
 
@@ -478,3 +482,4 @@ backend/schemas/link.py
 backend/schemas/ai.py
 backend/main.py
 setup.cfg
+

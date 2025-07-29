@@ -11,6 +11,13 @@ Base = declarative_base()
 
 # Import models so Alembic can locate table metadata
 from .component_master import ComponentMaster  # noqa: F401
+from .component import Component  # noqa: F401
+from .component_hierarchy import HierarchicalComponent, ComponentDocument  # noqa: F401
 
-
-__all__ = ["Base", "ComponentMaster"]
+__all__ = [
+    "Base",
+    "ComponentMaster",
+    "Component",
+    "HierarchicalComponent",
+    "ComponentDocument",
+]

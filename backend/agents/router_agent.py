@@ -41,6 +41,8 @@ class RouterAgent(AgentBase):
             {"user": "design a 5 kW solar system", "agent": "system_design_agent"},
             {"user": "find panels", "agent": "inventory_agent"},
             {"user": "datasheet for ABC123", "agent": "datasheet_fetch_agent"},
+            {"user": "size wiring for 5 kW over 20 m", "agent": "wiring_agent"},
+            {"user": "estimate system performance", "agent": "performance_agent"},
         ]
         msgs = [{"role": "system", "content": system_prompt}]
         for ex in examples:
@@ -78,3 +80,4 @@ class RouterAgent(AgentBase):
         for name in selected:
             actions += await get_agent(name).handle(command)
         return actions
+
