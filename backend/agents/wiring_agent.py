@@ -74,3 +74,6 @@ class WiringAgent(AgentBase):
             version=1,
         ).model_dump()
         return [action]
+
+# instantiate the agent so the registry stores an instance
+wiring_agent = register(WiringAgent())
