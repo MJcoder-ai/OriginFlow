@@ -12,11 +12,10 @@ from typing import Any, Dict, List
 from backend.agents.base import AgentBase
 from backend.agents.registry import register
 from backend.schemas.ai import AiAction, AiActionType
-from fastapi import HTTPException
 
-from backend.services.hierarchical_component_service import (
-    HierarchicalComponentService,
-    get_hierarchical_component_service,
+from backend.services.component_db_service import (
+    ComponentDBService,
+    get_component_db_service,
 )
 
 
@@ -30,8 +29,8 @@ class InventoryAgent(AgentBase):
     async def handle(self, command: str) -> List[Dict[str, Any]]:
         """Handle inventory search requests.
 
-        This method supports searching for components across multiple domains
-        using the hierarchical component service.  The command can specify a
+        This method searches the component master table via
+        :class:`ComponentDBService`. The command can specify a
         category (panel, inverter, battery, controller, pump, compressor) and
         an optional minimum power rating.  In future revisions, users will
         also be able to filter by trust level and region (e.g., "trust>=2",
@@ -56,49 +55,18 @@ class InventoryAgent(AgentBase):
             except ValueError:
                 min_power = None
 
-        domain_map = {
-            "panel": "PV",
-            "inverter": "PV",
-            "battery": "PV",
-            "controller": "PV",
-            "pump": "Water",
-            "compressor": "HVAC",
-        }
-        domain = domain_map.get(category, None)
-
-        async for svc in get_hierarchical_component_service():
-            results = await svc.search(domain=domain)
+        async for svc in get_component_db_service():
+            results = await svc.search(category=category, min_power=min_power)
             break
-
-        if min_power is not None:
-            filtered = []
-            for comp in results:
-                attrs = comp.attributes or {}
-                variant_specific = attrs.get("variant_specific", {})
-                power = variant_specific.get("power_w") or attrs.get("power") or None
-                if power is None:
-                    continue
-                try:
-                    pw = float(power)
-                    if pw >= min_power:
-                        filtered.append(comp)
-                except Exception:
-                    continue
-            results = filtered
 
         if not results:
             message = f"No {category} components found."
         else:
             lines = [f"Found {len(results)} {category}(s):"]
             for comp in results[:5]:
-                attrs = comp.attributes or {}
-                variant_specific = attrs.get("variant_specific", {})
-                power = variant_specific.get("power_w") or attrs.get("power")
-                trust = comp.trust_level
-                region_list = comp.available_regions or []
-                region_str = ",".join(region_list) if region_list else "Global"
+                power = comp.power
                 lines.append(
-                    f"- {comp.brand} {comp.mpn or 'N/A'} ({power or 'N/A'}W, trust={trust}, regions={region_str})"
+                    f"- {comp.manufacturer} {comp.part_number} ({power or 'N/A'}W)"
                 )
             message = "\n".join(lines)
 
