@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Optional, Dict, Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class ComponentMasterBase(BaseModel):
@@ -34,5 +34,4 @@ class ComponentMasterInDB(ComponentMasterBase):
 
     id: int
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
