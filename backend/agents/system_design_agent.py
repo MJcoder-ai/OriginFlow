@@ -78,6 +78,7 @@ class SystemDesignAgent(AgentBase):
                             "standard_code": "PANEL-STD",
                             "x": x_pos,
                             "y": y_pos,
+                            "layer": "Single-Line Diagram",
                         },
                         version=1,
                     ).model_dump()
@@ -91,6 +92,7 @@ class SystemDesignAgent(AgentBase):
                         "standard_code": "INV-STD",
                         "x": 400,
                         "y": 100,
+                        "layer": "Single-Line Diagram",
                     },
                     version=1,
                 ).model_dump()
@@ -104,7 +106,28 @@ class SystemDesignAgent(AgentBase):
                         "standard_code": "BAT-STD",
                         "x": 550,
                         "y": 200,
+                        "layer": "Single-Line Diagram",
                     },
+                    version=1,
+                ).model_dump()
+            )
+
+            # Suggest logical connections between components
+            for i in range(num_panels):
+                actions.append(
+                    AiAction(
+                        action=AiActionType.suggest_link,
+                        payload={
+                            "source_id": f"Panel {i + 1}",
+                            "target_id": "Inverter",
+                        },
+                        version=1,
+                    ).model_dump()
+                )
+            actions.append(
+                AiAction(
+                    action=AiActionType.suggest_link,
+                    payload={"source_id": "Inverter", "target_id": "Battery"},
                     version=1,
                 ).model_dump()
             )
@@ -130,6 +153,7 @@ class SystemDesignAgent(AgentBase):
                         "standard_code": "COMP-STD",
                         "x": 200,
                         "y": 100,
+                        "layer": "Single-Line Diagram",
                     },
                     version=1,
                 ).model_dump()
@@ -143,6 +167,7 @@ class SystemDesignAgent(AgentBase):
                         "standard_code": "EVA-STD",
                         "x": 350,
                         "y": 200,
+                        "layer": "Single-Line Diagram",
                     },
                     version=1,
                 ).model_dump()
@@ -167,6 +192,7 @@ class SystemDesignAgent(AgentBase):
                         "standard_code": "PUMP-STD",
                         "x": 200,
                         "y": 150,
+                        "layer": "Single-Line Diagram",
                     },
                     version=1,
                 ).model_dump()

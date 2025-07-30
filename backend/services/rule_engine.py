@@ -44,11 +44,12 @@ class RuleEngine:
         current_a = (load_kw * 1000.0) / voltage if voltage > 0 else 0.0
         cross_section = 25.0
         gauge = "25\u00a0mm\u00b2"
-        for max_current, label, area in self._WIRE_TABLE:
-            if current_a <= max_current:
-                gauge = label
-                cross_section = area
-                break
+        if voltage > 0 and current_a > 0:
+            for max_current, label, area in self._WIRE_TABLE:
+                if current_a <= max_current:
+                    gauge = label
+                    cross_section = area
+                    break
         resistivity = 0.0175
         resistance = (resistivity * distance_m) / cross_section
         v_drop = current_a * resistance * 2
