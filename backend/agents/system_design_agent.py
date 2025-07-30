@@ -112,14 +112,16 @@ class SystemDesignAgent(AgentBase):
                 ).model_dump()
             )
 
-            # Suggest logical connections between components
+            # Suggest logical connections using component names so the frontend
+            # can resolve them to IDs. This allows for ghost links when the
+            # referenced components are not yet placed.
             for i in range(num_panels):
                 actions.append(
                     AiAction(
                         action=AiActionType.suggest_link,
                         payload={
-                            "source_id": f"Panel {i + 1}",
-                            "target_id": "Inverter",
+                            "source_name": f"Panel {i + 1}",
+                            "target_name": "Inverter",
                         },
                         version=1,
                     ).model_dump()
@@ -127,13 +129,14 @@ class SystemDesignAgent(AgentBase):
             actions.append(
                 AiAction(
                     action=AiActionType.suggest_link,
-                    payload={"source_id": "Inverter", "target_id": "Battery"},
+                    payload={"source_name": "Inverter", "target_name": "Battery"},
                     version=1,
                 ).model_dump()
             )
             summary = (
-                f"Added {num_panels} panels, one inverter and one battery for a {size_kw:g}\xa0kW PV system. "
-                f"Review and approve these actions in the checklist panel."
+                f"Added {num_panels} panel(s), one inverter and one battery for a {size_kw:g}\xa0kW PV system. "
+                "Proposed connecting all panels to the inverter and the inverter to the battery. "
+                "Review and approve these actions."
             )
             actions.append(
                 AiAction(
@@ -172,11 +175,19 @@ class SystemDesignAgent(AgentBase):
                     version=1,
                 ).model_dump()
             )
+            # Suggest linking the compressor to the evaporator coil.
+            actions.append(
+                AiAction(
+                    action=AiActionType.suggest_link,
+                    payload={"source_name": "Compressor", "target_name": "Evaporator Coil"},
+                    version=1,
+                ).model_dump()
+            )
             actions.append(
                 AiAction(
                     action=AiActionType.validation,
                     payload={
-                        "message": f"Added a compressor and evaporator coil for an HVAC system sized at {size_kw:g}\xa0kW. Approve to place on the canvas.",
+                        "message": f"Added a compressor and evaporator coil for an HVAC system sized at {size_kw:g}\xa0kW. A connection has been proposed between them.",
                     },
                     version=1,
                 ).model_dump()
