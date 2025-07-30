@@ -66,12 +66,12 @@ export const FileUploadButton = () => {
         {/* Base paperclip icon */}
         <Paperclip size={20} />
         {/* Spinner shows when any uploads are in progress */}
-        {uploads.some((u) => u.inProgress) && (
+        {uploads.some((u) => u.progress >= 0 && u.progress < 100) && (
           <Loader2 size={14} className="absolute top-0 right-0 text-blue-600 animate-spin" />
         )}
         {/* Badge displays the count of active uploads */}
         {(() => {
-          const count = uploads.filter((u) => u.inProgress).length;
+          const count = uploads.filter((u) => u.progress >= 0 && u.progress < 100).length;
           return count > 0 ? (
             <span
               className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full text-xs w-4 h-4 flex items-center justify-center"
