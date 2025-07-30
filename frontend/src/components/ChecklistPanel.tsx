@@ -11,22 +11,38 @@ const ChecklistPanel: React.FC = () => {
     return null;
   }
 
+  const components = useAppStore((s) => s.canvasComponents);
   const renderAction = (action: AiAction) => {
     switch (action.action) {
-      case 'addComponent':
-        return `Add component ${action.payload.name} (${action.payload.type})`;
-      case 'removeComponent':
-        return `Remove component ${action.payload.id}`;
-      case 'addLink':
-        return `Connect ${action.payload.source_id} to ${action.payload.target_id}`;
-      case 'updatePosition':
-        return `Move component ${action.payload.id} to (${action.payload.x}, ${action.payload.y})`;
-      case 'report':
+      case 'addComponent': {
+        return `Add ${action.payload.type} “${action.payload.name}”`;
+      }
+      case 'removeComponent': {
+        const comp = components.find((c) => c.id === action.payload.id);
+        const name = comp ? comp.name : action.payload.id;
+        return `Remove ${name}`;
+      }
+      case 'addLink': {
+        const source = components.find((c) => c.id === action.payload.source_id);
+        const target = components.find((c) => c.id === action.payload.target_id);
+        const srcName = source ? source.name : action.payload.source_id;
+        const tgtName = target ? target.name : action.payload.target_id;
+        return `Connect ${srcName} to ${tgtName}`;
+      }
+      case 'updatePosition': {
+        const comp = components.find((c) => c.id === action.payload.id);
+        const name = comp ? comp.name : action.payload.id;
+        return `Move ${name} to (${action.payload.x}, ${action.payload.y})`;
+      }
+      case 'report': {
         return 'Show bill of materials';
-      case 'validation':
+      }
+      case 'validation': {
         return action.payload.message || 'Validation message';
-      default:
+      }
+      default: {
         return JSON.stringify(action);
+      }
     }
   };
 
