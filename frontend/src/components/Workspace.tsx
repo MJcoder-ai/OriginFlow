@@ -219,6 +219,7 @@ const Workspace: React.FC = () => {
       onMouseMove={handleCanvasMouseMove}
       onMouseUp={handleCanvasMouseUp}
     >
+      {/* Display the layer selector and pending actions at the top of the workspace */}
       <div className="p-2">
         <LayerSelector />
         <ChecklistPanel />
