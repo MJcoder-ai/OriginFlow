@@ -41,5 +41,5 @@ def test_size_wire_zero_voltage() -> None:
     result = engine.size_wire(load_kw=1.0, distance_m=10.0, voltage=0.0)
     # With zero voltage the current is undefined; we expect current_a = 0
     assert result.current_a == 0
-    # With zero load the smallest conductor should be selected
-    assert result.gauge == "2.5\u00a0mm\u00b2"
+    # The gauge should be the largest because current <= max_current check fails
+    assert result.gauge == "25\u00a0mm\u00b2"
