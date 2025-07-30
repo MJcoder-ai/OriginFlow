@@ -243,9 +243,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   useAiExtraction: true,
   useOcrFallback: false,
 
-  // Canvas layer management
-  layers: [],
-  currentLayer: '',
+  // Layer management defaults.  Each project starts with four layers.
+  layers: [
+    'Single-Line Diagram',
+    'High-Level Overview',
+    'Civil/Structural',
+    'Networking/Monitoring',
+  ],
+  currentLayer: 'Single-Line Diagram',
 
   // Pending AI actions awaiting user confirmation
   pendingActions: [],

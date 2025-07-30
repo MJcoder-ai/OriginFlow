@@ -9,6 +9,8 @@ import {
 } from '@dnd-kit/core';
 import { useAppStore, CanvasComponent, Port } from '../appStore';
 import LinkLayer from './LinkLayer';
+import LayerSelector from './LayerSelector';
+import ChecklistPanel from './ChecklistPanel';
 import clsx from 'clsx';
 
 /** A component card rendered on the canvas with a connection handle */
@@ -213,16 +215,22 @@ const Workspace: React.FC = () => {
 
   return (
     <div
-      className="flex-grow h-full relative"
+      className="flex-grow h-full relative flex flex-col"
       onMouseMove={handleCanvasMouseMove}
       onMouseUp={handleCanvasMouseUp}
     >
-      <LinkLayer pendingLink={pendingLink} mousePos={mousePos} />
-      <CanvasArea
-        pendingLinkSourceId={pendingLink?.sourceId ?? null}
-        onStartLink={handleStartLink}
-        onEndLink={handleEndLink}
-      />
+      <div className="p-2">
+        <LayerSelector />
+        <ChecklistPanel />
+      </div>
+      <div className="flex-grow relative">
+        <LinkLayer pendingLink={pendingLink} mousePos={mousePos} />
+        <CanvasArea
+          pendingLinkSourceId={pendingLink?.sourceId ?? null}
+          onStartLink={handleStartLink}
+          onEndLink={handleEndLink}
+        />
+      </div>
     </div>
   );
 };
