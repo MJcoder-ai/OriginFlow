@@ -11,12 +11,14 @@ OriginFlow is a browser-based, AI-powered design environment that converts rough
 
 ## 2. Key Features
 - **Engineering Canvas**: A drag-and-drop interface for creating and editing schematics with AI-driven auto-completion, industry-standard naming, WebGL rendering, CRDT-based offline sync, and port-based connections between components. Links are created by dragging from an output port to an input port, with ports highlighting during the drag. Component dragging is separate from linking, so accidental moves are avoided. Connection lines now align precisely with each port for clearer diagrams.
+- **Multi-Layer Canvas**: Switch between named layers (e.g., single-line, high-level) so complex designs stay organized. Each layer stores its own component positions.
 - **Customer Project Wizard**: A guided interface for non-technical users to plan projects with AI suggestions and cost estimation.
 - **AI-Driven Datasheet Processing**: Asynchronous parsing pipeline with status tracking, Chain-of-Thought extraction and a Reviewer AI for higher accuracy.
 - **Media Management**: Upload or capture component images/videos, validated by AI with Octopart API integration.
 - **Standards Compliance Engine**: Real-time validation against industry standards (e.g., IEC 81346) with webhook-driven revalidation.
 - **Deterministic Rule Engine**: Provides verifiable wire sizing calculations and other safety-critical lookups.
 - **Workflow Orchestration**: Self-hosted Temporal.io for reliable execution of complex workflows, including Saga Pattern for rollbacks.
+- **Interactive AI Checklist**: Review and approve AI-suggested actions before they modify your design.
 - **Extensibility**: Plug-in framework for components, AI models, and workflows via Component Pack Studio and marketplace.
 - **Observability**: Grafana dashboards, OpenTelemetry traces, and Workflow Visibility Dashboard for monitoring.
 - **Chat Sidebar**: Dedicated panel for collaborating with the AI assistant. Includes voice mode input and persists conversation history.

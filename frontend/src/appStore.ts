@@ -20,11 +20,6 @@ export interface UploadEntry {
   parsing_status: 'pending' | 'processing' | 'success' | 'failed' | null;
   parsing_error: string | null;
   is_human_verified: boolean;
-  /**
-   * True while the file upload is actively in progress (progress < 100).
-   * Used to display spinners/badges on the upload button.
-   */
-  inProgress?: boolean;
 }
 
 export type Route = 'projects' | 'components' | 'settings';
@@ -98,11 +93,8 @@ interface AppState {
   /** The current status message for the UI. */
   status: AppStatus;
   statusMessages: { id: string; message: string; icon?: string }[];
-  /**
-   * Add a status message.  Optionally specify an icon and a timeout in
-   * milliseconds after which the message will disappear automatically.
-   */
-  addStatusMessage: (msg: string, icon?: string, timeout?: number) => void;
+  /** Add a status message with an optional icon. */
+  addStatusMessage: (msg: string, icon?: string) => void;
   removeStatusMessage: (id: string) => void;
   selectComponent: (id: string | null) => void;
   /** Fetch the entire project from the backend API. */
@@ -164,6 +156,28 @@ interface AppState {
   useAiExtraction: boolean;
   useOcrFallback: boolean;
   setExtractionSetting: (key: 'useRuleBased' | 'useTableExtraction' | 'useAiExtraction' | 'useOcrFallback', value: boolean) => void;
+
+  /**
+   * Canvas layers available for the current project. Each layer represents a distinct
+   * view of the design (e.g. "Single-Line Diagram", "High-Level Overview").
+   */
+  layers: string[];
+  /** The layer currently visible on the canvas. */
+  currentLayer: string;
+  /** Update the current layer. */
+  setCurrentLayer: (layer: string) => void;
+
+  /**
+   * Queue of AI-generated actions awaiting user approval. These are surfaced
+   * in the checklist UI so the user can approve or reject each one.
+   */
+  pendingActions: AiAction[];
+  /** Add multiple pending actions to the queue. */
+  addPendingActions: (actions: AiAction[]) => void;
+  /** Approve a pending action by index and execute it. */
+  approvePendingAction: (index: number) => Promise<void>;
+  /** Reject a pending action by index. */
+  rejectPendingAction: (index: number) => void;
 
   /** List of in-progress and completed uploads. */
   uploads: UploadEntry[];
@@ -228,6 +242,25 @@ export const useAppStore = create<AppState>((set, get) => ({
   useTableExtraction: true,
   useAiExtraction: true,
   useOcrFallback: false,
+
+  // Canvas layer management
+  layers: [],
+  currentLayer: '',
+
+  // Pending AI actions awaiting user confirmation
+  pendingActions: [],
+  setCurrentLayer: (layer) => set({ currentLayer: layer }),
+  addPendingActions: (actions) =>
+    set((s) => ({ pendingActions: [...s.pendingActions, ...actions] })),
+  approvePendingAction: async (index) => {
+    const actions = get().pendingActions;
+    const action = actions[index];
+    if (!action) return;
+    await get().executeAiActions([action]);
+    set((s) => ({ pendingActions: s.pendingActions.filter((_, i) => i !== index) }));
+  },
+  rejectPendingAction: (index) =>
+    set((s) => ({ pendingActions: s.pendingActions.filter((_, i) => i !== index) })),
   voiceMode: 'idle',
   isContinuousConversation: false,
   voiceTranscript: '',
@@ -261,17 +294,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   // four extraction settings defined above.
   setExtractionSetting: (key, value) =>
     set((s) => ({ ...s, [key]: value })),
-  addStatusMessage: (msg, icon, timeout = 4000) => {
-    const id = crypto.randomUUID();
+  addStatusMessage: (msg, icon) =>
     set((s) => ({
-      statusMessages: [...s.statusMessages, { id, message: msg, icon }],
-    }));
-    // Automatically remove the message after the provided timeout
-    setTimeout(() => {
-      // Use get() here to avoid capturing stale closures
-      get().removeStatusMessage(id);
-    }, timeout);
-  },
+      statusMessages: [
+        ...s.statusMessages,
+        { id: crypto.randomUUID(), message: msg, icon },
+      ],
+    })),
   removeStatusMessage: (id) =>
     set((s) => ({ statusMessages: s.statusMessages.filter((m) => m.id !== id) })),
   addMessage: (message) => set((state) => ({ messages: [...state.messages, message] })),
@@ -475,24 +504,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ route: r });
   },
   addUpload(u) {
-    // Initialise inProgress based on the initial progress (default to true for new uploads)
-    const withProgressFlag = {
-      ...u,
-      inProgress: typeof u.progress === 'number' ? u.progress < 100 : true,
-    };
-    set((s) => ({ uploads: [...s.uploads, withProgressFlag] }));
+    set((s) => ({ uploads: [...s.uploads, u] }));
   },
   updateUpload(id, patch) {
     set((s) => ({
-      uploads: s.uploads.map((u) => {
-        if (u.id !== id) return u;
-        const updated = { ...u, ...patch };
-        // Keep inProgress flag in sync with progress updates
-        if (typeof (patch as any).progress === 'number') {
-          updated.inProgress = (patch as any).progress < 100;
-        }
-        return updated;
-      }),
+      uploads: s.uploads.map((u) => (u.id === id ? { ...u, ...patch } : u)),
     }));
   },
   async loadUploads() {
@@ -510,8 +526,6 @@ export const useAppStore = create<AppState>((set, get) => ({
           parsing_status: a.parsing_status ?? null,
           parsing_error: a.parsing_error ?? null,
           is_human_verified: a.is_human_verified ?? false,
-          // Completed uploads should not be marked in progress
-          inProgress: false,
         })),
       });
     } catch (error) {
