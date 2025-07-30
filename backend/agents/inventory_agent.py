@@ -60,7 +60,12 @@ class InventoryAgent(AgentBase):
             break
 
         if not results:
-            message = f"No {category} components found."
+            # Provide guidance to the user when no results are returned.
+            power_hint = f" {min_power:g}W" if min_power else ""
+            message = (
+                f"I couldn't find a '{category}{power_hint}' in the database. "
+                "You can upload a datasheet to add a new component or try a different query."
+            )
         else:
             lines = [f"Found {len(results)} {category}(s):"]
             for comp in results[:5]:

@@ -529,8 +529,15 @@ export const useAppStore = create<AppState>((set, get) => ({
           await api.createLink(act.payload);
           break;
         case 'suggestLink': {
-          const src = get().canvasComponents.find((c) => c.name === act.payload.source_id);
-          const tgt = get().canvasComponents.find((c) => c.name === act.payload.target_id);
+          // Resolve names to IDs. Support new source_name/target_name fields as
+          // well as legacy source_id/target_id fields (which may still contain
+          // names). If either component cannot be found, store the link as a
+          // ghost link to be resolved later.
+          const payload: any = act.payload;
+          const sourceName = payload.source_name ?? payload.source_id;
+          const targetName = payload.target_name ?? payload.target_id;
+          const src = get().canvasComponents.find((c) => c.name === sourceName);
+          const tgt = get().canvasComponents.find((c) => c.name === targetName);
           if (src && tgt) {
             await get().addLink({ source_id: src.id, target_id: tgt.id });
           } else {
@@ -568,12 +575,34 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const snapshot = { components: canvasComponents, links };
       const actions = await api.analyzeDesign(snapshot, command);
-      await executeAiActions(actions);
-
-      // 2. Add AI success message
-      const successMessage = `I have successfully executed ${actions.length} action(s).`;
-      addMessage({ id: crypto.randomUUID(), author: 'AI', text: successMessage });
-      get().addStatusMessage('AI actions executed', 'success');
+      // Separate actions into immediate (validation/report) and pending.
+      const pending: AiAction[] = [];
+      actions.forEach((action) => {
+        switch (action.action) {
+          case 'validation':
+            if (action.payload && (action.payload as any).message) {
+              addMessage({ id: crypto.randomUUID(), author: 'AI', text: (action.payload as any).message });
+            }
+            break;
+          case 'report':
+            if (action.payload && (action.payload as any).items) {
+              get().setBom((action.payload as any).items);
+              addMessage({ id: crypto.randomUUID(), author: 'AI', text: 'Here is your bill of materials.' });
+            }
+            break;
+          default:
+            pending.push(action);
+            break;
+        }
+      });
+      if (pending.length > 0) {
+        get().addPendingActions(pending);
+        const summaryMsg = `I have prepared ${pending.length} action(s) for your approval.`;
+        addMessage({ id: crypto.randomUUID(), author: 'AI', text: summaryMsg });
+        get().addStatusMessage('Actions awaiting approval', 'info');
+      } else if (actions.length === 0) {
+        addMessage({ id: crypto.randomUUID(), author: 'AI', text: 'I did not generate any actions for that command.' });
+      }
     } catch (error) {
       console.error('AI command failed:', error);
       const errorMessage = 'Sorry, I ran into an error trying to do that.';
