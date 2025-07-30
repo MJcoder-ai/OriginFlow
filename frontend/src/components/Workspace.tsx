@@ -126,7 +126,13 @@ const CanvasArea: React.FC<{
   onEndLink: (targetId: string, portId: Port['id']) => void;
 }> = ({ pendingLinkSourceId, onStartLink, onEndLink }) => {
   const { setNodeRef } = useDroppable({ id: 'canvas-area' });
-  const components = useAppStore((state) => state.canvasComponents);
+  const currentLayer = useAppStore((state) => state.currentLayer);
+  const allComponents = useAppStore((state) => state.canvasComponents);
+  // Filter components based on the current layer.  Components without a
+  // layer property belong to the default layer (Single-Line Diagram).
+  const components = allComponents.filter(
+    (comp) => !comp.layer || comp.layer === currentLayer
+  );
 
   return (
     <div className="flex-grow h-full relative">

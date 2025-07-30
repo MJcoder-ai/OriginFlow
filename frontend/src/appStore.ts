@@ -48,6 +48,11 @@ export interface CanvasComponent {
   y: number;
   /** Connection ports available on the component. */
   ports: Port[];
+  /**
+   * Name of the layer this component belongs to. Components without a
+   * layer are assumed to be part of the default Single-Line Diagram.
+   */
+  layer?: string;
 }
 
 /**
@@ -320,6 +325,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       ]);
       const enrichedComponents = components.map((c) => ({
         ...c,
+        // Preserve existing layer if defined, otherwise default to the first layer
+        layer: (c as any).layer ?? 'Single-Line Diagram',
         ports: [
           { id: 'input', type: 'in' },
           { id: 'output', type: 'out' },
@@ -344,6 +351,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           { id: 'input', type: 'in' },
           { id: 'output', type: 'out' },
         ],
+        layer: get().currentLayer,
       };
       set((state) => ({
         canvasComponents: [...state.canvasComponents, component],
