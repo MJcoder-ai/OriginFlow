@@ -23,3 +23,19 @@ alembic upgrade head
 ```
 
 Always run these commands whenever you change fields in `backend/models/`.
+
+## Validation Error: source_id required
+
+If the API returns an error like:
+
+```
+pydantic_core._pydantic_core.ValidationError: 2 validation errors for LinkCreate
+source_id
+  Field required
+target_id
+  Field required
+```
+
+ensure that agents generate link actions using `source_id` and `target_id`.
+Components can provide an optional `id` when created so subsequent links may
+reference them before they are persisted.

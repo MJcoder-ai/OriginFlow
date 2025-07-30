@@ -10,6 +10,8 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List
 
+from backend.utils.id import generate_id
+
 from backend.agents.base import AgentBase
 from backend.agents.registry import register
 from backend.schemas.ai import AiAction, AiActionType
@@ -66,13 +68,17 @@ class SystemDesignAgent(AgentBase):
 
         if domain == "PV" and size_kw:
             num_panels = max(1, int(round(size_kw * 1000.0 / 400.0)))
+            id_map: dict[str, str] = {}
             for i in range(num_panels):
+                comp_id = generate_id("component")
+                id_map[f"Panel {i + 1}"] = comp_id
                 x_pos = 100 + (i % 4) * 120
                 y_pos = 100 + (i // 4) * 120
                 actions.append(
                     AiAction(
                         action=AiActionType.add_component,
                         payload={
+                            "id": comp_id,
                             "name": f"Panel {i + 1}",
                             "type": "panel",
                             "standard_code": "PANEL-STD",
@@ -83,10 +89,13 @@ class SystemDesignAgent(AgentBase):
                         version=1,
                     ).model_dump()
                 )
+            inverter_id = generate_id("component")
+            id_map["Inverter"] = inverter_id
             actions.append(
                 AiAction(
                     action=AiActionType.add_component,
                     payload={
+                        "id": inverter_id,
                         "name": "Inverter",
                         "type": "inverter",
                         "standard_code": "INV-STD",
@@ -97,10 +106,13 @@ class SystemDesignAgent(AgentBase):
                     version=1,
                 ).model_dump()
             )
+            battery_id = generate_id("component")
+            id_map["Battery"] = battery_id
             actions.append(
                 AiAction(
                     action=AiActionType.add_component,
                     payload={
+                        "id": battery_id,
                         "name": "Battery",
                         "type": "battery",
                         "standard_code": "BAT-STD",
@@ -112,16 +124,13 @@ class SystemDesignAgent(AgentBase):
                 ).model_dump()
             )
 
-            # Suggest logical connections using component names so the frontend
-            # can resolve them to IDs. This allows for ghost links when the
-            # referenced components are not yet placed.
             for i in range(num_panels):
                 actions.append(
                     AiAction(
                         action=AiActionType.suggest_link,
                         payload={
-                            "source_name": f"Panel {i + 1}",
-                            "target_name": "Inverter",
+                            "source_id": id_map[f"Panel {i + 1}"],
+                            "target_id": inverter_id,
                         },
                         version=1,
                     ).model_dump()
@@ -129,7 +138,7 @@ class SystemDesignAgent(AgentBase):
             actions.append(
                 AiAction(
                     action=AiActionType.suggest_link,
-                    payload={"source_name": "Inverter", "target_name": "Battery"},
+                    payload={"source_id": inverter_id, "target_id": battery_id},
                     version=1,
                 ).model_dump()
             )
@@ -147,10 +156,13 @@ class SystemDesignAgent(AgentBase):
             )
             return actions
         elif domain == "HVAC" and size_kw:
+            comp_id = generate_id("component")
+            evap_id = generate_id("component")
             actions.append(
                 AiAction(
                     action=AiActionType.add_component,
                     payload={
+                        "id": comp_id,
                         "name": "Compressor",
                         "type": "compressor",
                         "standard_code": "COMP-STD",
@@ -165,6 +177,7 @@ class SystemDesignAgent(AgentBase):
                 AiAction(
                     action=AiActionType.add_component,
                     payload={
+                        "id": evap_id,
                         "name": "Evaporator Coil",
                         "type": "evaporator",
                         "standard_code": "EVA-STD",
@@ -175,11 +188,10 @@ class SystemDesignAgent(AgentBase):
                     version=1,
                 ).model_dump()
             )
-            # Suggest linking the compressor to the evaporator coil.
             actions.append(
                 AiAction(
                     action=AiActionType.suggest_link,
-                    payload={"source_name": "Compressor", "target_name": "Evaporator Coil"},
+                    payload={"source_id": comp_id, "target_id": evap_id},
                     version=1,
                 ).model_dump()
             )

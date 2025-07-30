@@ -22,8 +22,8 @@ class ComponentBase(BaseModel):
 
 class ComponentCreate(ComponentBase):
     """Schema for creating a component."""
-
-    pass
+    # Optional client-supplied ID.  If omitted, the server will generate one.
+    id: str | None = None
 
 
 class Component(ComponentBase):

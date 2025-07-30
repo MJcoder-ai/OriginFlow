@@ -24,7 +24,10 @@ class ComponentService:
     async def create(self, data: ComponentCreate) -> Component:
         """Persist a new component and return it."""
 
-        obj = Component(id=generate_id("component"), **data.model_dump())
+        comp_id = data.id or generate_id("component")
+        payload = data.model_dump(exclude_none=True)
+        payload.pop("id", None)
+        obj = Component(id=comp_id, **payload)
         self.session.add(obj)
         try:
             await self.session.commit()
