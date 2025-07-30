@@ -62,45 +62,130 @@ class SystemDesignAgent(AgentBase):
         else:
             domain = None
 
-        if domain == "PV":
-            panel_hint = ""
-            if size_kw:
-                num_panels = int(round(size_kw * 1000 / 400.0))
-                panel_hint = f" (~{num_panels} panels of ~400\xa0W)"
-            message = (
-                f"For a solar PV system{size_desc}, you'll need:\n"
-                f"- Solar panels{panel_hint}.\n"
-                f"- An inverter matched to the array power.\n"
-                f"- A battery bank for storage (optional).\n"
-                f"- A charge controller or BMS to manage charging.\n"
-                f"- Balance-of-System (BOS) components: fuses, wires, connectors and mounting.\n\n"
-                f"Next: ask me to search for panels (e.g., 'find panels 400') or fetch a datasheet for a specific part number."
+        actions: List[Dict[str, Any]] = []
+
+        if domain == "PV" and size_kw:
+            num_panels = max(1, int(round(size_kw * 1000.0 / 400.0)))
+            for i in range(num_panels):
+                x_pos = 100 + (i % 4) * 120
+                y_pos = 100 + (i // 4) * 120
+                actions.append(
+                    AiAction(
+                        action=AiActionType.add_component,
+                        payload={
+                            "name": f"Panel {i + 1}",
+                            "type": "panel",
+                            "standard_code": "PANEL-STD",
+                            "x": x_pos,
+                            "y": y_pos,
+                        },
+                        version=1,
+                    ).model_dump()
+                )
+            actions.append(
+                AiAction(
+                    action=AiActionType.add_component,
+                    payload={
+                        "name": "Inverter",
+                        "type": "inverter",
+                        "standard_code": "INV-STD",
+                        "x": 400,
+                        "y": 100,
+                    },
+                    version=1,
+                ).model_dump()
             )
-        elif domain == "HVAC":
-            message = (
-                f"For an HVAC system{size_desc}, the key components are:\n"
-                f"- Compressor/condenser unit.\n"
-                f"- Evaporator coil.\n"
-                f"- Ductwork or piping sized for the required airflow or refrigerant.\n"
-                f"- Thermostats and control systems.\n\n"
-                f"You can ask me to find compressors or controllers based on your capacity and brand preferences."
+            actions.append(
+                AiAction(
+                    action=AiActionType.add_component,
+                    payload={
+                        "name": "Battery",
+                        "type": "battery",
+                        "standard_code": "BAT-STD",
+                        "x": 550,
+                        "y": 200,
+                    },
+                    version=1,
+                ).model_dump()
             )
-        elif domain == "Water":
-            message = (
-                f"For a water pumping system{size_desc}, you'll need:\n"
-                f"- A pump selected for the desired flow rate and head.\n"
-                f"- Piping, fittings and valves.\n"
-                f"- A power source (electric motor, solar pump controller or engine).\n"
-                f"- Control and safety devices (pressure switches, level sensors).\n\n"
-                f"Next: request to find pumps or controllers to begin component selection."
+            summary = (
+                f"Added {num_panels} panels, one inverter and one battery for a {size_kw:g}\xa0kW PV system. "
+                f"Review and approve these actions in the checklist panel."
             )
-        else:
-            message = (
-                "I'm not sure which domain you're working in.  Please specify whether you're designing a solar, HVAC or water pumping system, and include the desired capacity (e.g., '5\xa0kW solar system')."
+            actions.append(
+                AiAction(
+                    action=AiActionType.validation,
+                    payload={"message": summary},
+                    version=1,
+                ).model_dump()
             )
-        action = AiAction(
-            action=AiActionType.validation, payload={"message": message}, version=1
-        ).model_dump()
+            return actions
+        elif domain == "HVAC" and size_kw:
+            actions.append(
+                AiAction(
+                    action=AiActionType.add_component,
+                    payload={
+                        "name": "Compressor",
+                        "type": "compressor",
+                        "standard_code": "COMP-STD",
+                        "x": 200,
+                        "y": 100,
+                    },
+                    version=1,
+                ).model_dump()
+            )
+            actions.append(
+                AiAction(
+                    action=AiActionType.add_component,
+                    payload={
+                        "name": "Evaporator Coil",
+                        "type": "evaporator",
+                        "standard_code": "EVA-STD",
+                        "x": 350,
+                        "y": 200,
+                    },
+                    version=1,
+                ).model_dump()
+            )
+            actions.append(
+                AiAction(
+                    action=AiActionType.validation,
+                    payload={
+                        "message": f"Added a compressor and evaporator coil for an HVAC system sized at {size_kw:g}\xa0kW. Approve to place on the canvas.",
+                    },
+                    version=1,
+                ).model_dump()
+            )
+            return actions
+        elif domain == "Water" and size_kw:
+            actions.append(
+                AiAction(
+                    action=AiActionType.add_component,
+                    payload={
+                        "name": "Water Pump",
+                        "type": "pump",
+                        "standard_code": "PUMP-STD",
+                        "x": 200,
+                        "y": 150,
+                    },
+                    version=1,
+                ).model_dump()
+            )
+            actions.append(
+                AiAction(
+                    action=AiActionType.validation,
+                    payload={
+                        "message": f"Added a pump for a water pumping system sized at {size_kw:g}\xa0kW. Approve to place on the canvas.",
+                    },
+                    version=1,
+                ).model_dump()
+            )
+            return actions
+
+        message = (
+            "I'm not sure which domain you're working in.  Please specify whether you're designing a solar, HVAC or water pumping system, and include the desired capacity (e.g., '5\xa0kW solar system')."
+        )
+        action = AiAction(action=AiActionType.validation, payload={"message": message}, version=1).model_dump()
         return [action]
 
 
