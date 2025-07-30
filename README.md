@@ -159,6 +159,17 @@ alembic upgrade head
 # Migration scripts automatically detect SQLite vs PostgreSQL and
 # use the appropriate timestamp function for backfilling.
 
+### Updating the schema
+If you add or modify any SQLAlchemy models, always generate a new
+Alembic migration to keep the database schema in sync. Run:
+
+```bash
+alembic revision --autogenerate -m "<your message>"
+alembic upgrade head
+```
+Failure to generate migrations can lead to runtime errors such as
+"no such column" when the application queries the database.
+
 # 3. start backend + frontend
 poetry run uvicorn backend.main:app --reload --host 0.0.0.0
 npm --prefix frontend run dev -- --port 5173 --strictPort
