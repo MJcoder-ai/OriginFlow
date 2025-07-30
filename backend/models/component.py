@@ -20,6 +20,13 @@ class Component(Base):
     x: Mapped[int] = mapped_column(Integer, default=100)
     y: Mapped[int] = mapped_column(Integer, default=100)
 
+    #: Name of the layer this component belongs to.  Added in Phase 2 to
+    #: support multiple canvas layers (e.g., "Single-Line Diagram",
+    #: "High-Level Overview"). Defaults to "Single-Line Diagram" when
+    #: not specified.  Persisting this field allows the frontend to
+    #: restore components to the correct layer when reloading a project.
+    layer: Mapped[str] = mapped_column(String, default="Single-Line Diagram")
+
     def __repr__(self) -> str:  # pragma: no cover - simple repr
         return f"Component(id={self.id!r}, name={self.name!r})"
 

@@ -184,6 +184,30 @@ interface AppState {
   /** Reject a pending action by index. */
   rejectPendingAction: (index: number) => void;
 
+  /** Running total cost of the current design.  This will be updated by
+   *  financial agents in future phases; for now it can be set or
+   *  incremented manually.  Displayed in the status bar.
+   */
+  costTotal: number;
+  /** Update the total cost displayed in the status bar. */
+  setCostTotal: (value: number) => void;
+
+  /** History stack for undo/redo functionality.  Each entry
+   *  represents a snapshot of the canvas components and links at a
+   *  particular point in time.
+   */
+  history: { components: CanvasComponent[]; links: Link[] }[];
+  /** Index of the current position in the history stack. */
+  historyIndex: number;
+  /** Record the current state before executing an action.  Truncates any
+   *  redo history.
+   */
+  recordHistory: () => void;
+  /** Undo the last approved action if possible. */
+  undo: () => void;
+  /** Redo the next action if possible. */
+  redo: () => void;
+
   /** List of in-progress and completed uploads. */
   uploads: UploadEntry[];
   /** Add a new upload entry. */
@@ -238,6 +262,52 @@ export const useAppStore = create<AppState>((set, get) => ({
   statusMessages: [],
   chatMode: 'default',
   isAiProcessing: false,
+  // Cost tracking: initial total cost is zero
+  costTotal: 0,
+  setCostTotal: (value) => set({ costTotal: value }),
+
+  // History for undo/redo: start with empty list and no index
+  history: [],
+  historyIndex: -1,
+  recordHistory: () => {
+    const state = get();
+    // Deep copy components and links to avoid mutation
+    const snapshot = {
+      components: state.canvasComponents.map((c) => ({ ...c })),
+      links: state.links.map((l) => ({ ...l })),
+    };
+    set((s) => {
+      const trimmed = s.history.slice(0, s.historyIndex + 1);
+      return {
+        history: [...trimmed, snapshot],
+        historyIndex: trimmed.length,
+      };
+    });
+  },
+  undo: () => {
+    const state = get();
+    if (state.historyIndex <= 0) return;
+    const newIndex = state.historyIndex - 1;
+    const snapshot = state.history[newIndex];
+    if (!snapshot) return;
+    set({
+      canvasComponents: snapshot.components.map((c) => ({ ...c })),
+      links: snapshot.links.map((l) => ({ ...l })),
+      historyIndex: newIndex,
+    });
+  },
+  redo: () => {
+    const state = get();
+    if (state.historyIndex < 0 || state.historyIndex >= state.history.length - 1) return;
+    const newIndex = state.historyIndex + 1;
+    const snapshot = state.history[newIndex];
+    if (!snapshot) return;
+    set({
+      canvasComponents: snapshot.components.map((c) => ({ ...c })),
+      links: snapshot.links.map((l) => ({ ...l })),
+      historyIndex: newIndex,
+    });
+  },
   route: 'projects',
   isSubNavVisible: true,
   uploads: [],
@@ -266,6 +336,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     const actions = get().pendingActions;
     const action = actions[index];
     if (!action) return;
+    // Record history before applying the approved action
+    get().recordHistory();
     await get().executeAiActions([action]);
     set((s) => ({ pendingActions: s.pendingActions.filter((_, i) => i !== index) }));
   },
@@ -344,7 +416,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ status: `Adding ${payload.type}...` });
     get().addStatusMessage(`Adding ${payload.type}...`, 'info');
     try {
-      const saved = await api.createComponent(payload);
+      // Ensure the backend receives the layer information so it can be persisted.
+      const payloadWithLayer = { ...payload, layer: get().currentLayer };
+      const saved = await api.createComponent(payloadWithLayer);
       const component: CanvasComponent = {
         ...saved,
         ports: [
