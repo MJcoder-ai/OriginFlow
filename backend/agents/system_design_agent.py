@@ -127,7 +127,7 @@ class SystemDesignAgent(AgentBase):
             for i in range(num_panels):
                 actions.append(
                     AiAction(
-                        action=AiActionType.suggest_link,
+                        action=AiActionType.add_link,
                         payload={
                             "source_id": id_map[f"Panel {i + 1}"],
                             "target_id": inverter_id,
@@ -137,7 +137,7 @@ class SystemDesignAgent(AgentBase):
                 )
             actions.append(
                 AiAction(
-                    action=AiActionType.suggest_link,
+                    action=AiActionType.add_link,
                     payload={"source_id": inverter_id, "target_id": battery_id},
                     version=1,
                 ).model_dump()
@@ -190,7 +190,7 @@ class SystemDesignAgent(AgentBase):
             )
             actions.append(
                 AiAction(
-                    action=AiActionType.suggest_link,
+                    action=AiActionType.add_link,
                     payload={"source_id": comp_id, "target_id": evap_id},
                     version=1,
                 ).model_dump()
