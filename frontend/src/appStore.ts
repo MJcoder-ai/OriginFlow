@@ -565,21 +565,8 @@ export const useAppStore = create<AppState>((set, get) => ({
           await get().deleteComponent(act.payload.id);
           break;
         case 'addLink':
-          await api.createLink(act.payload);
+          await get().addLink(act.payload);
           break;
-        case 'suggestLink': {
-          const payload: any = act.payload;
-          const sourceName = payload.source_name ?? payload.source_id;
-          const targetName = payload.target_name ?? payload.target_id;
-          const src = get().canvasComponents.find((c) => c.name === sourceName);
-          const tgt = get().canvasComponents.find((c) => c.name === targetName);
-          if (src && tgt) {
-            await get().addLink({ source_id: src.id, target_id: tgt.id });
-          } else {
-            set((s) => ({ ghostLinks: [...s.ghostLinks, act.payload] }));
-          }
-          break;
-        }
         case 'updatePosition':
           set((s) => ({
             canvasComponents: s.canvasComponents.map((c) =>
