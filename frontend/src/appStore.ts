@@ -186,13 +186,15 @@ interface AppState {
   /** Reject a pending action by index. */
   rejectPendingAction: (index: number) => void;
 
-  /** Running total cost of the current design.  This will be updated by
-   *  financial agents in future phases; for now it can be set or
-   *  incremented manually.  Displayed in the status bar.
-   */
-  costTotal: number;
-  /** Update the total cost displayed in the status bar. */
-  setCostTotal: (value: number) => void;
+  /** Total cost of the current design, if estimated by the AI. */
+  costTotal: number | null;
+  /** Set the total cost estimate. */
+  setCostTotal: (cost: number | null) => void;
+
+  /** Estimated performance metrics such as annual energy output (kWh). */
+  performanceMetrics: { annualKwh: number | null };
+  /** Set performance metrics. */
+  setPerformanceMetrics: (metrics: { annualKwh: number | null }) => void;
 
   /** History stack for undo/redo functionality.  Each entry
    *  represents a snapshot of the canvas components and links at a
@@ -264,9 +266,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   statusMessages: [],
   chatMode: 'default',
   isAiProcessing: false,
-  // Cost tracking: initial total cost is zero
-  costTotal: 0,
-  setCostTotal: (value) => set({ costTotal: value }),
+  // Cost and performance estimations.  These values are populated when the AI
+  // returns rough cost or performance estimates (e.g. via the financial or
+  // performance agents).  A value of null indicates that no estimate is
+  // available.  These can be displayed in the status bar or dedicated
+  // panels.
+  costTotal: null,
+  setCostTotal: (cost) => set({ costTotal: cost }),
+  performanceMetrics: { annualKwh: null },
+  setPerformanceMetrics: (metrics) => set({ performanceMetrics: metrics }),
 
   // History for undo/redo: start with empty list and no index
   history: [],
@@ -596,23 +604,47 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const snapshot = { components: canvasComponents, links };
       const actions = await api.analyzeDesign(snapshot, command);
-      for (const action of actions) {
-        switch (action.action) {
-          case 'validation':
-            if (action.payload && (action.payload as any).message) {
-              addMessage({ id: crypto.randomUUID(), author: 'AI', text: (action.payload as any).message });
+      const pending: AiAction[] = [];
+      actions.forEach((act) => {
+        switch (act.action) {
+          case 'validation': {
+            // Show validation messages directly in the chat.  Additionally
+            // parse simple cost or performance estimates from the message and
+            // update the store accordingly.  For example a financial agent may
+            // return "Estimated cost ... $1234" and a performance agent may
+            // return "produces roughly 5000 kWh per year".
+            const msg: string = (act.payload as any).message;
+            addMessage({ id: crypto.randomUUID(), author: 'AI', text: msg });
+            // Parse cost
+            const costMatch = msg.match(/\$([0-9]+(?:\.[0-9]+)?)/);
+            if (costMatch) {
+              const costVal = parseFloat(costMatch[1]);
+              if (!isNaN(costVal)) {
+                get().setCostTotal(costVal);
+              }
+            }
+            // Parse annual kWh values
+            const kwhMatch = msg.match(/([0-9]+(?:,[0-9]{3})*(?:\.[0-9]+)?)\s*kWh/i);
+            if (kwhMatch) {
+              const numStr = kwhMatch[1].replace(/,/g, '');
+              const kwh = parseFloat(numStr);
+              if (!isNaN(kwh)) {
+                get().setPerformanceMetrics({ annualKwh: kwh });
+              }
             }
             break;
+          }
           case 'report':
-            if (action.payload && (action.payload as any).items) {
-              get().setBom((action.payload as any).items);
-              addMessage({ id: crypto.randomUUID(), author: 'AI', text: 'Here is your bill of materials.' });
-            }
+            // Set the BOM and inform the user
+            get().setBom((act.payload as any).items);
+            addMessage({ id: crypto.randomUUID(), author: 'AI', text: 'Here is your bill of materials.' });
             break;
           default:
-            await get().executeAiActions([action]);
-            break;
+            pending.push(act);
         }
+      });
+      if (pending.length > 0) {
+        get().addPendingActions(pending);
       }
     } catch (error) {
       console.error('AI command failed:', error);
