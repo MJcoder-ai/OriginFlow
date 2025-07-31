@@ -575,9 +575,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const snapshot = { components: canvasComponents, links };
       const actions = await api.analyzeDesign(snapshot, command);
-      // Separate actions into immediate (validation/report) and pending.
-      const pending: AiAction[] = [];
-      actions.forEach((action) => {
+      for (const action of actions) {
         switch (action.action) {
           case 'validation':
             if (action.payload && (action.payload as any).message) {
@@ -591,17 +589,9 @@ export const useAppStore = create<AppState>((set, get) => ({
             }
             break;
           default:
-            pending.push(action);
+            await get().executeAiActions([action]);
             break;
         }
-      });
-      if (pending.length > 0) {
-        get().addPendingActions(pending);
-        const summaryMsg = `I have prepared ${pending.length} action(s) for your approval.`;
-        addMessage({ id: crypto.randomUUID(), author: 'AI', text: summaryMsg });
-        get().addStatusMessage('Actions awaiting approval', 'info');
-      } else if (actions.length === 0) {
-        addMessage({ id: crypto.randomUUID(), author: 'AI', text: 'I did not generate any actions for that command.' });
       }
     } catch (error) {
       console.error('AI command failed:', error);
