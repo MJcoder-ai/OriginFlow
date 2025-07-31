@@ -6,12 +6,11 @@ const ChecklistPanel: React.FC = () => {
   const pendingActions = useAppStore((s) => s.pendingActions);
   const approve = useAppStore((s) => s.approvePendingAction);
   const reject = useAppStore((s) => s.rejectPendingAction);
+  const components = useAppStore((s) => s.canvasComponents);
 
   if (!pendingActions.length) {
     return null;
   }
-
-  const components = useAppStore((s) => s.canvasComponents);
   const renderAction = (action: AiAction) => {
     switch (action.action) {
       case 'addComponent': {
