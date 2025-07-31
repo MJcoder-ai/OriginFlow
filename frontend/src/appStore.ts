@@ -123,6 +123,8 @@ interface AppState {
   ) => Promise<void>;
   /** Execute a list of AI-generated actions. */
   executeAiActions: (actions: AiAction[]) => Promise<void>;
+  /** Apply previously approved AI actions immediately. */
+  applyAiActions: (actions: AiAction[]) => Promise<void>;
   /** Send snapshot and command to AI and execute returned actions. */
   analyzeAndExecute: (command: string) => Promise<void>;
   setBom: (items: string[] | null) => void;
@@ -338,7 +340,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!action) return;
     // Record history before applying the approved action
     get().recordHistory();
-    await get().executeAiActions([action]);
+    await get().applyAiActions([action]);
     set((s) => ({ pendingActions: s.pendingActions.filter((_, i) => i !== index) }));
   },
   rejectPendingAction: (index) =>
@@ -517,6 +519,43 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   async executeAiActions(actions) {
+    const approvalActions: AiAction[] = [];
+
+    for (const action of actions) {
+      switch (action.action) {
+        case 'addComponent':
+        case 'addLink':
+        case 'removeComponent':
+        case 'updatePosition':
+        case 'suggestLink':
+          approvalActions.push(action);
+          break;
+
+        case 'validation':
+          if (action.payload && (action.payload as any).message) {
+            get().addMessage({
+              id: crypto.randomUUID(),
+              author: 'AI',
+              text: (action.payload as any).message,
+            });
+          }
+          break;
+
+        case 'report':
+          get().setBom(action.payload.items);
+          break;
+
+        default:
+          console.error('AI action not implemented', action);
+      }
+    }
+
+    if (approvalActions.length > 0) {
+      get().addPendingActions(approvalActions);
+    }
+  },
+
+  async applyAiActions(actions) {
     for (const act of actions) {
       switch (act.action) {
         case 'addComponent':
@@ -529,10 +568,6 @@ export const useAppStore = create<AppState>((set, get) => ({
           await api.createLink(act.payload);
           break;
         case 'suggestLink': {
-          // Resolve names to IDs. Support new source_name/target_name fields as
-          // well as legacy source_id/target_id fields (which may still contain
-          // names). If either component cannot be found, store the link as a
-          // ghost link to be resolved later.
           const payload: any = act.payload;
           const sourceName = payload.source_name ?? payload.source_id;
           const targetName = payload.target_name ?? payload.target_id;
@@ -545,7 +580,6 @@ export const useAppStore = create<AppState>((set, get) => ({
           }
           break;
         }
-          break;
         case 'updatePosition':
           set((s) => ({
             canvasComponents: s.canvasComponents.map((c) =>
