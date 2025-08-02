@@ -1,2 +1,9 @@
 # backend/api/routes/__init__.py
-"""API route groups for the backend."""
+"""API route groups for the backend.
+
+Importing submodules here makes them discoverable by the app.  The
+``feedback`` module exposes the ``/ai/log-feedback`` endpoint for
+recording user decisions about AI-suggested actions.
+"""
+
+from . import feedback  # noqa: F401  pylint: disable=unused-import

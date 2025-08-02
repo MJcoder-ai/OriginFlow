@@ -28,6 +28,7 @@ OriginFlow is a browser-based, AI-powered design environment that converts rough
 - **Standards Compliance Engine**: Real-time validation against industry standards (e.g., IEC 81346) with webhook-driven revalidation.
 - **Workflow Orchestration**: Self-hosted Temporal.io for reliable execution of complex workflows, including Saga Pattern for rollbacks.
 - **Interactive AI Checklist**: Review and approve AI-suggested actions before they modify your design.
+- **Feedback Logging**: Each approval or rejection is recorded, enabling confidence modeling and audit trails.
 - **Extensibility**: Plug-in framework for components, AI models, and workflows via Component Pack Studio and marketplace.
 - **Observability**: Grafana dashboards, OpenTelemetry traces, and Workflow Visibility Dashboard for monitoring.
 - **Chat Sidebar**: Dedicated panel for collaborating with the AI assistant. Includes voice mode input and persists conversation history.
