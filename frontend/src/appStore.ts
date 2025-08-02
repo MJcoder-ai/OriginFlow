@@ -7,6 +7,7 @@
 import { create } from 'zustand';
 import { api } from './services/api';
 import { listFiles } from './services/fileApi';
+import { API_BASE_URL } from './config';
 import { AiAction } from './types/ai';
 
 export interface UploadEntry {
@@ -348,11 +349,41 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!action) return;
     // Record history before applying the approved action
     get().recordHistory();
+    // Log the user's approval before executing the action.
+    try {
+      await fetch(`${API_BASE_URL}/ai/log-feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: undefined,
+          prompt_text: undefined,
+          proposed_action: action,
+          user_decision: 'approved',
+        }),
+      });
+    } catch (err) {
+      console.warn('Failed to log AI feedback', err);
+    }
     await get().applyAiActions([action]);
     set((s) => ({ pendingActions: s.pendingActions.filter((_, i) => i !== index) }));
   },
-  rejectPendingAction: (index) =>
-    set((s) => ({ pendingActions: s.pendingActions.filter((_, i) => i !== index) })),
+  rejectPendingAction: (index) => {
+    const actions = get().pendingActions;
+    const action = actions[index];
+    if (action) {
+      fetch(`${API_BASE_URL}/ai/log-feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: undefined,
+          prompt_text: undefined,
+          proposed_action: action,
+          user_decision: 'rejected',
+        }),
+      }).catch((err) => console.warn('Failed to log AI feedback', err));
+    }
+    set((s) => ({ pendingActions: s.pendingActions.filter((_, i) => i !== index) }));
+  },
   voiceMode: 'idle',
   isContinuousConversation: false,
   voiceTranscript: '',
