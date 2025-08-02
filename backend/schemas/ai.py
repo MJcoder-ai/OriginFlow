@@ -43,6 +43,7 @@ class AiAction(BaseModel):
     action: AiActionType
     payload: Dict[str, Any]
     version: int
+    confidence: float | None = None
 
 # --- NEW ---------------------------------------------------------
 class AiCommandRequest(BaseModel):

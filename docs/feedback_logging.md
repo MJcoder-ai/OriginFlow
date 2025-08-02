@@ -1,7 +1,9 @@
 # AI Feedback Logging
 
 OriginFlow records decisions about AI-suggested actions so future
-confidence models and audits have a reliable data trail.
+confidence models and audits have a reliable data trail. The
+``LearningAgent`` reads these logs to compute empirical approval rates
+and adjust confidence scores for new AI actions.
 
 ## Endpoint
 
