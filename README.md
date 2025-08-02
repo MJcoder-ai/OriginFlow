@@ -12,24 +12,41 @@ OriginFlow is a browser-based, AI-powered design environment that converts rough
 ## 2. Key Features
 - **Engineering Canvas**: A drag-and-drop interface for creating and editing schematics with AI-driven auto-completion, industry-standard naming, WebGL rendering, CRDT-based offline sync, and port-based connections between components. Links are created by dragging from an output port to an input port, with ports highlighting during the drag. Component dragging is separate from linking, so accidental moves are avoided. Connection lines now align precisely with each port for clearer diagrams.
 - **Multi-Layer Canvas**: Switch between named layers (e.g., single-line, high-level) so complex designs stay organized. Each layer stores its own component positions.
+- **Interactive Layer Selector**: Use the layer selector in the toolbar to create and switch between named layers (e.g. Single‑Line, High‑Level, Electrical, Structural, Networking). New components automatically inherit the current layer, and their layer assignment is persisted. Layers allow different stakeholders to focus on the view relevant to them while sharing a single underlying model.
+
+- **Detailed Layers**: Beyond the high‑level single‑line view, OriginFlow lets you toggle into *electrical detail* or *structural* layers. Electrical detail layers expose all physical ports on a component (e.g. multiple MPPT inputs and AC terminals on an inverter) so you can size strings and branch circuits correctly. Structural layers show mounting brackets, rails and roof attachments for PV systems. Each layer stores its own component positions and visibility, keeping complex designs organised without cluttering the main schematic.
+
+- **Deterministic Rule Engine & Wiring Agent**: A built‑in rule engine performs verifiable safety‑critical calculations such as wire sizing. Given a load and distance, it returns the correct gauge, cross‑section area, current, voltage drop and recommended fuse rating. The **WiringAgent** parses natural‑language requests like `size wiring for 5 kW over 20 m` and produces a detailed report. These suggestions appear in the interactive checklist for your approval.
+
+- **AI‑Generated Connections**: The SystemDesignAgent now proposes both components *and* the links between them. When designing a solar PV system, for example, it will not only add the panels, inverter and battery but also suggest connecting each PV string to the inverter and the inverter to the battery. These suggestions use human‑readable names instead of opaque IDs and are queued in the checklist for your approval.
+
+- **Undo/Redo & Action History**: Every AI suggestion—component placement, link creation, wiring—is recorded in a history stack. Toolbar buttons let you undo or redo approved actions, giving you full control over the design iteration and the ability to experiment safely.
+
 - **Customer Project Wizard**: A guided interface for non-technical users to plan projects with AI suggestions and cost estimation.
 - **AI-Driven Datasheet Processing**: Asynchronous parsing pipeline with status tracking, Chain-of-Thought extraction and a Reviewer AI for higher accuracy.
 - **Media Management**: Upload or capture component images/videos, validated by AI with Octopart API integration.
 - **Standards Compliance Engine**: Real-time validation against industry standards (e.g., IEC 81346) with webhook-driven revalidation.
-- **Deterministic Rule Engine**: Provides verifiable wire sizing calculations and other safety-critical lookups.
 - **Workflow Orchestration**: Self-hosted Temporal.io for reliable execution of complex workflows, including Saga Pattern for rollbacks.
 - **Interactive AI Checklist**: Review and approve AI-suggested actions before they modify your design.
 - **Extensibility**: Plug-in framework for components, AI models, and workflows via Component Pack Studio and marketplace.
 - **Observability**: Grafana dashboards, OpenTelemetry traces, and Workflow Visibility Dashboard for monitoring.
 - **Chat Sidebar**: Dedicated panel for collaborating with the AI assistant. Includes voice mode input and persists conversation history.
- - **Voice Mode Chat Input**: Click the microphone icon to dictate messages. A continuous conversation mode lets the mic automatically re-engage after each AI reply. Say "stop listening" to end.
- - **AI Processing Indicator**: While Echo is thinking, a subtle spinner appears at the bottom of the chat history.
- - **Datasheet Upload Button**: Use the paperclip icon next to the mic to upload PDF datasheets into the Component Library. A spinner and badge show progress while files upload.
+  - **Voice Mode Chat Input**: Click the microphone icon to dictate messages. A continuous conversation mode lets the mic automatically re-engage after each AI reply. Say "stop listening" to end.
+  - **AI Processing Indicator**: While Echo is thinking, a subtle spinner appears at the bottom of the chat history.
+  - **Datasheet Upload Button**: Use the paperclip icon next to the mic to upload PDF datasheets into the Component Library. A spinner and badge show progress while files upload.
 - **Multi-Line Chat Input**: Compose longer messages in a textarea that auto-resizes as you type.
 - **Component Deletion by Name**: Remove components via the AI assistant or UI by referencing the component's name.
-- **AI Agents**: Modular agents for marketing, design, procurement, and more (see AGENT_TAXONOMY.md).
+- **AI Agents**: Modular agents for marketing, design, procurement, and more (see AGENT_TAXONOMY.md).  Recent additions include:
+
+   - **WiringAgent** – uses the deterministic rule engine to size wires, select fuses and ferrules, and generate detailed wiring reports from natural‑language requests.
+   - **PerformanceAgent** – provides quick estimates of system output (e.g. expected annual kWh) and derating factors. Use the chat command `estimate system performance` to get a stub report.
+   - **FinancialAgent** – aggregates component costs and updates live totals in the status bar. In future phases it will query supplier APIs for real‑time pricing and lead times.
+   - **Interactive Checklist Handler** – queues AI actions for human approval, ensuring that only high‑confidence suggestions are executed automatically.
+
+   These agents are orchestrated by the **SystemDesignAgent**, which decomposes a user’s request into a sequence of tasks: selecting components, sizing wiring, connecting ports, estimating cost and performance, and generating reports. See `backend/agents/system_design_agent.py` for details.
+
 - **Component Master Database**: Central inventory of manufacturer parts and specifications.
-- **Hierarchical Component Schema**: Supports product families, variants and shared documents for richer inventory management.
+- **Hierarchical Component Schema**: Components can represent entire product families with variants, shared documents, and **nested sub‑components**. Each record can define ports (DC, AC, grounding, communication), dependencies (e.g. required mounting rails or brackets) and layer affinities. This richness allows the AI to “explode” a single‑line component into detailed assemblies on electrical and structural layers while keeping inventory management efficient.
 - **Performance Benchmarks**:
   | **Nodes** | **CPU (cores)** | **RAM (GB)** |
   |-----------|-----------------|--------------|
