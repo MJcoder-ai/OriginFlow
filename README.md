@@ -223,6 +223,22 @@ Where `snapshot.json` looks like:
 
 The API responds with an array of `AiAction` objects that the UI can apply.
 
+### 🧠 Design Pattern Knowledge Base
+
+Save and query reusable design embeddings:
+
+```bash
+# Persist a design embedding
+curl -X POST http://localhost:8000/api/v1/design_vectors/ \
+     -H "Content-Type: application/json" \
+     -d '{"name":"residential_template","embedding":[0.01,0.02,0.03]}'
+
+# Search for similar designs
+curl -X POST http://localhost:8000/api/v1/design_vectors/search \
+     -H "Content-Type: application/json" \
+     -d '{"embedding":[0.01,0.02,0.03],"top_k":3}'
+```
+
 ### Resetting the Component Master Database
 
 During development you may need to remove erroneous entries from the
