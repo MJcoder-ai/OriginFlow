@@ -31,8 +31,7 @@ OriginFlow is a browser-based, AI-powered design environment that converts rough
 - **Workflow Orchestration**: Self-hosted Temporal.io for reliable execution of complex workflows, including Saga Pattern for rollbacks.
 - **Interactive AI Checklist**: Review and approve AI-suggested actions before they modify your design.
 - **Feedback Logging**: Each approval or rejection is recorded, enabling confidence modeling and audit trails.
-- **Confidence-Driven Autonomy**: A learning agent adjusts confidence scores for AI actions based on historical approvals,
-  allowing high-confidence suggestions to execute automatically.
+- **Confidence-Driven Autonomy & Advanced Learning**: The **LearningAgent** no longer relies solely on action type when estimating whether a user will approve a suggestion.  It now analyses the domain of the command (e.g. solar PV, HVAC or pumping) and computes separate approval rates for each domain and action type using the feedback log.  At runtime, it also inspects the payload of each action to guess the domain when computing confidence scores.  These domain-aware confidence scores allow OriginFlow to automatically apply routine changes in areas where the AI has a strong track record, while still queuing novel or complex tasks for human approval.  As more feedback is gathered, the confidence model retrains and gradually raises the autonomy threshold in mature domains.  See `backend/agents/learning_agent.py` for implementation details and `backend/models/ai_action_log.py` for the logging schema.
 - **Extensibility**: Plug-in framework for components, AI models, and workflows via Component Pack Studio and marketplace.
 - **Observability**: Grafana dashboards, OpenTelemetry traces, and Workflow Visibility Dashboard for monitoring.
 - **Chat Sidebar**: Dedicated panel for collaborating with the AI assistant. Includes voice mode input and persists conversation history.

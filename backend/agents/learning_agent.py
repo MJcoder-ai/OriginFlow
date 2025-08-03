@@ -23,7 +23,7 @@ type, the existing confidence is left unchanged.
 """
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Dict, List, Tuple, Optional
 
 from sqlalchemy import select
 
@@ -65,39 +65,116 @@ class LearningAgent:
         # write time to avoid scanning the whole table.
         async with SessionMaker() as session:
             result = await session.execute(
-                select(AiActionLog.proposed_action, AiActionLog.user_decision)
+                select(
+                    AiActionLog.proposed_action,
+                    AiActionLog.user_decision,
+                    AiActionLog.prompt_text,
+                )
             )
             rows = result.all()
 
-        # Aggregate approval counts per action type.  We count both
-        # ``approved`` and ``auto`` as approvals.  ``rejected`` counts
-        # against the total.  Unknown decisions are ignored.
-        stats: Dict[str, Dict[str, int]] = {}
-        for proposed_action, decision in rows:
-            # proposed_action is a dict containing at least an 'action'
-            # key; skip if missing
+        # Aggregate approval counts per action type and domain.  Each entry
+        # in ``stats`` is a nested dictionary keyed first by action
+        # (string) and then by domain (string).  The innermost dict
+        # stores counts for approved and total decisions.  We treat
+        # both ``approved`` and ``auto`` decisions as approvals.
+        stats: Dict[str, Dict[str, Dict[str, int]]] = {}
+        for proposed_action, decision, prompt_text in rows:
+            # Skip malformed rows
             if not proposed_action or 'action' not in proposed_action:
                 continue
             action_type = proposed_action['action']
-            if action_type is None:
+            if not action_type:
                 continue
-            rec = stats.setdefault(action_type, {'approved': 0, 'total': 0})
+            # Determine the domain of the original prompt.  This can help
+            # distinguish between PV, HVAC or water domains when
+            # computing approval rates.
+            domain = self._determine_domain_from_text(prompt_text)
+            rec = stats.setdefault(action_type, {}).setdefault(domain, {'approved': 0, 'total': 0})
             if decision in ('approved', 'auto'):
                 rec['approved'] += 1
                 rec['total'] += 1
             elif decision == 'rejected':
                 rec['total'] += 1
 
-        # Compute approval ratios.  Avoid division by zero.
-        ratios: Dict[str, float] = {}
-        for atype, rec in stats.items():
-            if rec['total'] > 0:
-                ratios[atype] = rec['approved'] / rec['total']
+        # Compute approval ratios for each (action_type, domain).  We
+        # store the global (domain='general') ratio separately as a
+        # fallback if a domain-specific ratio is not available.
+        ratios: Dict[str, Dict[str, float]] = {}
+        for atype, dom_dict in stats.items():
+            ratios.setdefault(atype, {})
+            for dom, rec in dom_dict.items():
+                if rec['total'] > 0:
+                    ratios[atype][dom] = rec['approved'] / rec['total']
 
-        # Assign confidence values.  We only override the existing
-        # confidence if we have data for that action type.
+        # Assign confidence values based on domain-specific ratios if
+        # available.  We only override the existing confidence if we have
+        # historical data for the action type (and optionally domain).  If
+        # no data exists for a given domain, fall back to the global
+        # domain ('general') for that action type.
         for action in actions:
-            # action.action is an Enum; cast to its value
+            # Determine the action type as a string
             atype_str = action.action.value if isinstance(action.action, AiActionType) else str(action.action)
-            if atype_str in ratios:
-                action.confidence = ratios[atype_str]
+            if atype_str not in ratios:
+                continue
+            # Guess the domain for this action based on the payload
+            domain = self._determine_domain_from_action(action)
+            # Prefer domain-specific ratio; fallback to 'general'
+            dom_ratios = ratios[atype_str]
+            if domain in dom_ratios:
+                action.confidence = dom_ratios[domain]
+            elif 'general' in dom_ratios:
+                action.confidence = dom_ratios['general']
+
+    def _determine_domain_from_text(self, text: Optional[str]) -> str:
+        """Infer a domain (solar, hvac, pump, general) from natural language.
+
+        Args:
+            text: The user's original natural-language command from the user.
+                If None, defaults to 'general'.
+
+        Returns:
+            A string representing the inferred domain: ``'solar'``,
+            ``'hvac'``, ``'pump'``, or ``'general'``.
+
+        This helper performs a simple keyword search on the lowercased
+        text.  Future versions could use NLP models for improved
+        accuracy.
+        """
+        if not text:
+            return 'general'
+        t = text.lower()
+        if any(kw in t for kw in ('hvac', 'air')):
+            return 'hvac'
+        if any(kw in t for kw in ('pump', 'water')):
+            return 'pump'
+        if any(kw in t for kw in ('solar', 'pv')):
+            return 'solar'
+        return 'general'
+
+    def _determine_domain_from_action(self, action: AiAction) -> str:
+        """Infer a domain based on an action's payload.
+
+        For ``addComponent`` actions we inspect the ``type`` field of
+        the payload: PV-related types map to ``solar``; compressors or
+        ductwork map to ``hvac``; pumps map to ``pump``; otherwise
+        ``general``.  Other action types default to the domain of the
+        action type (``general``).  This heuristic can be expanded as
+        richer payloads are added.
+        """
+        try:
+            # Only addComponent has a type field.  Fallback to general.
+            if action.action == AiActionType.add_component:
+                ctype = action.payload.get('type', '')
+                if isinstance(ctype, str):
+                    ctype_low = ctype.lower()
+                    if ctype_low in {'panel', 'inverter', 'battery', 'charge_controller', 'pv_module'}:
+                        return 'solar'
+                    if ctype_low in {'compressor', 'evaporator', 'condensor', 'hvac', 'duct', 'thermostat'}:
+                        return 'hvac'
+                    if ctype_low in {'pump', 'valve', 'pipe'}:
+                        return 'pump'
+            # SuggestLink and other actions default to general
+            return 'general'
+        except Exception:
+            return 'general'
