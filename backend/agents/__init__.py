@@ -17,4 +17,5 @@ from . import wiring_agent  # noqa: F401
 from . import performance_agent  # noqa: F401
 from . import financial_agent  # noqa: F401
 from . import cross_layer_validation_agent  # noqa: F401
+from . import sourcing_agent  # noqa: F401
 
