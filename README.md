@@ -46,6 +46,7 @@ OriginFlow is a browser-based, AI-powered design environment that converts rough
    - **WiringAgent** – uses the deterministic rule engine to size wires, select fuses and ferrules, and generate detailed wiring reports from natural‑language requests.
    - **PerformanceAgent** – provides quick estimates of system output (e.g. expected annual kWh) and derating factors. Use the chat command `estimate system performance` to get a stub report.
    - **FinancialAgent** – aggregates component costs and updates live totals in the status bar. In future phases it will query supplier APIs for real‑time pricing and lead times.
+   - **Cross‑Layer Validation Agent (Beta)**: To help ensure completeness across layers, the new CrossLayerValidationAgent will eventually verify that all ports are connected and that required sub‑assemblies (brackets, rails, combiner boxes) have been added on their respective detail layers.  In this beta release it returns a reminder to perform a manual check, but upcoming versions will parse the design snapshot and highlight missing connections automatically.
    - **Interactive Checklist Handler** – queues AI actions for human approval, ensuring that only high‑confidence suggestions are executed automatically.
 
    These agents are orchestrated by the **SystemDesignAgent**, which decomposes a user’s request into a sequence of tasks: selecting components, sizing wiring, connecting ports, estimating cost and performance, and generating reports. See `backend/agents/system_design_agent.py` for details.

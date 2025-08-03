@@ -41,11 +41,13 @@ class RouterAgent(AgentBase):
             {"user": "design a 5 kW solar system", "agent": "system_design_agent"},
             {"user": "find panels", "agent": "inventory_agent"},
             {"user": "datasheet for ABC123", "agent": "datasheet_fetch_agent"},
+            {"user": "generate sub assembly for inverter", "agent": "design_assembly_agent"},
             {"user": "size wiring for 5 kW over 20 m", "agent": "wiring_agent"},
+            {"user": "estimate performance", "agent": "performance_agent"},
+            {"user": "validate connections", "agent": "cross_layer_validation_agent"},
             {"user": "estimate system performance", "agent": "performance_agent"},
             {"user": "estimate cost of a 5 kW solar system", "agent": "financial_agent"},
             {"user": "how much will a 3 ton hvac cost", "agent": "financial_agent"},
-            {"user": "generate sub assembly for inverter", "agent": "design_assembly_agent"},
         ]
         msgs = [{"role": "system", "content": system_prompt}]
         for ex in examples:
