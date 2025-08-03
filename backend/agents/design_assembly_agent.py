@@ -32,17 +32,20 @@ class DesignAssemblyAgent(AgentBase):
                     version=1,
                 ).model_dump()
             ]
+
         name = m.group(1).strip()
         async for svc in get_component_db_service():
             comps = await svc.search()
             break
+
         target = None
         for c in comps:
             if c.name.lower() == name.lower():
                 target = c
                 break
-        if not target or not target.dependencies or "requires" not in target.dependencies:
-            msg = f"No dependency information found for {name}."
+
+        if not target:
+            msg = f"No component named {name} found."
             return [
                 AiAction(
                     action=AiActionType.validation,
@@ -50,26 +53,75 @@ class DesignAssemblyAgent(AgentBase):
                     version=1,
                 ).model_dump()
             ]
+
+        requires: list[str] = (
+            target.dependencies.get("requires", []) if target.dependencies else []
+        )
+
+        sub_elements: list[str] = []
+        if target.sub_elements:
+            for elem in target.sub_elements:
+                if isinstance(elem, str):
+                    sub_elements.append(elem)
+                elif isinstance(elem, dict):
+                    n = elem.get("name") or elem.get("part_number") or elem.get("id")
+                    if n:
+                        sub_elements.append(n)
+
+        if not requires and not sub_elements:
+            msg = f"No dependency or sub-element information found for {name}."
+            return [
+                AiAction(
+                    action=AiActionType.validation,
+                    payload={"message": msg},
+                    version=1,
+                ).model_dump()
+            ]
+
+        layer_affinity: list[str] = target.layer_affinity or []
+        target_layer = next(
+            (l for l in layer_affinity if l.lower() != "single-line"), "Electrical Detail"
+        )
+
         actions: List[Dict[str, Any]] = []
-        for dep in target.dependencies.get("requires", []):
+
+        def append_add_action(item_name: str) -> None:
+            payload = {
+                "name": item_name,
+                "type": item_name,
+                "standard_code": item_name,
+                "layer": target_layer,
+            }
             actions.append(
                 AiAction(
                     action=AiActionType.add_component,
-                    payload={
-                        "name": f"{dep} for {target.name}",
-                        "type": dep,
-                        "standard_code": dep.upper(),
-                        "x": 100,
-                        "y": 100,
-                        "layer": "Electrical Detail",
-                    },
+                    payload=payload,
                     version=1,
                 ).model_dump()
             )
+
+        for item in requires:
+            append_add_action(item)
+        for item in sub_elements:
+            append_add_action(item)
+
+        summary_parts = []
+        if requires:
+            summary_parts.append(
+                f"{len(requires)} required item{'s' if len(requires) != 1 else ''}"
+            )
+        if sub_elements:
+            summary_parts.append(
+                f"{len(sub_elements)} sub-element{'s' if len(sub_elements) != 1 else ''}"
+            )
+        summary_text = ", ".join(summary_parts) if summary_parts else "no additional items"
+        summary = (
+            f"Generated sub-assembly for {target.name}: added {summary_text} to the {target_layer} layer."
+        )
         actions.append(
             AiAction(
                 action=AiActionType.validation,
-                payload={"message": f"Generated {len(actions)} sub-components for {target.name}."},
+                payload={"message": summary},
                 version=1,
             ).model_dump()
         )
@@ -77,3 +129,4 @@ class DesignAssemblyAgent(AgentBase):
 
 
 design_assembly_agent = register(DesignAssemblyAgent())
+
