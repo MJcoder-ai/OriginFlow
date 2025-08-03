@@ -14,6 +14,7 @@ from .component_master import ComponentMaster  # noqa: F401
 from .component import Component  # noqa: F401
 from .ai_action_log import AiActionLog  # noqa: F401
 from .component_hierarchy import HierarchicalComponent, ComponentDocument  # noqa: F401
+from .design_vector import DesignVector  # noqa: F401
 
 __all__ = [
     "Base",
@@ -22,4 +23,5 @@ __all__ = [
     "AiActionLog",
     "HierarchicalComponent",
     "ComponentDocument",
+    "DesignVector",
 ]

@@ -10,6 +10,7 @@ import {
 import { useAppStore, CanvasComponent, Port } from '../appStore';
 import LinkLayer from './LinkLayer';
 import LayerSelector from './LayerSelector';
+import SubAssemblyButton from './SubAssemblyButton';
 import ChecklistPanel from './ChecklistPanel';
 import clsx from 'clsx';
 
@@ -225,9 +226,10 @@ const Workspace: React.FC = () => {
       onMouseMove={handleCanvasMouseMove}
       onMouseUp={handleCanvasMouseUp}
     >
-      {/* Display the layer selector and pending actions at the top of the workspace */}
-      <div className="p-2">
+      {/* Display the layer selector, sub-assembly button and pending actions */}
+      <div className="p-2 flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
         <LayerSelector />
+        <SubAssemblyButton />
         <ChecklistPanel />
       </div>
       <div className="flex-grow relative">

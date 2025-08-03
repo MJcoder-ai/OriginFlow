@@ -19,6 +19,10 @@ import backend.agents.bom_agent  # noqa: F401
 import backend.agents.inventory_agent  # noqa: F401
 import backend.agents.datasheet_fetch_agent  # noqa: F401
 import backend.agents.system_design_agent  # noqa: F401
+import backend.agents.wiring_agent  # noqa: F401
+import backend.agents.performance_agent  # noqa: F401
+import backend.agents.design_assembly_agent  # noqa: F401
+import backend.agents.financial_agent  # noqa: F401
 # ----------------------------------------------------------------
 
 from backend.api.routes import (
@@ -30,6 +34,7 @@ from backend.api.routes import (
     ai_tools,
     datasheet_parse,
     feedback,
+    design_knowledge,
 )
 
 from slowapi import _rate_limit_exceeded_handler
@@ -64,6 +69,9 @@ app.include_router(ai.router, prefix=settings.api_prefix)
 app.include_router(analyze.router, prefix=settings.api_prefix)
 app.include_router(ai_tools.router, prefix=settings.api_prefix)
 app.include_router(datasheet_parse.router, prefix=settings.api_prefix)
+
+# Design knowledge base endpoints for persisting and querying design embeddings
+app.include_router(design_knowledge.router, prefix=settings.api_prefix)
 
 # Feedback logging endpoint for user decisions on AI actions
 app.include_router(feedback.router, prefix=settings.api_prefix)

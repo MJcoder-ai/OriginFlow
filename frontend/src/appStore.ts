@@ -606,6 +606,25 @@ export const useAppStore = create<AppState>((set, get) => ({
         case 'addLink':
           await get().addLink(act.payload);
           break;
+        case 'suggestLink': {
+          const { source_name, target_name, source_id, target_id } = act.payload as any;
+          const comps = get().canvasComponents;
+          let srcComp = comps.find((c) => source_name && c.name === source_name);
+          let tgtComp = comps.find((c) => target_name && c.name === target_name);
+          if (!srcComp && source_id) srcComp = comps.find((c) => c.id === source_id);
+          if (!tgtComp && target_id) tgtComp = comps.find((c) => c.id === target_id);
+          if (srcComp && tgtComp) {
+            try {
+              await get().addLink({ source_id: srcComp.id, target_id: tgtComp.id });
+            } catch (e) {
+              console.error('Failed to create link from suggestion', e);
+              set((s) => ({ ghostLinks: [...s.ghostLinks, act.payload] }));
+            }
+          } else {
+            set((s) => ({ ghostLinks: [...s.ghostLinks, act.payload] }));
+          }
+          break;
+        }
         case 'updatePosition':
           set((s) => ({
             canvasComponents: s.canvasComponents.map((c) =>
