@@ -47,6 +47,15 @@ class ComponentMasterBase(BaseModel):
         ),
     )
 
+    sub_elements: Optional[list] = Field(
+        None,
+        description=(
+            "Nested sub-components or accessories that form part of this component. "
+            "Each entry should include its own part identifier and properties. "
+            "This enables hierarchical assemblies (e.g. a PV panel with brackets and rails)."
+        ),
+    )
+
 
 class ComponentMasterCreate(ComponentMasterBase):
     """Schema for creating a record."""

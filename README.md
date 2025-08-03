@@ -50,6 +50,8 @@ OriginFlow is a browser-based, AI-powered design environment that converts rough
 
 - **Component Master Database**: Central inventory of manufacturer parts and specifications.
 - **Hierarchical Component Schema**: Components can represent entire product families with variants, shared documents, and **nested sub‑components**. Each record can define ports (DC, AC, grounding, communication), dependencies (e.g. required mounting rails or brackets) and layer affinities. This richness allows the AI to “explode” a single‑line component into detailed assemblies on electrical and structural layers while keeping inventory management efficient.
+
+    The schema now includes a ``sub_elements`` array so a component can contain its own children (e.g., a solar panel with brackets and rails).  Additional fields ``ports``, ``dependencies`` and ``layer_affinity`` describe physical connection points, required or optional accessories, and the canvas layers where each element belongs.  See `backend/models/component_master.py` for details.  Alembic migrations add these columns to the database.
 - **Performance Benchmarks**:
   | **Nodes** | **CPU (cores)** | **RAM (GB)** |
   |-----------|-----------------|--------------|
