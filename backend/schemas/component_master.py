@@ -22,6 +22,31 @@ class ComponentMasterBase(BaseModel):
     availability: Optional[int] = Field(None, description="Quantity available")
     deprecated: bool = Field(False, description="Deprecated flag")
 
+    # New fields for hierarchical modelling.  These correspond to
+    # additional columns in ``component_master`` and enable the AI to
+    # generate detailed wiring and sub-assemblies.
+    ports: Optional[list] = Field(
+        None,
+        description=(
+            "List of port definitions describing physical connection points on "
+            "the component. Each entry may include a type (e.g. 'DC', 'AC', 'ground', 'data') "
+            "and electrical limits. Enables detailed wiring in electrical layers."
+        ),
+    )
+    dependencies: Optional[Dict[str, Any]] = Field(
+        None,
+        description=(
+            "Dependency rules specifying required, optional, and conflicting sub-components. "
+            "For example, a panel may require mounting brackets and rails. Stored as JSON."
+        ),
+    )
+    layer_affinity: Optional[list] = Field(
+        None,
+        description=(
+            "List of layers (e.g. ['single-line','electrical','structural']) where this component naturally belongs."
+        ),
+    )
+
 
 class ComponentMasterCreate(ComponentMasterBase):
     """Schema for creating a record."""
