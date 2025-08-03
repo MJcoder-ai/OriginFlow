@@ -36,13 +36,17 @@ class FeedbackPayload(BaseModel):
 
 @router.post(
     "/ai/log-feedback",
-    status_code=status.HTTP_200_OK,
+    status_code=status.HTTP_204_NO_CONTENT,
     tags=["ai"],
 )
 async def log_ai_feedback(
     payload: FeedbackPayload, session: AsyncSession = Depends(get_session)
 ) -> None:
-    """Record the user's decision on an AI-suggested action."""
+    """Record the user's decision on an AI-suggested action.
+
+    Returns no content on success to align with the declared ``None`` return
+    type and avoid FastAPI response validation errors.
+    """
     entry = AiActionLog(
         session_id=payload.session_id,
         prompt_text=payload.prompt_text,
@@ -58,4 +62,4 @@ async def log_ai_feedback(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to log feedback: {exc}",
         )
-    return {"status": "ok"}
+    return None
