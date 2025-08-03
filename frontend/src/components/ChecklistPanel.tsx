@@ -28,6 +28,12 @@ const ChecklistPanel: React.FC = () => {
         const tgtName = target ? target.name : action.payload.target_id;
         return `Connect ${srcName} to ${tgtName}`;
       }
+      case 'suggestLink': {
+        const { source_name, target_name, source_id, target_id } = action.payload as any;
+        const src = source_name || components.find((c) => c.id === source_id)?.name || source_id;
+        const tgt = target_name || components.find((c) => c.id === target_id)?.name || target_id;
+        return `Connect ${src} to ${tgt}`;
+      }
       case 'updatePosition': {
         const comp = components.find((c) => c.id === action.payload.id);
         const name = comp ? comp.name : action.payload.id;
