@@ -7,7 +7,7 @@ user approved or rejected it.  Entries are stored in the
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -41,11 +41,11 @@ class FeedbackPayload(BaseModel):
 )
 async def log_ai_feedback(
     payload: FeedbackPayload, session: AsyncSession = Depends(get_session)
-) -> None:
+) -> Response:
     """Record the user's decision on an AI-suggested action.
 
-    Returns no content on success to align with the declared ``None`` return
-    type and avoid FastAPI response validation errors.
+    Returns an empty ``204 NO CONTENT`` response on success to avoid FastAPI
+    response validation errors.
     """
     entry = AiActionLog(
         session_id=payload.session_id,
@@ -62,4 +62,4 @@ async def log_ai_feedback(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to log feedback: {exc}",
         )
-    return None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
