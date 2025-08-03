@@ -35,5 +35,13 @@ class ComponentMaster(Base):
     dependencies: Mapped[dict] = mapped_column(JSON, nullable=True)
     layer_affinity: Mapped[list] = mapped_column(JSON, nullable=True)
 
+    #: Optional nested sub-components.  Each entry in this list
+    #: represents a child element (e.g. mounting bracket, rail or
+    #: accessory) with its own part number, name and properties.  This
+    #: hierarchical structure allows a component to represent an
+    #: assembly of parts and enables the AI to explode single-line
+    #: components into detailed layers.  Stored as JSON for flexibility.
+    sub_elements: Mapped[list] = mapped_column(JSON, nullable=True)
+
     def __repr__(self) -> str:  # pragma: no cover
         return f"ComponentMaster(part_number={self.part_number!r}, manufacturer={self.manufacturer!r})"
