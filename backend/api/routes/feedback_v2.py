@@ -19,10 +19,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.api.deps import get_session
 from backend.models.ai_action_log import AiActionLog
 from backend.models.ai_action_vector import AiActionVector
-from backend.services.anonymizer import anonymize, anonymize_context
-from backend.services.embedding_service import EmbeddingService, get_embedding_service
+from backend.services.anonymizer_service import AnonymizerService
+from backend.services.embedding_service import EmbeddingService
 from backend.services.vector_store import VectorStore, get_vector_store
 from backend.services import encryptor
+from backend.main import get_anonymizer, get_embedder
 
 router = APIRouter()
 
@@ -47,7 +48,8 @@ class FeedbackPayloadV2(BaseModel):
 async def log_feedback_v2(
     payload: FeedbackPayloadV2,
     session: AsyncSession = Depends(get_session),
-    embedder: EmbeddingService = Depends(get_embedding_service),
+    anonymizer: AnonymizerService = Depends(get_anonymizer),
+    embedder: EmbeddingService = Depends(get_embedder),
     store: VectorStore = Depends(get_vector_store),
 ) -> Response:
     """Record enriched user feedback and upsert a vector.
@@ -68,8 +70,8 @@ async def log_feedback_v2(
         user_decision=payload.user_decision,
     )
     session.add(entry)
-    anonymized_prompt = anonymize(payload.user_prompt or "")
-    anonymized_ctx = anonymize_context(payload.design_context)
+    anonymized_prompt = anonymizer.anonymize(payload.user_prompt or "")
+    anonymized_ctx = anonymizer.anonymize_context(payload.design_context)
     embedding = await embedder.embed_log(payload, anonymized_prompt, anonymized_ctx)
     key = os.getenv("EMBEDDING_ENCRYPTION_KEY")
     embedding_db = embedding

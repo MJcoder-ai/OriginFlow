@@ -3,7 +3,7 @@ import pytest
 from backend.agents.learning_agent import LearningAgent
 from backend.agents import learning_agent as learning_agent_module
 from backend.schemas.ai import AiAction, AiActionType
-from backend.services.anonymizer import anonymize
+from backend.services.anonymizer_service import AnonymizerService
 from backend.services.embedding_service import EmbeddingService
 from backend.services.reference_confidence_service import ReferenceConfidenceService
 
@@ -77,5 +77,6 @@ async def test_anonymizer_embedder_vector_store_and_learning_agent(monkeypatch):
     res = await ref.evaluate_action(action, {}, [])
     assert "confidence" in res and isinstance(res["confidence"], float)
 
-    masked = anonymize("contact me at test@example.com or 555-123-4567")
+    anonymizer = AnonymizerService()
+    masked = anonymizer.anonymize("contact me at test@example.com or 555-123-4567")
     assert "[EMAIL]" in masked and "[PHONE]" in masked
