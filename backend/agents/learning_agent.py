@@ -16,6 +16,9 @@ Usage:
     learner = LearningAgent()
     await learner.assign_confidence(actions)
 
+    # Inject custom implementations for testing or experimentation
+    learner = LearningAgent(vector_store=my_store, embedding_service=my_embedder)
+
 After calling :func:`assign_confidence`, each :class:`AiAction` in
 ``actions`` will have its ``confidence`` attribute set based on prior
 user feedback.  If there is no historical data for a given action
@@ -23,7 +26,7 @@ type, the existing confidence is left unchanged.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple, Optional
+from typing import Any, Dict, List
 import os
 
 from sqlalchemy import select
@@ -31,7 +34,7 @@ from sqlalchemy import select
 from backend.database.session import SessionMaker
 from backend.models.ai_action_log import AiActionLog
 from backend.services.embedding_service import EmbeddingService
-from backend.services.vector_store import get_vector_store
+from backend.services.vector_store import VectorStore, get_vector_store
 from backend.services.reference_confidence_service import ReferenceConfidenceService
 
 try:
@@ -49,8 +52,23 @@ class LearningAgent:
     rate.  The computed rate (a float in ``[0, 1]``) is assigned to
     each :class:`AiAction` via its ``confidence`` field.  If no logs
     exist for a given action type, the existing confidence is left
-    unchanged.
+    unchanged. Dependencies such as the vector store and embedding
+    service can be injected for easier testing.
     """
+
+    def __init__(
+        self,
+        vector_store: VectorStore | None = None,
+        embedding_service: EmbeddingService | None = None,
+    ) -> None:
+        self.embedding_service = embedding_service or EmbeddingService()
+        if vector_store is not None:
+            self.vector_store: VectorStore | None = vector_store
+        else:
+            try:
+                self.vector_store = get_vector_store()
+            except Exception:  # pragma: no cover - optional dependency
+                self.vector_store = None
 
     async def assign_confidence(
         self,
@@ -127,11 +145,8 @@ class LearningAgent:
                     ratios[atype][dom] = rec['approved'] / rec['total']
 
         # Instantiate retrieval-based confidence service
-        embedder = EmbeddingService()
-        try:
-            store = get_vector_store()
-        except Exception:  # pragma: no cover - missing deps
-            store = None
+        store = self.vector_store
+        embedder = self.embedding_service
         llm_client = None
         if OpenAI is not None and os.getenv("OPENAI_API_KEY"):
             llm_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))

@@ -21,7 +21,7 @@ from backend.models.ai_action_log import AiActionLog
 from backend.models.ai_action_vector import AiActionVector
 from backend.services.anonymizer import anonymize, anonymize_context
 from backend.services.embedding_service import EmbeddingService
-from backend.services.vector_store import get_vector_store
+from backend.services.vector_store import VectorStore, get_vector_store
 from backend.services import encryptor
 
 router = APIRouter()
@@ -44,7 +44,12 @@ class FeedbackPayloadV2(BaseModel):
     status_code=status.HTTP_204_NO_CONTENT,
     tags=["ai"],
 )
-async def log_feedback_v2(payload: FeedbackPayloadV2, session: AsyncSession = Depends(get_session)) -> Response:
+async def log_feedback_v2(
+    payload: FeedbackPayloadV2,
+    session: AsyncSession = Depends(get_session),
+    embedder: EmbeddingService = Depends(EmbeddingService),
+    store: VectorStore = Depends(get_vector_store),
+) -> Response:
     """Record enriched user feedback and upsert a vector.
 
     This endpoint stores the raw log in ``ai_action_log`` and writes an
@@ -61,7 +66,6 @@ async def log_feedback_v2(payload: FeedbackPayloadV2, session: AsyncSession = De
     session.add(log_entry)
     anonymized_prompt = anonymize(payload.user_prompt or "")
     anonymized_ctx = anonymize_context(payload.design_context)
-    embedder = EmbeddingService()
     embedding = await embedder.embed_log(payload, anonymized_prompt, anonymized_ctx)
     key = os.getenv("EMBEDDING_ENCRYPTION_KEY")
     embedding_db = embedding
@@ -95,7 +99,6 @@ async def log_feedback_v2(payload: FeedbackPayloadV2, session: AsyncSession = De
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to log feedback: {exc}",
         )
-    store = get_vector_store()
     await store.upsert(str(vec_entry.id), embedding, {
         "action_type": payload.proposed_action.get("action"),
         "component_type": payload.component_type,

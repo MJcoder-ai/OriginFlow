@@ -1,14 +1,11 @@
-import importlib.util
-import sys
-import types
-from pathlib import Path
-
 import pytest
 
+from backend.agents.learning_agent import LearningAgent
+from backend.agents import learning_agent as learning_agent_module
+from backend.schemas.ai import AiAction, AiActionType
 from backend.services.anonymizer import anonymize
 from backend.services.embedding_service import EmbeddingService
 from backend.services.reference_confidence_service import ReferenceConfidenceService
-from backend.schemas.ai import AiAction, AiActionType
 
 
 class DummyEmbedder(EmbeddingService):
@@ -26,7 +23,7 @@ class InMemoryVectorStore:
     async def search(self, query, k, filters=None):
         results = []
         for id, (vec, meta) in self.data.items():
-            if filters and any(meta.get(k) != v for k, v in (filters or {}).items()):
+            if filters and any(meta.get(key) != val for key, val in (filters or {}).items()):
                 continue
             results.append({"id": id, "score": 1.0, "payload": meta, "vector": vec})
         return results[:k]
@@ -39,7 +36,9 @@ class InMemoryVectorStore:
 async def test_anonymizer_embedder_vector_store_and_learning_agent(monkeypatch):
     store = InMemoryVectorStore()
     embedder = DummyEmbedder()
-    monkeypatch.setattr("backend.services.vector_store.get_vector_store", lambda: store)
+
+    await store.upsert("1", [0.0, 0.0], {"action_type": "addComponent", "approval": True})
+    await store.upsert("2", [0.0, 0.0], {"action_type": "addComponent", "approval": False})
 
     class DummySession:
         async def __aenter__(self):
@@ -55,31 +54,19 @@ async def test_anonymizer_embedder_vector_store_and_learning_agent(monkeypatch):
 
             return R()
 
-    # Dynamically load learning_agent without triggering side-effects
-    agents_pkg = types.ModuleType("backend.agents")
-    agents_pkg.__path__ = []
-    sys.modules.setdefault("backend.agents", agents_pkg)
-    # Provide dummy database session module to avoid real DB/config imports
-    session_mod = types.ModuleType("backend.database.session")
-    session_mod.SessionMaker = lambda: DummySession()
-    sys.modules["backend.database.session"] = session_mod
-    la_path = Path(__file__).resolve().parents[1] / "agents" / "learning_agent.py"
-    spec = importlib.util.spec_from_file_location("backend.agents.learning_agent", la_path)
-    learning_agent = importlib.util.module_from_spec(spec)
-    sys.modules["backend.agents.learning_agent"] = learning_agent
-    assert spec.loader is not None  # for mypy
-    spec.loader.exec_module(learning_agent)
+    monkeypatch.setattr(learning_agent_module, "SessionMaker", lambda: DummySession())
+    
+    class DummyRefService:
+        def __init__(self, *_a, **_kw):
+            pass
 
-    monkeypatch.setattr(learning_agent, "get_vector_store", lambda: store)
-    monkeypatch.setattr(learning_agent, "EmbeddingService", lambda: embedder)
-    monkeypatch.setattr(learning_agent, "SessionMaker", lambda: DummySession())
+        async def evaluate_action(self, action, ctx, history):  # type: ignore[override]
+            return {"confidence": 0.5, "reasoning": "mock"}
 
-    await store.upsert("1", [0.0, 0.0], {"action_type": "addComponent", "approval": True})
-    await store.upsert("2", [0.0, 0.0], {"action_type": "addComponent", "approval": False})
+    monkeypatch.setattr(learning_agent_module, "ReferenceConfidenceService", DummyRefService)
 
+    learner = LearningAgent(vector_store=store, embedding_service=embedder)
     action = AiAction(action=AiActionType.add_component, payload={"type": "inverter"}, version=1)
-
-    learner = learning_agent.LearningAgent()
     await learner.assign_confidence([action], {"components": []}, [])
     assert 0.4 <= (action.confidence or 0) <= 0.6
 
