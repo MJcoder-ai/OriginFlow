@@ -57,13 +57,17 @@ async def log_feedback_v2(
     the vector store.  Any errors are rolled back and result in a
     500 response.
     """
-    log_entry = AiActionLog(
+    # Store the entire proposed action without coercing component IDs.
+    # Some clients generate temporary string identifiers (e.g. "component_123"),
+    # so casting them to integers would raise errors.  Persist the raw payload
+    # and defer any interpretation to downstream consumers.
+    entry = AiActionLog(
         session_id=payload.session_id,
         prompt_text=payload.user_prompt,
         proposed_action=payload.proposed_action,
         user_decision=payload.user_decision,
     )
-    session.add(log_entry)
+    session.add(entry)
     anonymized_prompt = anonymize(payload.user_prompt or "")
     anonymized_ctx = anonymize_context(payload.design_context)
     embedding = await embedder.embed_log(payload, anonymized_prompt, anonymized_ctx)
