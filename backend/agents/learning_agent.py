@@ -24,11 +24,20 @@ type, the existing confidence is left unchanged.
 from __future__ import annotations
 
 from typing import Dict, List, Tuple, Optional
+import os
 
 from sqlalchemy import select
 
 from backend.database.session import SessionMaker
 from backend.models.ai_action_log import AiActionLog
+from backend.services.embedding_service import EmbeddingService
+from backend.services.vector_store import get_vector_store
+from backend.services.reference_confidence_service import ReferenceConfidenceService
+
+try:
+    from openai import OpenAI  # type: ignore
+except ImportError:  # pragma: no cover - optional dep
+    OpenAI = None  # type: ignore
 from backend.schemas.ai import AiAction, AiActionType
 
 
@@ -107,12 +116,32 @@ class LearningAgent:
                 if rec['total'] > 0:
                     ratios[atype][dom] = rec['approved'] / rec['total']
 
-        # Assign confidence values based on domain-specific ratios if
-        # available.  We only override the existing confidence if we have
-        # historical data for the action type (and optionally domain).  If
-        # no data exists for a given domain, fall back to the global
-        # domain ('general') for that action type.
+        # Instantiate retrieval-based confidence service
+        embedder = EmbeddingService()
+        try:
+            store = get_vector_store()
+        except Exception:  # pragma: no cover - missing deps
+            store = None
+        llm_client = None
+        if OpenAI is not None and os.getenv("OPENAI_API_KEY"):
+            llm_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        ref_service = ReferenceConfidenceService(store, embedder, llm_client) if store else None
+
+        # Assign confidence values. First try retrieval-based method, then
+        # fall back to empirical ratios if that fails.
         for action in actions:
+            if ref_service:
+                try:
+                    result = await ref_service.evaluate_action(action, {}, {})
+                    action.confidence = result["confidence"]
+                    if hasattr(action, "meta") and isinstance(action.meta, dict):
+                        action.meta["confidence_reasoning"] = result["reasoning"]
+                    else:
+                        action.meta = {"confidence_reasoning": result["reasoning"]}
+                    continue
+                except Exception:
+                    pass
+
             # Determine the action type as a string
             atype_str = action.action.value if isinstance(action.action, AiActionType) else str(action.action)
             if atype_str not in ratios:
