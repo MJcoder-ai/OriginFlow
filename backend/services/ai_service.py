@@ -23,8 +23,18 @@ class AiOrchestrator:
 
     router_agent = RouterAgent()
 
-    async def process(self, command: str) -> List[AiAction]:
-        """Run the router agent and validate the returned actions."""
+    async def process(
+        self,
+        command: str,
+        design_snapshot: dict | None = None,
+        recent_actions: list[dict] | None = None,
+    ) -> List[AiAction]:
+        """Run the router agent and validate the returned actions.
+
+        The optional ``design_snapshot`` and ``recent_actions`` arguments
+        are forwarded to the :class:`LearningAgent` so retrieval-based
+        confidence scoring can use richer context.
+        """
 
         try:
             raw = await self.router_agent.handle(command)
@@ -70,7 +80,11 @@ class AiOrchestrator:
         try:
             from backend.agents.learning_agent import LearningAgent  # type: ignore
             learner = LearningAgent()
-            await learner.assign_confidence(validated)
+            await learner.assign_confidence(
+                validated,
+                design_snapshot or {},
+                recent_actions or [],
+            )
         except Exception:
             # If the learning agent fails (e.g. DB not initialised), fall
             # back to heuristic values without crashing.

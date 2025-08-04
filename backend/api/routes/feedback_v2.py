@@ -9,6 +9,9 @@ backwards compatibility.
 """
 from __future__ import annotations
 
+import base64
+import os
+
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +22,7 @@ from backend.models.ai_action_vector import AiActionVector
 from backend.services.anonymizer import anonymize, anonymize_context
 from backend.services.embedding_service import EmbeddingService
 from backend.services.vector_store import get_vector_store
+from backend.services import encryptor
 
 router = APIRouter()
 
@@ -59,6 +63,15 @@ async def log_feedback_v2(payload: FeedbackPayloadV2, session: AsyncSession = De
     anonymized_ctx = anonymize_context(payload.design_context)
     embedder = EmbeddingService()
     embedding = await embedder.embed_log(payload, anonymized_prompt, anonymized_ctx)
+    key = os.getenv("EMBEDDING_ENCRYPTION_KEY")
+    embedding_db = embedding
+    if key:
+        try:
+            encrypted = encryptor.encrypt_vector(embedding, key.encode())
+            embedding_db = base64.b64encode(encrypted).decode("utf-8")
+        except Exception:
+            # fall back to plain embedding if encryption fails
+            embedding_db = embedding
     vec_entry = AiActionVector(
         action_type=payload.proposed_action.get("action"),
         component_type=payload.component_type,
@@ -70,7 +83,7 @@ async def log_feedback_v2(payload: FeedbackPayloadV2, session: AsyncSession = De
         approval=payload.user_decision in ("approved", "auto"),
         confidence_shown=payload.confidence_shown,
         confirmed_by=payload.confirmed_by or "human",
-        embedding=embedding,
+        embedding=embedding_db,
         meta={"version": 1},
     )
     session.add(vec_entry)
