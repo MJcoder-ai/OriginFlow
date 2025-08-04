@@ -68,6 +68,23 @@ OriginFlow uses AI agents for non-physical tasks across the lifecycle. Examples:
 
 See AGENT_TAXONOMY.md for the full list; ENGINEERING_PLAYBOOK.md for building/extending agents.
 
+### 2.6 Feedback Vector Logging & Confidence
+OriginFlow logs every AI suggestion along with the user's decision. The
+v2 feedback endpoint (`/api/v1/ai/log-feedback-v2`) anonymises prompts
+and design context, embeds them and stores the vectors in a configurable
+vector store. These vectors are retrieved by the `LearningAgent` and the
+`ReferenceConfidenceService` to compute context-aware confidence scores
+for future actions.
+
+The vector store backend is selected via environment variables:
+
+- `VECTOR_BACKEND` – `qdrant` (default) or `chroma`
+- `QDRANT_HOST`, `QDRANT_COLLECTION`, `VECTOR_SIZE`
+- `CHROMA_COLLECTION`, `CHROMA_PERSIST_DIR`
+
+See `docs/feedback_logging.md` for more details on anonymisation,
+embedding and retrieval-based confidence.
+
 ---
 
 ## 3. Supported Technologies

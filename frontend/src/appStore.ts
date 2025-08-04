@@ -95,6 +95,8 @@ interface AppState {
   selectedComponentId: string | null;
   /** History of messages in the chat panel. */
   messages: Message[];
+  /** Last natural-language prompt sent to the AI. */
+  lastPrompt: string;
   /** Update which component is selected. */
   /** The current status message for the UI. */
   status: AppStatus;
@@ -263,6 +265,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   bomItems: null,
   selectedComponentId: null,
   messages: [],
+  lastPrompt: '',
   status: 'loading',
   statusMessages: [],
   chatMode: 'default',
@@ -350,15 +353,22 @@ export const useAppStore = create<AppState>((set, get) => ({
     // Record history before applying the approved action
     get().recordHistory();
     // Log the user's approval before executing the action.
+    const designContext = { components: get().canvasComponents, links: get().links };
+    const history = get().messages.slice(-5);
     try {
-      await fetch(`${API_BASE_URL}/ai/log-feedback`, {
+      await fetch(`${API_BASE_URL}/ai/log-feedback-v2`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           session_id: undefined,
-          prompt_text: undefined,
+          user_prompt: get().lastPrompt,
           proposed_action: action,
           user_decision: 'approved',
+          component_type: action.payload?.type,
+          design_context: designContext,
+          session_history: history,
+          confidence_shown: action.confidence,
+          confirmed_by: 'human',
         }),
       });
     } catch (err) {
@@ -371,14 +381,21 @@ export const useAppStore = create<AppState>((set, get) => ({
     const actions = get().pendingActions;
     const action = actions[index];
     if (action) {
-      fetch(`${API_BASE_URL}/ai/log-feedback`, {
+      const designContext = { components: get().canvasComponents, links: get().links };
+      const history = get().messages.slice(-5);
+      fetch(`${API_BASE_URL}/ai/log-feedback-v2`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           session_id: undefined,
-          prompt_text: undefined,
+          user_prompt: get().lastPrompt,
           proposed_action: action,
           user_decision: 'rejected',
+          component_type: action.payload?.type,
+          design_context: designContext,
+          session_history: history,
+          confidence_shown: action.confidence,
+          confirmed_by: 'human',
         }),
       }).catch((err) => console.warn('Failed to log AI feedback', err));
     }
@@ -645,6 +662,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   async analyzeAndExecute(command) {
     const { addMessage, setIsAiProcessing, executeAiActions, canvasComponents, links } = get();
+    set({ lastPrompt: command });
 
     // 1. Add user message and set processing state
     addMessage({ id: crypto.randomUUID(), author: 'User', text: command });

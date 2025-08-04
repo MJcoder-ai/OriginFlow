@@ -23,7 +23,7 @@ type, the existing confidence is left unchanged.
 """
 from __future__ import annotations
 
-from typing import Dict, List, Tuple, Optional
+from typing import Any, Dict, List, Tuple, Optional
 import os
 
 from sqlalchemy import select
@@ -52,11 +52,18 @@ class LearningAgent:
     unchanged.
     """
 
-    async def assign_confidence(self, actions: List[AiAction]) -> None:
+    async def assign_confidence(
+        self,
+        actions: List[AiAction],
+        design_context: Dict[str, Any] | None = None,
+        recent_actions: List[Dict[str, Any]] | None = None,
+    ) -> None:
         """Assign confidence to a list of actions in place.
 
         Args:
             actions: List of actions returned by the AI orchestrator.
+            design_context: Current design snapshot passed from the caller.
+            recent_actions: Short history of preceding actions.
 
         This method queries all records from the ``ai_action_log`` table,
         groups them by ``proposed_action['action']`` and counts how
@@ -64,7 +71,10 @@ class LearningAgent:
         approved) versus rejected.  It then computes an approval ratio
         for each action type and assigns it to the corresponding
         actions.  If no historical data is available for an action type,
-        the existing confidence is left unchanged.
+        the existing confidence is left unchanged.  When a reference
+        confidence service is available, it is consulted first using the
+        provided ``design_context`` and ``recent_actions`` to perform
+        retrieval-based scoring.
         """
         # Early exit if there are no actions
         if not actions:
@@ -129,10 +139,12 @@ class LearningAgent:
 
         # Assign confidence values. First try retrieval-based method, then
         # fall back to empirical ratios if that fails.
+        ctx = design_context or {}
+        history = recent_actions or []
         for action in actions:
             if ref_service:
                 try:
-                    result = await ref_service.evaluate_action(action, {}, {})
+                    result = await ref_service.evaluate_action(action, ctx, history)
                     action.confidence = result["confidence"]
                     if hasattr(action, "meta") and isinstance(action.meta, dict):
                         action.meta["confidence_reasoning"] = result["reasoning"]

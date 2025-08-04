@@ -46,3 +46,12 @@ The checklist UI logs an entry whenever a user approves or rejects an AI
 action before the operation is applied to the canvas.  New fields for
 v2 should be provided by the caller to enable anonymization and
 embedding.
+
+## Creating New Embeddings
+
+Developers can experiment with alternative embedding models by setting
+the `EMBED_MODEL` environment variable or by overriding
+`EmbeddingService`.  When the vector store is unavailable, the
+`LearningAgent` falls back to empirical approval ratios from the
+`ai_action_log` table, ensuring confidence scores are still provided even
+without retrieval.

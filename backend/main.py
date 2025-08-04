@@ -34,6 +34,7 @@ from backend.api.routes import (
     ai_tools,
     datasheet_parse,
     feedback,
+    feedback_v2,
     design_knowledge,
 )
 
@@ -75,6 +76,8 @@ app.include_router(design_knowledge.router, prefix=settings.api_prefix)
 
 # Feedback logging endpoint for user decisions on AI actions
 app.include_router(feedback.router, prefix=settings.api_prefix)
+# Enriched feedback endpoint with vector logging
+app.include_router(feedback_v2.router, prefix=settings.api_prefix)
 
 
 @app.get("/")

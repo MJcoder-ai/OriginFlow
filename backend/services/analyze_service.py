@@ -18,7 +18,18 @@ class AnalyzeOrchestrator(AiOrchestrator):
             raw = await self.router_agent.handle(f"{prompt}\n\n{req.command}")
         except (OpenAIError, ValueError) as err:  # pragma: no cover - network error
             raise map_openai_error(err)
-        return self._validate_actions(raw)
+        actions = self._validate_actions(raw)
+        try:
+            from backend.agents.learning_agent import LearningAgent  # type: ignore
+            learner = LearningAgent()
+            await learner.assign_confidence(
+                actions,
+                req.snapshot.model_dump(),
+                [],
+            )
+        except Exception:
+            pass
+        return actions
 
     @staticmethod
     def _serialize_snapshot(req: AnalyzeCommandRequest) -> str:
