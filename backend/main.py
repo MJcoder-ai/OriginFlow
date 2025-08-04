@@ -30,12 +30,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="OriginFlow API", lifespan=lifespan)
 
 
-def get_anonymizer(request: Request) -> AnonymizerService:
-    return request.app.state.anonymizer
 
-
-def get_embedder(request: Request) -> EmbeddingService:
-    return request.app.state.embedder
 
 
 # --- import agents once so they self-register --------------------
