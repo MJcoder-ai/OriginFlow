@@ -9,40 +9,51 @@ before being embedded.
 """
 from __future__ import annotations
 
-import os
+import logging
+from functools import lru_cache
 from typing import List, Optional, Any
 
-try:
+try:  # pragma: no cover - optional dependency
     from sentence_transformers import SentenceTransformer  # type: ignore
-except ImportError:
+except ImportError:  # pragma: no cover - optional dependency
     SentenceTransformer = None  # type: ignore
 
-try:
+try:  # pragma: no cover - optional dependency
     from openai import OpenAI  # type: ignore
-except ImportError:
+except ImportError:  # pragma: no cover - optional dependency
     OpenAI = None  # type: ignore
+
+from backend.config import settings
+
+
+logger = logging.getLogger(__name__)
 
 
 class EmbeddingService:
     """Service to convert text input into embedding vectors."""
 
-    def __init__(self, model_name: str | None = None, openai_api_key: str | None = None) -> None:
-        self.model_name = model_name or os.getenv("EMBED_MODEL", "all-MiniLM-L6-v2")
-        self.openai_api_key = openai_api_key or os.getenv("OPENAI_API_KEY")
-        self.local_model: Optional[SentenceTransformer] = None
+    def __init__(self) -> None:
+        model_name = settings.embedding_model_name
+        self.model: Optional[SentenceTransformer] = None
         if SentenceTransformer is not None:
             try:
-                self.local_model = SentenceTransformer(self.model_name)
-            except Exception:
-                self.local_model = None
+                self.model = SentenceTransformer(model_name)
+            except Exception as exc:  # pragma: no cover - model download issues
+                logger.warning("Failed to load embedding model %s: %s", model_name, exc)
+                self.model = None
+
         self.openai_client: Optional[OpenAI] = None
-        if OpenAI is not None and self.openai_api_key:
-            self.openai_client = OpenAI(api_key=self.openai_api_key)
+        if OpenAI is not None and settings.openai_api_key:
+            try:
+                self.openai_client = OpenAI(api_key=settings.openai_api_key)
+            except Exception as exc:  # pragma: no cover - optional dependency
+                logger.warning("Failed to init OpenAI client: %s", exc)
+                self.openai_client = None
 
     async def embed_text(self, texts: List[str]) -> List[List[float]]:
         """Embed a list of texts into vectors."""
-        if self.local_model:
-            embeddings = self.local_model.encode(texts, convert_to_numpy=False)
+        if self.model:
+            embeddings = self.model.encode(texts, convert_to_numpy=False)
             return [list(vec) for vec in embeddings]
         if not self.openai_client:
             raise RuntimeError("No embedding model available")
@@ -76,3 +87,9 @@ class EmbeddingService:
         ]
         query_text = " ".join(parts)
         return (await self.embed_text([query_text]))[0]
+
+
+@lru_cache()
+def get_embedding_service() -> "EmbeddingService":
+    """Return a cached EmbeddingService instance."""
+    return EmbeddingService()

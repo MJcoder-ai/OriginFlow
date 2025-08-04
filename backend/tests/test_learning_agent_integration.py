@@ -9,6 +9,9 @@ from backend.services.reference_confidence_service import ReferenceConfidenceSer
 
 
 class DummyEmbedder(EmbeddingService):
+    def __init__(self):
+        pass
+
     async def embed_text(self, texts):  # type: ignore[override]
         return [[0.0, 0.0] for _ in texts]
 
