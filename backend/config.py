@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     openai_api_key: str
     openai_model_router: str = "gpt-4o-mini"
     openai_model_agents: str = "gpt-4o-mini"
+    embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
     temperature: float = 0.0
     max_tokens: int = 512
     commands_per_minute: int = 30

@@ -49,11 +49,12 @@ embedding.
 
 ## Creating New Embeddings
 
-Developers can experiment with alternative embedding models by setting
-the `EMBED_MODEL` environment variable or by overriding
-`EmbeddingService`. The `log-feedback-v2` endpoint and the
-`LearningAgent` both support dependency injection, allowing tests or
-custom deployments to supply mock vector stores or embedding services.
+Developers can experiment with alternative embedding models by updating
+the `embedding_model_name` setting (via the `EMBEDDING_MODEL_NAME`
+environment variable) or by overriding `EmbeddingService`. The
+`log-feedback-v2` endpoint and the `LearningAgent` both support
+dependency injection, allowing tests or custom deployments to supply
+mock vector stores or embedding services.
 When the vector store is unavailable, the `LearningAgent` falls back to empirical approval ratios from the
 `ai_action_log` table, ensuring confidence scores are still provided even
 without retrieval.
