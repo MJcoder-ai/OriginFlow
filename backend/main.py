@@ -1,14 +1,42 @@
-# backend/main.py
 """FastAPI application startup for OriginFlow."""
 from __future__ import annotations
 
 import uvicorn
-from fastapi import FastAPI
+from contextlib import asynccontextmanager
+from pathlib import Path
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pathlib import Path
 
 from backend.config import settings
+from backend.services.anonymizer_service import AnonymizerService
+from backend.services.embedding_service import EmbeddingService
+from backend.services.ai_service import limiter
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize heavy AI services once per process."""
+    print("Initializing AI services...")
+    app.state.anonymizer = AnonymizerService()
+    app.state.embedder = EmbeddingService()
+    print("AI services initialized.")
+    yield
+    print("Cleaning up AI services.")
+
+
+app = FastAPI(title="OriginFlow API", lifespan=lifespan)
+
+
+def get_anonymizer(request: Request) -> AnonymizerService:
+    return request.app.state.anonymizer
+
+
+def get_embedder(request: Request) -> EmbeddingService:
+    return request.app.state.embedder
+
 
 # --- import agents once so they self-register --------------------
 import backend.agents.component_agent  # noqa: F401
@@ -38,12 +66,6 @@ from backend.api.routes import (
     design_knowledge,
 )
 
-from slowapi import _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-from backend.services.ai_service import limiter
-
-app = FastAPI(title="OriginFlow API")
-
 app.add_middleware(
     CORSMiddleware,
     allow_origin_regex=settings.cors_origin_regex,
@@ -53,11 +75,9 @@ app.add_middleware(
     expose_headers=["Content-Disposition"],
 )
 
-
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# <codex-marker>
 # Resolve the static directory relative to this file and ensure it exists
 _static_root = Path(__file__).resolve().parent / "static"
 _static_root.mkdir(parents=True, exist_ok=True)
@@ -83,13 +103,11 @@ app.include_router(feedback_v2.router, prefix=settings.api_prefix)
 @app.get("/")
 async def read_root() -> dict[str, str]:
     """Health check endpoint."""
-
     return {"message": "Welcome to the OriginFlow API"}
 
 
 def main() -> None:
     """Entry point for ``originflow-backend`` console script."""
-
     uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)
 
 

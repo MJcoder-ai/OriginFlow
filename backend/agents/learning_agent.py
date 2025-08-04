@@ -33,7 +33,7 @@ from sqlalchemy import select
 
 from backend.database.session import SessionMaker
 from backend.models.ai_action_log import AiActionLog
-from backend.services.embedding_service import EmbeddingService, get_embedding_service
+from backend.services.embedding_service import EmbeddingService
 from backend.services.vector_store import VectorStore, get_vector_store
 from backend.services.reference_confidence_service import ReferenceConfidenceService
 
@@ -61,7 +61,7 @@ class LearningAgent:
         vector_store: VectorStore | None = None,
         embedding_service: EmbeddingService | None = None,
     ) -> None:
-        self.embedding_service = embedding_service or get_embedding_service()
+        self.embedding_service = embedding_service or EmbeddingService()
         if vector_store is not None:
             self.vector_store: VectorStore | None = vector_store
         else:

@@ -10,7 +10,6 @@ before being embedded.
 from __future__ import annotations
 
 import logging
-from functools import lru_cache
 from typing import List, Optional, Any
 
 try:  # pragma: no cover - optional dependency
@@ -87,9 +86,3 @@ class EmbeddingService:
         ]
         query_text = " ".join(parts)
         return (await self.embed_text([query_text]))[0]
-
-
-@lru_cache()
-def get_embedding_service() -> "EmbeddingService":
-    """Return a cached EmbeddingService instance."""
-    return EmbeddingService()
