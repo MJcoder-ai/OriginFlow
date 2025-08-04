@@ -16,14 +16,13 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.api.deps import get_session
+from backend.api.deps import get_session, get_anonymizer, get_embedder
 from backend.models.ai_action_log import AiActionLog
 from backend.models.ai_action_vector import AiActionVector
 from backend.services.anonymizer_service import AnonymizerService
 from backend.services.embedding_service import EmbeddingService
 from backend.services.vector_store import VectorStore, get_vector_store
 from backend.services import encryptor
-from backend.main import get_anonymizer, get_embedder
 
 router = APIRouter()
 
