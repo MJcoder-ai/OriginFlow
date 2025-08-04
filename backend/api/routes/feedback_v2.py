@@ -58,66 +58,95 @@ async def log_feedback_v2(
     the vector store.  Any errors are rolled back and result in a
     500 response.
     """
-    # Store the entire proposed action without coercing component IDs.
-    # Some clients generate temporary string identifiers (e.g. "component_123"),
-    # so casting them to integers would raise errors.  Persist the raw payload
-    # and defer any interpretation to downstream consumers.
-    entry = AiActionLog(
-        session_id=payload.session_id,
-        prompt_text=payload.user_prompt,
-        proposed_action=payload.proposed_action,
-        user_decision=payload.user_decision,
-    )
-    session.add(entry)
-    anonymized_prompt = anonymizer.anonymize(payload.user_prompt or "")
-    anonymized_ctx = anonymizer.anonymize_context(payload.design_context)
-    embedding = await embedder.embed_log(payload, anonymized_prompt, anonymized_ctx)
-    key = os.getenv("EMBEDDING_ENCRYPTION_KEY")
-    embedding_db = embedding
-    if key:
-        try:
-            encrypted = encryptor.encrypt_vector(embedding, key.encode())
-            embedding_db = base64.b64encode(encrypted).decode("utf-8")
-        except Exception:
-            # fall back to plain embedding if encryption fails
-            embedding_db = embedding
-    vec_entry = AiActionVector(
-        action_type=payload.proposed_action.get("action"),
-        component_type=payload.component_type,
-        user_prompt=payload.user_prompt,
-        anonymized_prompt=anonymized_prompt,
-        design_context=payload.design_context,
-        anonymized_context=anonymized_ctx,
-        session_history=payload.session_history,
-        approval=payload.user_decision in ("approved", "auto"),
-        confidence_shown=payload.confidence_shown,
-        confirmed_by=payload.confirmed_by or "human",
-        embedding=embedding_db,
-        meta={"version": 1},
-    )
-    session.add(vec_entry)
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Starting log_feedback_v2 with payload: {payload.user_prompt[:50]}...")
+    
     try:
-        await session.commit()
+        # Store the entire proposed action without coercing component IDs.
+        # Some clients generate temporary string identifiers (e.g. "component_123"),
+        # so casting them to integers would raise errors.  Persist the raw payload
+        # and defer any interpretation to downstream consumers.
+        logger.info("Creating AiActionLog entry...")
+        entry = AiActionLog(
+            session_id=payload.session_id,
+            prompt_text=payload.user_prompt,
+            proposed_action=payload.proposed_action,
+            user_decision=payload.user_decision,
+        )
+        session.add(entry)
+        
+        logger.info("Anonymizing prompts and context...")
+        anonymized_prompt = anonymizer.anonymize(payload.user_prompt or "")
+        anonymized_ctx = anonymizer.anonymize_context(payload.design_context)
+        
+        logger.info("Creating embedding...")
+        embedding = await embedder.embed_log(payload, anonymized_prompt, anonymized_ctx)
+        
+        logger.info("Processing encryption...")
+        key = os.getenv("EMBEDDING_ENCRYPTION_KEY")
+        embedding_db = embedding
+        if key:
+            try:
+                encrypted = encryptor.encrypt_vector(embedding, key.encode())
+                embedding_db = base64.b64encode(encrypted).decode("utf-8")
+            except Exception as enc_exc:
+                # fall back to plain embedding if encryption fails
+                logger.warning(f"Encryption failed, using plain embedding: {enc_exc}")
+                embedding_db = embedding
+        
+        logger.info("Creating AiActionVector entry...")
+        vec_entry = AiActionVector(
+            action_type=payload.proposed_action.get("action"),
+            component_type=payload.component_type,
+            user_prompt=payload.user_prompt,
+            anonymized_prompt=anonymized_prompt,
+            design_context=payload.design_context,
+            anonymized_context=anonymized_ctx,
+            session_history=payload.session_history,
+            approval=payload.user_decision in ("approved", "auto"),
+            confidence_shown=payload.confidence_shown,
+            confirmed_by=payload.confirmed_by or "human",
+            embedding=embedding_db,
+            meta={"version": 1},
+        )
+        session.add(vec_entry)
+        
+        logger.info("Committing to database...")
+        try:
+            await session.commit()
+            logger.info("Database commit successful")
+        except Exception as exc:
+            logger.error(f"Database commit failed: {exc}")
+            await session.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to log feedback: {exc}",
+            )
+        
+        # Try to upsert to vector store, but don't fail the entire request if this fails
+        logger.info("Upserting to vector store...")
+        try:
+            await store.upsert(str(vec_entry.id), embedding, {
+                "action_type": payload.proposed_action.get("action"),
+                "component_type": payload.component_type,
+                "approval": payload.user_decision in ("approved", "auto"),
+                "user_prompt": payload.user_prompt,
+                "design_context": payload.design_context,
+            })
+            logger.info("Vector store upsert successful")
+        except Exception as exc:
+            # Log the error but don't fail the request since the database operation succeeded
+            logger.warning(f"Failed to upsert to vector store: {exc}")
+        
+        logger.info("log_feedback_v2 completed successfully")
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+        
     except Exception as exc:
-        await session.rollback()
+        logger.error(f"Unexpected error in log_feedback_v2: {exc}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to log feedback: {exc}",
+            detail=f"Unexpected error: {exc}",
         )
-    
-    # Try to upsert to vector store, but don't fail the entire request if this fails
-    try:
-        await store.upsert(str(vec_entry.id), embedding, {
-            "action_type": payload.proposed_action.get("action"),
-            "component_type": payload.component_type,
-            "approval": payload.user_decision in ("approved", "auto"),
-            "user_prompt": payload.user_prompt,
-            "design_context": payload.design_context,
-        })
-    except Exception as exc:
-        # Log the error but don't fail the request since the database operation succeeded
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.warning(f"Failed to upsert to vector store: {exc}")
-    
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
