@@ -36,7 +36,7 @@ class AiActionVector(Base):
     confidence_shown: Mapped[float | None] = mapped_column(Float, nullable=True)
     confirmed_by: Mapped[str] = mapped_column(String, nullable=False, default="human")
     timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    embedding: Mapped[list] = mapped_column(JSON, nullable=False)
+    embedding: Mapped[list | str] = mapped_column(JSON, nullable=False)
     meta: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     def __repr__(self) -> str:

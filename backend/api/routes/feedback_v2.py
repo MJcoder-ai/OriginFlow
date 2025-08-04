@@ -104,11 +104,20 @@ async def log_feedback_v2(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to log feedback: {exc}",
         )
-    await store.upsert(str(vec_entry.id), embedding, {
-        "action_type": payload.proposed_action.get("action"),
-        "component_type": payload.component_type,
-        "approval": payload.user_decision in ("approved", "auto"),
-        "user_prompt": payload.user_prompt,
-        "design_context": payload.design_context,
-    })
+    
+    # Try to upsert to vector store, but don't fail the entire request if this fails
+    try:
+        await store.upsert(str(vec_entry.id), embedding, {
+            "action_type": payload.proposed_action.get("action"),
+            "component_type": payload.component_type,
+            "approval": payload.user_decision in ("approved", "auto"),
+            "user_prompt": payload.user_prompt,
+            "design_context": payload.design_context,
+        })
+    except Exception as exc:
+        # Log the error but don't fail the request since the database operation succeeded
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Failed to upsert to vector store: {exc}")
+    
     return Response(status_code=status.HTTP_204_NO_CONTENT)
