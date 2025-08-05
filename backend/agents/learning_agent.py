@@ -193,14 +193,31 @@ class LearningAgent:
             dom_ratios = ratios[atype_str]
             logger.info(f"Available domains for {atype_str}: {list(dom_ratios.keys())}")
             
+            # Try to find a matching domain ratio
+            confidence_updated = False
             if domain in dom_ratios:
                 old_confidence = action.confidence
                 action.confidence = dom_ratios[domain]
                 logger.info(f"Updated confidence from {old_confidence} to {action.confidence} using domain {domain}")
+                confidence_updated = True
             elif 'general' in dom_ratios:
                 old_confidence = action.confidence
                 action.confidence = dom_ratios['general']
                 logger.info(f"Updated confidence from {old_confidence} to {action.confidence} using general domain")
+                confidence_updated = True
+            else:
+                # If no exact match, try any available domain for non-component actions
+                # This helps with domain mismatches like addLink getting 'general' but data stored under 'solar'
+                if action.action != AiActionType.add_component and dom_ratios:
+                    # Use the first available domain's ratio
+                    available_domain = list(dom_ratios.keys())[0]
+                    old_confidence = action.confidence
+                    action.confidence = dom_ratios[available_domain]
+                    logger.info(f"Updated confidence from {old_confidence} to {action.confidence} using fallback domain {available_domain}")
+                    confidence_updated = True
+            
+            if not confidence_updated:
+                logger.info(f"No suitable domain data found for {atype_str}, keeping default confidence")
 
     def _determine_domain_from_text(self, text: Optional[str]) -> str:
         """Infer a domain (solar, hvac, pump, general) from natural language.
