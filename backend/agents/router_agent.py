@@ -21,7 +21,7 @@ class RouterAgent(AgentBase):
     name = "router_agent"
     description = "Selects the most suitable specialist agent(s) for a command."
 
-    async def handle(self, command: str) -> List[Dict[str, Any]]:
+    async def handle(self, command: str, snapshot: dict | None = None) -> List[Dict[str, Any]]:
         """Return aggregated actions from relevant specialist agents."""
 
         agents = get_agent_names()
@@ -48,6 +48,7 @@ class RouterAgent(AgentBase):
             {"user": "estimate system performance", "agent": "performance_agent"},
             {"user": "estimate cost of a 5 kW solar system", "agent": "financial_agent"},
             {"user": "how much will a 3 ton hvac cost", "agent": "financial_agent"},
+            {"user": "save this design as a template", "agent": "knowledge_management_agent"},
         ]
         msgs = [{"role": "system", "content": system_prompt}]
         for ex in examples:
@@ -83,6 +84,9 @@ class RouterAgent(AgentBase):
 
         actions: List[Dict[str, Any]] = []
         for name in selected:
-            actions += await get_agent(name).handle(command)
+            if name == "knowledge_management_agent":
+                actions += await get_agent(name).handle(command, snapshot)
+            else:
+                actions += await get_agent(name).handle(command)
         return actions
 

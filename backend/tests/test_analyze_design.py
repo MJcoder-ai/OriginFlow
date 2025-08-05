@@ -15,7 +15,7 @@ from backend.agents.router_agent import RouterAgent  # noqa: E402
 
 client = TestClient(app)
 
-async def _dummy_handle(self, command: str):
+async def _dummy_handle(self, command: str, snapshot: dict | None = None):
     return []
 
 @pytest.mark.asyncio

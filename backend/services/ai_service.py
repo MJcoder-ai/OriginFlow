@@ -37,7 +37,7 @@ class AiOrchestrator:
         """
 
         try:
-            raw = await self.router_agent.handle(command)
+            raw = await self.router_agent.handle(command, design_snapshot or {})
         except (OpenAIError, ValueError) as err:
             raise map_openai_error(err)
         validated: List[AiAction] = []

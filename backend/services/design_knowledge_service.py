@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import math
 from typing import List
 
@@ -8,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.session import SessionMaker
 from backend.models.design_vector import DesignVector
+from backend.services.embedding_service import EmbeddingService
 from pydantic import BaseModel
 
 
@@ -26,6 +28,7 @@ class DesignKnowledgeService:
 
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
+        self._embedder = EmbeddingService()
 
     async def store_vector(self, data: DesignVectorCreate) -> DesignVector:
         obj = DesignVector(vector=data.vector, meta=data.meta)
@@ -44,6 +47,17 @@ class DesignKnowledgeService:
             scores.append((vec, score))
         scores.sort(key=lambda x: x[1], reverse=True)
         return scores[:limit]
+
+    async def save_design_as_template(self, snapshot: dict, name: str) -> DesignVector:
+        """Embed and store a design snapshot as a reusable template."""
+
+        text = json.dumps(snapshot, sort_keys=True)
+        vector = (await self._embedder.embed_text([text]))[0]
+        obj = DesignVector(vector=vector, meta={"name": name, "snapshot": snapshot})
+        self.session.add(obj)
+        await self.session.commit()
+        await self.session.refresh(obj)
+        return obj
 
 
 async def get_design_knowledge_service() -> DesignKnowledgeService:

@@ -15,7 +15,9 @@ class AnalyzeOrchestrator(AiOrchestrator):
     async def process(self, req: AnalyzeCommandRequest) -> list[AiAction]:
         prompt = self._serialize_snapshot(req)
         try:
-            raw = await self.router_agent.handle(f"{prompt}\n\n{req.command}")
+            raw = await self.router_agent.handle(
+                f"{prompt}\n\n{req.command}", req.snapshot.model_dump()
+            )
         except (OpenAIError, ValueError) as err:  # pragma: no cover - network error
             raise map_openai_error(err)
         actions = self._validate_actions(raw)
@@ -38,7 +40,7 @@ class AnalyzeOrchestrator(AiOrchestrator):
             for c in req.snapshot.components
         )
         link_lines = "\n".join(
-            f'- Link: {l.source_id} -> {l.target_id}' for l in req.snapshot.links
+            f'- Link: {link.source_id} -> {link.target_id}' for link in req.snapshot.links
         )
         return (
             "The current design consists of:\n"
