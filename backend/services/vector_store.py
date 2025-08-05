@@ -18,7 +18,7 @@ class VectorStore(Protocol):
     """Protocol for vector store operations."""
 
     async def upsert(
-        self, id: str, vector: List[float], metadata: Dict[str, Any]
+        self, id: str | int, vector: List[float], metadata: Dict[str, Any]
     ) -> None:  # pragma: no cover - interface
         ...
 
@@ -27,7 +27,7 @@ class VectorStore(Protocol):
     ) -> List[Dict[str, Any]]:  # pragma: no cover - interface
         ...
 
-    async def delete(self, id: str) -> None:  # pragma: no cover - interface
+    async def delete(self, id: str | int) -> None:  # pragma: no cover - interface
         ...
 
 
@@ -41,7 +41,7 @@ class NoOpVectorStore:
         logger.warning("Using no-op vector store; vector operations are disabled")
 
     async def upsert(
-        self, id: str, vector: List[float], metadata: Dict[str, Any]
+        self, id: str | int, vector: List[float], metadata: Dict[str, Any]
     ) -> None:
         return None
 
@@ -110,10 +110,10 @@ class QdrantVectorStore:
             )
 
     async def upsert(
-        self, id: str, vector: List[float], metadata: Dict[str, Any]
+        self, id: str | int, vector: List[float], metadata: Dict[str, Any]
     ) -> None:
         point = rest.PointStruct(
-            id=id,
+            id=id,  # Qdrant accepts both string and int IDs
             vector={"embedding": vector},
             payload=metadata,
         )
@@ -179,9 +179,9 @@ class ChromaVectorStore:
         )
 
     async def upsert(
-        self, id: str, vector: List[float], metadata: Dict[str, Any]
+        self, id: str | int, vector: List[float], metadata: Dict[str, Any]
     ) -> None:
-        self.collection.add(ids=[id], embeddings=[vector], metadatas=[metadata])
+        self.collection.add(ids=[str(id)], embeddings=[vector], metadatas=[metadata])
 
     async def search(
         self, query: List[float], k: int, filters: Dict[str, Any] | None

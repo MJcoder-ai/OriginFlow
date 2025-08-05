@@ -121,24 +121,17 @@ async def log_feedback_v2(
         )
         session.add(vec_entry)
         
-        logger.info("Committing to database...")
-        try:
-            await session.commit()
-            logger.info("Database commit successful")
-        except Exception as exc:
-            logger.error(f"Database commit failed: {exc}")
-            await session.rollback()
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to log feedback: {exc}",
-            )
+        # Flush to get the auto-generated ID before trying vector store
+        logger.info("Flushing to get primary key...")
+        await session.flush()
+        logger.info(f"Got primary key: {vec_entry.id}")
         
-        # Try to upsert to vector store, but don't fail the entire request if this fails
+        # Try to upsert to vector store using integer ID, but don't fail if this fails
         logger.info("Upserting to vector store...")
         if embedding:
             try:
                 await store.upsert(
-                    str(vec_entry.id),
+                    vec_entry.id,  # Use integer ID directly, not string
                     embedding,
                     {
                         "action_type": payload.proposed_action.get("action"),
@@ -154,6 +147,19 @@ async def log_feedback_v2(
                 logger.warning(f"Failed to upsert to vector store: {exc}")
         else:
             logger.info("Skipping vector store upsert due to missing embedding")
+        
+        # Now commit the database transaction
+        logger.info("Committing to database...")
+        try:
+            await session.commit()
+            logger.info("Database commit successful")
+        except Exception as exc:
+            logger.error(f"Database commit failed: {exc}")
+            await session.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to log feedback: {exc}",
+            )
         
         logger.info("log_feedback_v2 completed successfully")
         return Response(status_code=status.HTTP_204_NO_CONTENT)
