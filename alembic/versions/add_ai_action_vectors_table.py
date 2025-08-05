@@ -31,7 +31,12 @@ def upgrade() -> None:
         sa.Column("approval", sa.Boolean(), nullable=False),
         sa.Column("confidence_shown", sa.Float(), nullable=True),
         sa.Column("confirmed_by", sa.String(), nullable=False, server_default="human"),
-        sa.Column("timestamp", sa.DateTime(), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "timestamp",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
+        ),
         sa.Column("embedding", sa.JSON(), nullable=False),
         sa.Column("meta", sa.JSON(), nullable=True),
     )
