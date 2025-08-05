@@ -156,6 +156,14 @@ class LearningAgent:
         # fall back to empirical ratios if that fails.
         ctx = design_context or {}
         history = recent_actions or []
+        
+        # Debug logging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Learning agent processing {len(actions)} actions with {len(ratios)} learned ratios")
+        if ratios:
+            logger.info(f"Available action types in ratios: {list(ratios.keys())}")
+        
         for action in actions:
             if ref_service:
                 try:
@@ -171,16 +179,28 @@ class LearningAgent:
 
             # Determine the action type as a string
             atype_str = action.action.value if isinstance(action.action, AiActionType) else str(action.action)
+            logger.info(f"Processing action {atype_str} with current confidence {action.confidence}")
+            
             if atype_str not in ratios:
+                logger.info(f"No historical data for action type {atype_str}, keeping default confidence")
                 continue
+                
             # Guess the domain for this action based on the payload
             domain = self._determine_domain_from_action(action)
+            logger.info(f"Determined domain: {domain} for action {atype_str}")
+            
             # Prefer domain-specific ratio; fallback to 'general'
             dom_ratios = ratios[atype_str]
+            logger.info(f"Available domains for {atype_str}: {list(dom_ratios.keys())}")
+            
             if domain in dom_ratios:
+                old_confidence = action.confidence
                 action.confidence = dom_ratios[domain]
+                logger.info(f"Updated confidence from {old_confidence} to {action.confidence} using domain {domain}")
             elif 'general' in dom_ratios:
+                old_confidence = action.confidence
                 action.confidence = dom_ratios['general']
+                logger.info(f"Updated confidence from {old_confidence} to {action.confidence} using general domain")
 
     def _determine_domain_from_text(self, text: Optional[str]) -> str:
         """Infer a domain (solar, hvac, pump, general) from natural language.

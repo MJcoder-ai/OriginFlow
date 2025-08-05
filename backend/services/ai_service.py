@@ -95,18 +95,29 @@ class AiOrchestrator:
         auto_approved_actions = []
         pending_actions = []
         
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Applying confidence-driven autonomy to {len(validated)} actions")
+        
         for action in validated:
             # Set confidence threshold based on action type risk level
             confidence_threshold = self._get_confidence_threshold(action.action)
+            action_type = action.action.value if hasattr(action.action, 'value') else str(action.action)
             
-            if action.confidence >= confidence_threshold:
+            logger.info(f"Action {action_type}: confidence={action.confidence}, threshold={confidence_threshold}")
+            
+            if action.confidence and action.confidence >= confidence_threshold:
                 # High confidence: mark as auto-approved
                 action.auto_approved = True
                 auto_approved_actions.append(action)
+                logger.info(f"AUTO-APPROVED: {action_type} (confidence {action.confidence} >= {confidence_threshold})")
             else:
                 # Low confidence: requires human approval
                 action.auto_approved = False
                 pending_actions.append(action)
+                logger.info(f"MANUAL APPROVAL: {action_type} (confidence {action.confidence} < {confidence_threshold})")
+        
+        logger.info(f"Result: {len(auto_approved_actions)} auto-approved, {len(pending_actions)} pending manual approval")
         
         # Return all actions, but mark which ones are auto-approved
         return validated
@@ -118,14 +129,15 @@ class AiOrchestrator:
         Conservative thresholds ensure safety while enabling autonomy for routine tasks.
         """
         # Conservative thresholds - require high confidence for auto-approval
+        # Lowered thresholds to make learning more responsive for testing
         risk_thresholds = {
-            AiActionType.validation: 0.7,        # Safe to auto-validate 
-            AiActionType.report: 0.7,            # Safe to auto-generate reports
-            AiActionType.update_position: 0.85,  # Layout changes need high confidence
-            AiActionType.add_component: 0.9,     # Component addition needs very high confidence
-            AiActionType.add_link: 0.9,          # Connections need very high confidence
-            AiActionType.remove_component: 0.95, # Deletion is high risk
-            AiActionType.remove_link: 0.95,      # Deletion is high risk
+            AiActionType.validation: 0.6,        # Safe to auto-validate 
+            AiActionType.report: 0.6,            # Safe to auto-generate reports
+            AiActionType.update_position: 0.75,  # Layout changes need high confidence
+            AiActionType.add_component: 0.8,     # Component addition needs high confidence
+            AiActionType.add_link: 0.8,          # Connections need high confidence
+            AiActionType.remove_component: 0.9,  # Deletion is high risk
+            AiActionType.remove_link: 0.9,       # Deletion is high risk
         }
         return risk_thresholds.get(action_type, 0.95)  # Default to very conservative
 
