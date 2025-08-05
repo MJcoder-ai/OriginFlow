@@ -118,6 +118,9 @@ docker compose up -d
 poetry run alembic upgrade head
 ```
 
+Run the Alembic upgrade before starting the API so the database schema
+matches the models.
+
 ### 4.3 Emergency Shutdown
 ```bash
 # Activate emergency shutdown
