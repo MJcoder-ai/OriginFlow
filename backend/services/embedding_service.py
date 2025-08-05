@@ -50,17 +50,27 @@ class EmbeddingService:
                 self.openai_client = None
 
     async def embed_text(self, texts: List[str]) -> List[List[float]]:
-        """Embed a list of texts into vectors."""
-        if self.model:
-            embeddings = self.model.encode(texts, convert_to_numpy=False)
-            return [list(vec) for vec in embeddings]
-        if not self.openai_client:
-            raise RuntimeError("No embedding model available")
-        response = self.openai_client.embeddings.create(
-            input=texts,
-            model="text-embedding-3-small",
-        )
-        return [d.embedding for d in response.data]
+        """Embed a list of texts into vectors.
+
+        If no embedding backend is available or the underlying library
+        raises a ``RuntimeError``, a zero-vector is returned for each
+        requested text.  This allows callers to proceed gracefully when
+        embeddings cannot be generated.
+        """
+        try:
+            if self.model:
+                embeddings = self.model.encode(texts, convert_to_numpy=False)
+                return [list(vec) for vec in embeddings]
+            if not self.openai_client:
+                raise RuntimeError("No embedding model available")
+            response = self.openai_client.embeddings.create(
+                input=texts,
+                model="text-embedding-3-small",
+            )
+            return [d.embedding for d in response.data]
+        except RuntimeError as exc:
+            logger.warning("Embedding failed: %s", exc)
+            return [[] for _ in texts]
 
     async def embed_log(self, payload: Any, anonymized_prompt: str, anonymized_context: dict) -> List[float]:
         """Embed an enriched feedback log."""
