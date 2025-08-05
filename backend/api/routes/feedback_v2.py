@@ -81,12 +81,19 @@ async def log_feedback_v2(
         anonymized_ctx = anonymizer.anonymize_context(payload.design_context)
         
         logger.info("Creating embedding...")
-        embedding = await embedder.embed_log(payload, anonymized_prompt, anonymized_ctx)
-        
+        embedding: list[float] = []
+        try:
+            embedding = await embedder.embed_log(payload, anonymized_prompt, anonymized_ctx)
+            if not embedding:
+                logger.warning("Embedding unavailable, proceeding without embedding")
+        except RuntimeError as emb_exc:
+            logger.warning(f"Embedding failed: {emb_exc}; proceeding without embedding")
+            embedding = []
+
         logger.info("Processing encryption...")
-        key = os.getenv("EMBEDDING_ENCRYPTION_KEY")
         embedding_db = embedding
-        if key:
+        key = os.getenv("EMBEDDING_ENCRYPTION_KEY")
+        if embedding and key:
             try:
                 encrypted = encryptor.encrypt_vector(embedding, key.encode())
                 embedding_db = base64.b64encode(encrypted).decode("utf-8")
@@ -94,6 +101,8 @@ async def log_feedback_v2(
                 # fall back to plain embedding if encryption fails
                 logger.warning(f"Encryption failed, using plain embedding: {enc_exc}")
                 embedding_db = embedding
+        elif key and not embedding:
+            logger.info("Skipping encryption due to missing embedding")
         
         logger.info("Creating AiActionVector entry...")
         vec_entry = AiActionVector(
@@ -126,18 +135,25 @@ async def log_feedback_v2(
         
         # Try to upsert to vector store, but don't fail the entire request if this fails
         logger.info("Upserting to vector store...")
-        try:
-            await store.upsert(str(vec_entry.id), embedding, {
-                "action_type": payload.proposed_action.get("action"),
-                "component_type": payload.component_type,
-                "approval": payload.user_decision in ("approved", "auto"),
-                "user_prompt": payload.user_prompt,
-                "design_context": payload.design_context,
-            })
-            logger.info("Vector store upsert successful")
-        except Exception as exc:
-            # Log the error but don't fail the request since the database operation succeeded
-            logger.warning(f"Failed to upsert to vector store: {exc}")
+        if embedding:
+            try:
+                await store.upsert(
+                    str(vec_entry.id),
+                    embedding,
+                    {
+                        "action_type": payload.proposed_action.get("action"),
+                        "component_type": payload.component_type,
+                        "approval": payload.user_decision in ("approved", "auto"),
+                        "user_prompt": payload.user_prompt,
+                        "design_context": payload.design_context,
+                    },
+                )
+                logger.info("Vector store upsert successful")
+            except Exception as exc:
+                # Log the error but don't fail the request since the database operation succeeded
+                logger.warning(f"Failed to upsert to vector store: {exc}")
+        else:
+            logger.info("Skipping vector store upsert due to missing embedding")
         
         logger.info("log_feedback_v2 completed successfully")
         return Response(status_code=status.HTTP_204_NO_CONTENT)
