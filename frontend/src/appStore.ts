@@ -188,6 +188,8 @@ interface AppState {
   approvePendingAction: (index: number) => Promise<void>;
   /** Reject a pending action by index. */
   rejectPendingAction: (index: number) => void;
+  /** Log an auto-approved action for learning feedback. */
+  logAutoApproval: (action: AiAction) => Promise<void>;
 
   /** Total cost of the current design, if estimated by the AI. */
   costTotal: number | null;
@@ -403,6 +405,33 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     set((s) => ({ pendingActions: s.pendingActions.filter((_, i) => i !== index) }));
   },
+  
+  logAutoApproval: async (action) => {
+    // Log auto-approval for learning feedback with 'auto' decision
+    const designContext = { components: get().canvasComponents, links: get().links };
+    const history = get().messages.slice(-5);
+    try {
+      await fetch(`${API_BASE_URL}/ai/log-feedback-v2`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: undefined,
+          user_prompt: get().lastPrompt,
+          proposed_action: action,
+          user_decision: 'auto',  // Mark as auto-approved
+          component_type: action.payload?.type,
+          design_context: designContext,
+          user_preferences: {},
+          session_history: { messages: history },
+          confidence_shown: action.confidence,
+          confirmed_by: 'auto',  // Auto-confirmed by learning system
+        }),
+      });
+    } catch (err) {
+      console.warn('Failed to log auto-approval feedback', err);
+    }
+  },
+  
   voiceMode: 'idle',
   isContinuousConversation: false,
   voiceTranscript: '',
@@ -675,7 +704,17 @@ export const useAppStore = create<AppState>((set, get) => ({
       const snapshot = { components: canvasComponents, links };
       const actions = await api.analyzeDesign(snapshot, command);
       const pending: AiAction[] = [];
+      const autoApproved: AiAction[] = [];
+      
       actions.forEach((act) => {
+        // Check if action is auto-approved by the learning system
+        if (act.auto_approved) {
+          autoApproved.push(act);
+          // Log auto-approval for learning
+          get().logAutoApproval(act);
+          return; // Skip to next action, don't add to pending
+        }
+        
         switch (act.action) {
           case 'validation': {
             // Show validation messages directly in the chat.  Additionally
@@ -713,6 +752,17 @@ export const useAppStore = create<AppState>((set, get) => ({
             pending.push(act);
         }
       });
+      
+      // Execute auto-approved actions immediately
+      if (autoApproved.length > 0) {
+        await get().applyAiActions(autoApproved);
+        addMessage({ 
+          id: crypto.randomUUID(), 
+          author: 'AI', 
+          text: `✅ Auto-applied ${autoApproved.length} high-confidence action(s) based on learning.` 
+        });
+      }
+      
       if (pending.length > 0) {
         get().addPendingActions(pending);
       }

@@ -44,6 +44,7 @@ class AiAction(BaseModel):
     payload: Dict[str, Any]
     version: int
     confidence: float | None = None
+    auto_approved: bool = False  # Whether this action was automatically approved by the learning system
 
 # --- NEW ---------------------------------------------------------
 class AiCommandRequest(BaseModel):

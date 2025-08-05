@@ -90,7 +90,44 @@ class AiOrchestrator:
             # back to heuristic values without crashing.
             pass
 
+        # Apply confidence-driven autonomy: automatically approve high-confidence actions
+        # and mark them for auto-execution instead of requiring human approval.
+        auto_approved_actions = []
+        pending_actions = []
+        
+        for action in validated:
+            # Set confidence threshold based on action type risk level
+            confidence_threshold = self._get_confidence_threshold(action.action)
+            
+            if action.confidence >= confidence_threshold:
+                # High confidence: mark as auto-approved
+                action.auto_approved = True
+                auto_approved_actions.append(action)
+            else:
+                # Low confidence: requires human approval
+                action.auto_approved = False
+                pending_actions.append(action)
+        
+        # Return all actions, but mark which ones are auto-approved
         return validated
+
+    def _get_confidence_threshold(self, action_type: AiActionType) -> float:
+        """Get confidence threshold for auto-approval based on action type risk level.
+        
+        Higher risk actions require higher confidence for auto-approval.
+        Conservative thresholds ensure safety while enabling autonomy for routine tasks.
+        """
+        # Conservative thresholds - require high confidence for auto-approval
+        risk_thresholds = {
+            AiActionType.validation: 0.7,        # Safe to auto-validate 
+            AiActionType.report: 0.7,            # Safe to auto-generate reports
+            AiActionType.update_position: 0.85,  # Layout changes need high confidence
+            AiActionType.add_component: 0.9,     # Component addition needs very high confidence
+            AiActionType.add_link: 0.9,          # Connections need very high confidence
+            AiActionType.remove_component: 0.95, # Deletion is high risk
+            AiActionType.remove_link: 0.95,      # Deletion is high risk
+        }
+        return risk_thresholds.get(action_type, 0.95)  # Default to very conservative
 
     @classmethod
     def dep(cls) -> "AiOrchestrator":
