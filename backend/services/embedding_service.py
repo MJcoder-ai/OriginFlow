@@ -59,8 +59,8 @@ class EmbeddingService:
         """
         try:
             if self.model:
-                embeddings = self.model.encode(texts, convert_to_numpy=False)
-                return [list(vec) for vec in embeddings]
+                embeddings = self.model.encode(texts, convert_to_tensor=True)
+                return embeddings.detach().cpu().tolist()
             if not self.openai_client:
                 raise RuntimeError("No embedding model available")
             response = self.openai_client.embeddings.create(
