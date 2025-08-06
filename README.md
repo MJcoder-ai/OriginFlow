@@ -5,7 +5,21 @@
 ---
 
 ## 1. Overview
-OriginFlow is a browser-based, AI-powered design environment that converts rough engineering sketches and customer inputs into standards-compliant schematics and bills-of-materials. It supports both engineers and non-technical users, offering features like drag-and-drop datasheets, AI auto-completion, and real-time compliance checks. The platform is built to be modular, scalable, and extensible, with a focus on reliability and user experience. Now with integrated AI agents for end-to-end automation (design, sales, support).
+
+OriginFlow is a browser-based, AI-powered design environment that converts rough engineering sketches and customer inputs into standards-compliant schematics and bills-of-materials. It supports both engineers and non-technical users, offering features like drag-and-drop datasheets, AI auto-completion, and real-time compliance checks.
+
+### 🚀 **Current Status: Phase 1 MVP**
+- ✅ **Core Design Platform**: Fully functional canvas, components, AI chat interface
+- ✅ **18 AI Agents**: Basic design, wiring, performance, financial, and support agents  
+- ✅ **Learning System**: Confidence-driven autonomy with vector-based memory
+- ✅ **Production Ready**: SQLite/PostgreSQL, robust error handling, type safety
+
+### 🔮 **Roadmap: Enterprise Platform Vision**
+- ⏳ **Phase 2** (6-12 months): Sales & procurement agents, workflow orchestration
+- ⏳ **Phase 3** (12-18 months): Field operations, AR assistance, IoT integration  
+- ⏳ **Phase 4** (18-24 months): Full lifecycle automation, predictive analytics
+
+The platform is architected for enterprise scale but currently implements core engineering design functionality. See sections below for detailed current vs planned capabilities.
 
 ---
 
@@ -40,16 +54,25 @@ OriginFlow is a browser-based, AI-powered design environment that converts rough
   - **Datasheet Upload Button**: Use the paperclip icon next to the mic to upload PDF datasheets into the Component Library. A spinner and badge show progress while files upload.
 - **Multi-Line Chat Input**: Compose longer messages in a textarea that auto-resizes as you type.
 - **Component Deletion by Name**: Remove components via the AI assistant or UI by referencing the component's name.
-- **AI Agents**: Modular agents for marketing, design, procurement, and more (see AGENT_TAXONOMY.md).  Recent additions include:
+- **AI Agents (Phase 1)**: Core design agents for engineering workflows. **18 agents implemented** of the 42 planned in AGENT_TAXONOMY.md:
 
-   - **WiringAgent** – uses the deterministic rule engine to size wires, select fuses and ferrules, and generate detailed wiring reports from natural‑language requests.
-   - **PerformanceAgent** – provides quick estimates of system output (e.g. expected annual kWh) and derating factors. Use the chat command `estimate system performance` to get a stub report.
-   - **FinancialAgent** – pulls pricing from the component master database to produce detailed cost breakdowns for PV, HVAC and water projects, falling back to heuristic pricing when data is missing.
-   - **SourcingAgent** – searches the component library for lower‑priced alternatives within a category and lists the cheapest options.
-   - **Cross‑Layer Validation Agent (Beta)**: To help ensure completeness across layers, the new CrossLayerValidationAgent will eventually verify that all ports are connected and that required sub‑assemblies (brackets, rails, combiner boxes) have been added on their respective detail layers.  In this beta release it returns a reminder to perform a manual check, but upcoming versions will parse the design snapshot and highlight missing connections automatically.
-   - **Interactive Checklist Handler** – queues AI actions for human approval, ensuring that only high‑confidence suggestions are executed automatically.
+   **✅ Implemented Core Agents:**
+   - **SystemDesignAgent** – High-level system design with component suggestions (Phase 1: pattern matching)
+   - **WiringAgent** – Uses deterministic rule engine for wire sizing, fuse selection, and safety calculations
+   - **PerformanceAgent** – Quick estimates of system output using heuristic formulas (Phase 1: basic calculations)
+   - **FinancialAgent** – Cost estimation using per-kW pricing heuristics (Phase 1: simple calculations)
+   - **SourcingAgent** – Searches component library for alternatives (Phase 1: local search only)
+   - **CrossLayerValidationAgent** – Basic validation with manual check reminders (Phase 1: stub implementation)
+   - **LearningAgent** – Domain-aware confidence scoring with auto-approval for high-confidence actions
+   - **ComponentAgent**, **InventoryAgent**, **BomAgent**, **LinkAgent**, **LayoutAgent** – Core CRUD operations
+   - **AuditorAgent**, **DatasheetFetchAgent**, **DesignAssemblyAgent**, **KnowledgeManagementAgent** – Support functions
 
-   These agents are orchestrated by the **SystemDesignAgent**, which decomposes a user’s request into a sequence of tasks: selecting components, sizing wiring, connecting ports, estimating cost and performance, and generating reports. See `backend/agents/system_design_agent.py` for details.
+   **⏳ Future Phases (24 agents planned):**
+   - Phase 2: Sales & procurement agents (lead discovery, price finding, purchase orders)
+   - Phase 3: Field operations (AR assistance, commissioning, quality audit)
+   - Phase 4: After-sales (support, warranty, predictive maintenance)
+
+   Current orchestration uses simple routing. **Event-driven orchestration with Temporal.io workflows planned for Phase 2.**
 
 - **Component Master Database**: Central inventory of manufacturer parts and specifications.
 - **Hierarchical Component Schema**: Components can represent entire product families with variants, shared documents, and **nested sub‑components**. Each record can define ports (DC, AC, grounding, communication), dependencies (e.g. required mounting rails or brackets) and layer affinities. This richness allows the AI to “explode” a single‑line component into detailed assemblies on electrical and structural layers while keeping inventory management efficient.
@@ -61,12 +84,22 @@ OriginFlow is a browser-based, AI-powered design environment that converts rough
   | 100       | 2               | 4            |
   | 1000      | 4               | 8            |
   | 2000      | 8               | 16           |
-### 2.5 AI Agents
-OriginFlow uses AI agents for non-physical tasks across the lifecycle. Examples:
-- SystemDesignAgent: Orchestrates schematics and BOMs.
-- LeadDiscoveryAgent: Finds prospects via web/X search.
+### 2.5 AI Agents (Phase 1 Implementation)
+OriginFlow uses AI agents for engineering design tasks. **Current Phase 1 status:**
 
-See AGENT_TAXONOMY.md for the full list; ENGINEERING_PLAYBOOK.md for building/extending agents.
+**✅ Implemented (18 agents):**
+- **SystemDesignAgent**: High-level design orchestration with pattern matching
+- **WiringAgent**: Deterministic wire sizing and safety calculations  
+- **PerformanceAgent**: Basic performance estimation with heuristic formulas
+- **FinancialAgent**: Cost estimation using per-kW pricing
+- **ComponentAgent**: Component lifecycle management
+- **Plus 13 supporting agents** for inventory, BOM, links, layout, auditing, etc.
+
+**⏳ Planned (24 agents):** Marketing, sales, procurement, logistics, field ops, after-sales
+- See AGENT_TAXONOMY.md for complete roadmap
+- ENGINEERING_PLAYBOOK.md for development guidelines
+
+**Current Limitation**: Simple router-based orchestration. Event-driven workflows with Temporal.io planned for Phase 2.
 
 ### 2.6 Feedback Vector Logging & Confidence
 OriginFlow logs every AI suggestion along with the user's decision. The
@@ -87,39 +120,70 @@ embedding and retrieval-based confidence.
 
 ---
 
-## 3. Supported Technologies
-- **Frontend**: React 18.2, TypeScript 5.3, react-flow 11.10, Tailwind CSS 3.4, Zustand 4.5, @dnd-kit/core 6.0, clsx 2.1, shadcn/ui 0.8, React Joyride 2.7, react-tooltip 5.2, lucide-react 0.371
-- **Backend**: FastAPI 0.109, Python 3.11, PostgreSQL 16, Redis 7.2
-- **AI Services**: pgvector 0.4.1, LlamaIndex, spaCy, sentence-transformers/all-MiniLM-L6-v2, YOLOv8, OpenCV, MLMD 0.2
-- **Workflow Orchestration**: Temporal.io 1.22 (self-hosted)
-- **Authentication**: Supabase
-- **File Storage**: S3-compatible (e.g., Cloudflare R2, MinIO)
-- **Offline Storage**: IndexedDB via Dexie.js
-- **Observability**: Grafana 10.2, OpenTelemetry 1.18, Loki 2.9
+## 3. Supported Technologies (Phase 1)
+
+**✅ Current Implementation:**
+- **Frontend**: React 18.2, TypeScript 5.3, react-flow 11.10, Tailwind CSS 3.4, Zustand 4.5, @dnd-kit/core 6.0
+- **Backend**: FastAPI 0.109, Python 3.11, SQLite (default) or PostgreSQL 16
+- **AI/ML**: OpenAI GPT-4o-mini, sentence-transformers/all-MiniLM-L6-v2, Qdrant/Chroma vector stores
+- **Data Processing**: PDF parsing (pdfplumber, PyMuPDF), table extraction (basic)
+- **File Storage**: Local filesystem with static file serving
+
+**⏳ Planned Enhancements:**
+- **Advanced AI**: LlamaIndex, spaCy, YOLOv8, OpenCV, multi-modal processing
+- **Workflow**: Temporal.io workflows, event-driven architecture
+- **Infrastructure**: Redis caching, S3-compatible storage, Kafka messaging
+- **Observability**: Grafana dashboards, OpenTelemetry traces, Loki logging
+- **Authentication**: Supabase integration, role-based access
+- **Offline**: IndexedDB via Dexie.js for offline-first capabilities
 
 ---
 
 ## 4. Getting Started
 
-### 4.1 Prerequisites
+### 4.1 Prerequisites (Phase 1)
+**Required:**
 - Node.js ≥18, npm ≥9
 - Python ≥3.11, Poetry ≥1.8
-- PostgreSQL 16, Redis 7.2, Kafka, HashiCorp Vault (or Docker Compose)
-- Temporal.io self-hosted setup
+- SQLite (default) or PostgreSQL 16
+- OpenAI API key
 
-### 4.2 Installation
+**Optional (for enhanced features):**
+- Redis 7.2 (for caching)
+- Qdrant or Chroma (for vector storage, falls back to NoOp)
+
+**Future Phases:**
+- Kafka, HashiCorp Vault, Temporal.io (Phase 2+)
+
+### 4.2 Installation (Phase 1 - Simplified)
 ```bash
+# 1. Clone and install dependencies
 git clone https://github.com/your-org/OriginFlow.git
 cd OriginFlow
 poetry install --with dev
 npm install
-cp .env.example .env && nano .env
-docker compose up -d
+
+# 2. Configure environment  
+cp .env.example .env
+# Edit .env to add OPENAI_API_KEY (required)
+# DATABASE_URL defaults to SQLite if not set
+
+# 3. Initialize database
 poetry run alembic upgrade head
+
+# 4. Start services
+poetry run uvicorn backend.main:app --reload --host 0.0.0.0
+npm --prefix frontend run dev -- --port 5173
 ```
 
-Run the Alembic upgrade before starting the API so the database schema
-matches the models.
+**Optional: Enhanced Setup**
+```bash
+# For vector storage (enhanced learning)
+docker run -p 6333:6333 qdrant/qdrant
+
+# For PostgreSQL (production)  
+docker compose up -d postgres
+```
 
 ### 4.3 Emergency Shutdown
 ```bash
@@ -292,17 +356,26 @@ part number while leaving the rest of the data intact.  To reset the table:
 3. Seed the database with fresh components using `bulk_create` or `create`.  See
    the PRD for recommended attributes.
 
-### New AI commands
+### AI Commands (Phase 1 - Currently Available)
 
-* **remove _{name}_** – deletes by name.
-* **analyse / validate** – full snapshot audit.
-* **what is the bill of materials** – shows modal with unique part list.
-* **organise / optimise layout** – neatly re-positions nodes.
-* **design a 5 kW solar system** – suggests major components.
-* **find panels 400** – searches the inventory database.
-* **datasheet for ABC123** – fetches and parses a datasheet (stub).
-* **size wiring for 5 kW over 20 m** – deterministic wire gauge and fuse sizing.
-* **estimate system performance** – returns a stub performance report.
+**✅ Fully Implemented:**
+* **size wiring for 5 kW over 20 m** – Deterministic wire gauge and fuse sizing using rule engine
+* **remove _{name}_** – Deletes components by name
+* **what is the bill of materials** – Shows modal with unique part list
+* **organise / optimise layout** – Neatly re-positions nodes
+
+**✅ Basic Implementation:**
+* **design a 5 kW solar system** – Suggests major components (pattern matching + hardcoded components)
+* **find panels 400** – Searches the component library (local search only)
+* **analyse / validate** – Basic design audit with manual check reminders
+* **estimate system performance** – Returns heuristic performance estimates (not real simulation)
+* **datasheet for ABC123** – Fetches and parses datasheets (basic extraction, no OCR fallback)
+
+**⏳ Enhanced Features Planned:**
+- External API integration for pricing and performance
+- Advanced RAG-based knowledge queries  
+- Real-time simulation and optimization
+- Multi-modal datasheet processing
 
 ---
 
@@ -470,7 +543,42 @@ If the PDF viewer reports "Failed to load PDF" in the UI:
 
 ---
 
-## 7. Architecture & Design
+## 7. Architecture & Design (Phase 1 Current + Future Vision)
+
+### 7.1 Current Phase 1 Architecture
+```mermaid
+graph TD
+    subgraph Frontend
+        A[React App]
+        B[Engineering Canvas]
+        C[Chat Interface]
+    end
+    subgraph Backend
+        F[FastAPI]
+        I[Datasheet Processor]
+        Agents[AI Agents - 18 implemented]
+        Router[RouterAgent]
+        Learning[LearningAgent]
+    end
+    subgraph AI Services
+        J[OpenAI GPT-4o-mini]
+        Vector[Vector Store - Qdrant/Chroma]
+        Embed[Embedding Service]
+    end
+    A --> F
+    B --> F
+    C --> F
+    F --> Router
+    Router --> Agents
+    Agents --> Learning
+    Learning --> Vector
+    Learning --> Embed
+    F --> I
+    I --> J
+    Agents --> J
+```
+
+### 7.2 Planned Full Architecture (Phase 2-4)
 ```mermaid
 graph TD
     subgraph Frontend
@@ -482,10 +590,10 @@ graph TD
     end
     subgraph Backend
         F[FastAPI]
-        G[Workflow Engine]
+        G[Temporal Workflows]
         H[Compliance Engine]
         I[Datasheet Processor]
-        Agents[AI Agents]
+        Agents[AI Agents - 42 planned]
     end
     subgraph AI Services
         J[AI Models]
