@@ -36,6 +36,8 @@ The platform is architected for enterprise scale but currently implements core e
 
 - **AI‑Generated Connections**: The SystemDesignAgent now proposes both components *and* the links between them. When designing a solar PV system, for example, it will not only add the panels, inverter and battery but also suggest connecting each PV string to the inverter and the inverter to the battery. These suggestions use human‑readable names instead of opaque IDs and are queued in the checklist for your approval.
 
+- **Real-Component Designs**: The SystemDesignAgent selects actual panels, inverters and batteries from the component library. If a required category is missing, it asks you to upload the datasheet and waits for the component to be added before proceeding.
+
 - **Undo/Redo & Action History**: Every AI suggestion—component placement, link creation, wiring—is recorded in a history stack. Toolbar buttons let you undo or redo approved actions, giving you full control over the design iteration and the ability to experiment safely.
 
 - **Customer Project Wizard**: A guided interface for non-technical users to plan projects with AI suggestions and cost estimation.
@@ -57,7 +59,7 @@ The platform is architected for enterprise scale but currently implements core e
 - **AI Agents (Phase 1)**: Core design agents for engineering workflows. **18 agents implemented** of the 42 planned in AGENT_TAXONOMY.md:
 
    **✅ Implemented Core Agents:**
-   - **SystemDesignAgent** – High-level system design with component suggestions (Phase 1: pattern matching)
+   - **SystemDesignAgent** – High-level design using only library components, prompting for datasheets when parts are missing
    - **WiringAgent** – Uses deterministic rule engine for wire sizing, fuse selection, and safety calculations
    - **PerformanceAgent** – Quick estimates of system output using heuristic formulas (Phase 1: basic calculations)
    - **FinancialAgent** – Cost estimation using per-kW pricing heuristics (Phase 1: simple calculations)
@@ -88,7 +90,7 @@ The platform is architected for enterprise scale but currently implements core e
 OriginFlow uses AI agents for engineering design tasks. **Current Phase 1 status:**
 
 **✅ Implemented (18 agents):**
-- **SystemDesignAgent**: High-level design orchestration with pattern matching
+- **SystemDesignAgent**: High-level design using only library components; prompts for datasheets when parts are missing
 - **WiringAgent**: Deterministic wire sizing and safety calculations  
 - **PerformanceAgent**: Basic performance estimation with heuristic formulas
 - **FinancialAgent**: Cost estimation using per-kW pricing
