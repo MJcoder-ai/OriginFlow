@@ -135,6 +135,120 @@ async def run_parsing_job(asset_id: str, session: AsyncSession, ai_client: Async
         asset.parsed_payload = extraction_result
         asset.parsing_status = "success"
         asset.parsed_at = datetime.now(timezone.utc)
+
+        # ------------------------------------------------------------------
+        # Phase 2: Datasheet Extraction & Library Augmentation
+        #
+        # When a datasheet is successfully parsed, automatically update
+        # the master component library with the extracted metadata.  This
+        # enrichment step creates or updates a ComponentMaster record based
+        # on the part number and other fields found in the datasheet.  It
+        # stores the full parsed JSON as the ``specs`` column and fills in
+        # common fields (name, manufacturer, category, voltage, current,
+        # power, ports, dependencies, layer_affinity, sub_elements) where
+        # available.  Failures during this enrichment are swallowed so
+        # they do not block the overall parsing pipeline.
+        try:
+            from backend.services.component_db_service import ComponentDBService
+            from backend.schemas.component_master import ComponentMasterCreate
+
+            # Instantiate the component DB service using the current session
+            comp_service = ComponentDBService(session)
+
+            # Extract common fields from the payload, falling back to
+            # sensible defaults if keys are missing.  The extracted JSON
+            # may use various naming conventions; try multiple keys.
+            part_number = (
+                extraction_result.get("part_number")
+                or extraction_result.get("pn")
+                or extraction_result.get("partNumber")
+            )
+            manufacturer = (
+                extraction_result.get("manufacturer")
+                or extraction_result.get("mfg")
+                or extraction_result.get("maker")
+            )
+            # Use description as the human-friendly name when available.
+            name = (
+                extraction_result.get("description")
+                or extraction_result.get("name")
+                or part_number
+                or "Unknown component"
+            )
+            category = (
+                extraction_result.get("category")
+                or extraction_result.get("device_type")
+                or "unknown"
+            )
+            description = extraction_result.get("description")
+
+            # Numerical fields may be nested; attempt to coerce to float if
+            # present.  If parsing fails, default to None.
+            def _to_float(value: Any) -> float | None:
+                try:
+                    if isinstance(value, (int, float)):
+                        return float(value)
+                    if isinstance(value, str):
+                        return float(value.strip().split()[0])
+                except Exception:
+                    return None
+                return None
+
+            voltage = _to_float(
+                extraction_result.get("voltage")
+                or extraction_result.get("nominal_voltage")
+            )
+            current = _to_float(
+                extraction_result.get("current")
+                or extraction_result.get("nominal_current")
+            )
+            power = _to_float(
+                extraction_result.get("power")
+                or extraction_result.get("max_power")
+                or extraction_result.get("rated_power")
+            )
+
+            # Optional complex fields
+            ports = extraction_result.get("ports")
+            dependencies = extraction_result.get("dependencies")
+            layer_affinity = extraction_result.get("layer_affinity")
+            sub_elements = extraction_result.get("sub_elements")
+
+            # Proceed only if a part number was extracted; skip otherwise
+            if part_number:
+                existing = await comp_service.get_by_part_number(part_number)
+                data = {
+                    "part_number": part_number,
+                    "name": name,
+                    "manufacturer": manufacturer or "Unknown",
+                    "category": category,
+                    "description": description,
+                    "voltage": voltage,
+                    "current": current,
+                    "power": power,
+                    "specs": extraction_result,
+                    "ports": ports,
+                    "dependencies": dependencies,
+                    "layer_affinity": layer_affinity,
+                    "sub_elements": sub_elements,
+                }
+                # Remove keys with value None to respect default nullability
+                data = {k: v for k, v in data.items() if v is not None}
+
+                if existing:
+                    # Update the existing record in-place
+                    for key, value in data.items():
+                        setattr(existing, key, value)
+                    session.add(existing)
+                    await session.commit()
+                    await session.refresh(existing)
+                else:
+                    # Create a new record
+                    create_obj = ComponentMasterCreate(**data)
+                    await comp_service.create(create_obj)
+        except Exception:
+            # Swallow any errors during enrichment so that parsing continues
+            pass
     except Exception as e:
         asset.parsing_status = "failed"
         asset.parsing_error = str(e)
