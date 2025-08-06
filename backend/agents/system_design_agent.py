@@ -1,6 +1,6 @@
 """Agent orchestrating high-level system design requests (Phase\xa01 minimal).
 
-In Phase\xa01 this agent simply recognises high-level project requirements and
+In Phase\xa01 this agent recognises high-level project requirements and
 returns a plain language overview of the major component types required.
 Future versions will perform task decomposition and orchestrate specialist
 agents to assemble a full design.
@@ -8,9 +8,11 @@ agents to assemble a full design.
 from __future__ import annotations
 
 import re
+import math
 from typing import Any, Dict, List
 
 from backend.utils.id import generate_id
+from backend.services.component_db_service import get_component_db_service
 
 from backend.agents.base import AgentBase
 from backend.agents.registry import register
@@ -23,10 +25,10 @@ class SystemDesignAgent(AgentBase):
 
     This agent interprets a user's high\u2011level project request, determines the
     engineering domain (solar PV, HVAC, or water pumping) and extracts any
-    specified system size (e.g., kilowatts or tons).  It responds with a
+    specified system size (e.g., kilowatts or tons). It responds with a
     concise overview of the major component categories required, provides
     rough sizing hints and suggests logical next steps such as searching for
-    available components or fetching datasheets.  Future versions will
+    available components or fetching datasheets. Future versions will
     orchestrate specialist agents to create detailed designs.
     """
 
@@ -67,7 +69,72 @@ class SystemDesignAgent(AgentBase):
         actions: List[Dict[str, Any]] = []
 
         if domain == "PV" and size_kw:
-            num_panels = max(1, int(round(size_kw * 1000.0 / 400.0)))
+            async for svc in get_component_db_service():
+                comp_service = svc
+                break
+
+            missing_msgs: list[str] = []
+
+            panels = await comp_service.search(category="panel")
+            panel_candidate = None
+            if panels:
+                def panel_sort_key(p: Any) -> tuple[float, float]:
+                    return (
+                        p.price if p.price is not None else float("inf"),
+                        -(p.power or 0),
+                    )
+                panels_sorted = sorted(panels, key=panel_sort_key)
+                panel_candidate = panels_sorted[0]
+            else:
+                missing_msgs.append(
+                    "No panel components are available in the library. Please upload a panel datasheet."
+                )
+
+            inverter_candidate = None
+            if not missing_msgs:
+                required_power_w = size_kw * 1000.0
+                inverters = await comp_service.search(
+                    category="inverter", min_power=required_power_w
+                )
+                if inverters:
+                    def inv_sort_key(c: Any) -> tuple[float, float]:
+                        return (
+                            c.price if c.price is not None else float("inf"),
+                            c.power or 0,
+                        )
+                    inverters_sorted = sorted(inverters, key=inv_sort_key)
+                    inverter_candidate = inverters_sorted[0]
+                else:
+                    missing_msgs.append(
+                        f"No inverter with ≥ {size_kw:g} kW capacity found in the library. Please upload a suitable inverter datasheet."
+                    )
+
+            battery_candidate = None
+            if not missing_msgs:
+                batteries = await comp_service.search(category="battery")
+                if batteries:
+                    def bat_sort_key(b: Any) -> float:
+                        return b.price if b.price is not None else float("inf")
+                    batteries_sorted = sorted(batteries, key=bat_sort_key)
+                    battery_candidate = batteries_sorted[0]
+                else:
+                    missing_msgs.append(
+                        "No battery components are available in the library. Please upload a battery datasheet."
+                    )
+
+            if missing_msgs:
+                message = " \n".join(missing_msgs)
+                return [
+                    AiAction(
+                        action=AiActionType.validation,
+                        payload={"message": message},
+                        version=1,
+                    ).model_dump()
+                ]
+
+            panel_power = panel_candidate.power or 400.0
+            num_panels = max(1, int(math.ceil((size_kw * 1000.0) / panel_power)))
+
             id_map: dict[str, str] = {}
             for i in range(num_panels):
                 comp_id = generate_id("component")
@@ -79,9 +146,9 @@ class SystemDesignAgent(AgentBase):
                         action=AiActionType.add_component,
                         payload={
                             "id": comp_id,
-                            "name": f"Panel {i + 1}",
-                            "type": "panel",
-                            "standard_code": "PANEL-STD",
+                            "name": f"{panel_candidate.name} {i + 1}",
+                            "type": panel_candidate.category,
+                            "standard_code": panel_candidate.part_number,
                             "x": x_pos,
                             "y": y_pos,
                             "layer": "Single-Line Diagram",
@@ -89,6 +156,7 @@ class SystemDesignAgent(AgentBase):
                         version=1,
                     ).model_dump()
                 )
+
             inverter_id = generate_id("component")
             id_map["Inverter"] = inverter_id
             actions.append(
@@ -96,9 +164,9 @@ class SystemDesignAgent(AgentBase):
                     action=AiActionType.add_component,
                     payload={
                         "id": inverter_id,
-                        "name": "Inverter",
-                        "type": "inverter",
-                        "standard_code": "INV-STD",
+                        "name": inverter_candidate.name,
+                        "type": inverter_candidate.category,
+                        "standard_code": inverter_candidate.part_number,
                         "x": 400,
                         "y": 100,
                         "layer": "Single-Line Diagram",
@@ -106,6 +174,7 @@ class SystemDesignAgent(AgentBase):
                     version=1,
                 ).model_dump()
             )
+
             battery_id = generate_id("component")
             id_map["Battery"] = battery_id
             actions.append(
@@ -113,9 +182,9 @@ class SystemDesignAgent(AgentBase):
                     action=AiActionType.add_component,
                     payload={
                         "id": battery_id,
-                        "name": "Battery",
-                        "type": "battery",
-                        "standard_code": "BAT-STD",
+                        "name": battery_candidate.name,
+                        "type": battery_candidate.category,
+                        "standard_code": battery_candidate.part_number,
                         "x": 550,
                         "y": 200,
                         "layer": "Single-Line Diagram",
@@ -142,9 +211,12 @@ class SystemDesignAgent(AgentBase):
                     version=1,
                 ).model_dump()
             )
+
             summary = (
-                f"Added {num_panels} panel(s), one inverter and one battery for a {size_kw:g}\xa0kW PV system. "
-                "Proposed connecting all panels to the inverter and the inverter to the battery. "
+                f"Designed a {size_kw:g}\u00a0kW PV system using available library components. "
+                f"Selected {num_panels} panel(s) ({panel_candidate.part_number}), one inverter "
+                f"({inverter_candidate.part_number}) and one battery ({battery_candidate.part_number}). "
+                "Connected all panels to the inverter and the inverter to the battery. "
                 "Review and approve these actions."
             )
             actions.append(

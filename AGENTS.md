@@ -179,7 +179,7 @@ return [{
 ## 4. Implemented Agents (Phase 1 - 18 Total)
 
 ### 4.1 Core Design Agents
-- **SystemDesignAgent**: High-level design orchestration with component suggestions
+- **SystemDesignAgent**: High-level design using only library components; prompts for datasheet uploads when parts are missing
 - **WiringAgent**: Wire sizing using deterministic rule engine (fully implemented)
 - **PerformanceAgent**: Basic performance estimation with heuristic formulas
 - **FinancialAgent**: Cost estimation using per-kW pricing heuristics

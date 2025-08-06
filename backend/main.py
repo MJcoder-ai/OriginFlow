@@ -59,6 +59,7 @@ from backend.api.routes import (
     feedback,
     feedback_v2,
     design_knowledge,
+    component_library,
 )
 
 app.add_middleware(
@@ -88,6 +89,9 @@ app.include_router(datasheet_parse.router, prefix=settings.api_prefix)
 
 # Design knowledge base endpoints for persisting and querying design embeddings
 app.include_router(design_knowledge.router, prefix=settings.api_prefix)
+
+# Component library search endpoints
+app.include_router(component_library.router, prefix=settings.api_prefix)
 
 # Feedback logging endpoint for user decisions on AI actions
 app.include_router(feedback.router, prefix=settings.api_prefix)
