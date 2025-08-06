@@ -1,120 +1,220 @@
-# OriginFlow Platform Agent Taxonomy (v2.0)
+# OriginFlow AI Agent Taxonomy (v3.0)
 
-*Updated July 28, 2025: Refined based on 2025 industry insights from Gartner (agentic AI for autonomous workflows), LangChain (multi-agent orchestration patterns), and real-world examples (e.g., AI agents in sales from Tredence and supply chain from MobiDev). Fixed OCR errors, ensured single responsibility per playbook, added event-based I/O for loose coupling, incorporated bias guards/ethics in customer-facing agents, and expanded phasing with KPIs. Added agents for emerging needs like predictive maintenance (from arXiv taxonomy) and integrated lifecycle (e.g., blackboard for state sharing). Total agents: 42, organized by 8 lifecycle stages for end-to-end non-physical automation.*
+*Current Status: Phase 1 MVP with 18 implemented agents focused on core engineering design automation.*
 
-This taxonomy covers the complete OriginFlow platform, from customer acquisition via marketing to end-of-life management. Agents are LLM-based (e.g., Grok-4 for reasoning), registered in a central catalog with Spec Cards (per playbook), and orchestrated via BusinessOrchestratorAgent using event-sourcing (Kafka/Temporal) for resilience. Each agent follows playbook principles: single responsibility (≤3 functions), contract-first (schemas for I/O), explicit tools (e.g., web_search for leads), and observability (OTEL spans). Dependencies are version-pinned (e.g., v1.x); I/O uses JSON schemas with events for async flows.
+This taxonomy documents the complete OriginFlow AI agent ecosystem: **current Phase 1 implementation** and **enterprise roadmap** to 42 specialized agents. The platform enables end-to-end automation from design through lifecycle management.
 
-## Guiding Design Principles
+**Implementation Status:**
+- ✅ **Phase 1**: 18/42 agents (43%) - Core engineering design automation
+- ⏳ **Phase 2**: Business workflow automation (6 agents planned)  
+- ⏳ **Phase 3**: Field operations integration (6 agents planned)
+- ⏳ **Phase 4**: Lifecycle management (12 agents planned)
 
-1. **Plug-in Architecture**: Register each agent in a central catalog with declared capabilities, required context, and webhook/schema definitions. Enables hot-swapping (e.g., replace LLM provider).
-2. **Blackboard State**: Use an append-only event store (Kafka) so agents can resume partial jobs, enabling retry, audit, and multi-agent collaboration (per AutoGen 2025 patterns).
-3. **Rule-vs-LLM Split**: Safety-critical tasks (e.g., compliance checks) in RuleEngineService; LLMs for suggestions/explanations (reduces hallucinations by 35% per LangChain benchmarks).
-4. **Human-in-the-Loop (HITL)**: Gate high-risk actions (e.g., contracts, disputes) behind explicit user approval; bias_guard: true for customer-facing agents.
-5. **Ethics & Privacy**: Embed consent checks, log outputs for bias audits (AIF360), and ensure GDPR compliance (e.g., no PII in prompts).
+**Current Architecture:** Simple registry-based routing with OpenAI GPT-4o-mini, confidence-driven autonomy, and vector store learning.  
+**Enterprise Vision:** Event-driven orchestration with Temporal.io workflows, external API integrations, and advanced ML capabilities.
 
-## Agent Taxonomy by Lifecycle Stage
+---
 
-### 1. Growth, Marketing & Lead Capture
+## **Phase 1: Current Implementation (18 Agents)**
 
-These agents handle acquisition, using web/X search for discovery and personalization (e.g., from Gartner: Agentic AI for dynamic content).
+### **Design & Engineering Agents (8 agents)**
 
-| Agent | Mission | Key Skills | I/O | Depends On |
-| ----- | ----- | ----- | ----- | ----- |
-| LeadDiscoveryAgent | Find prospects via public data and ads. | Web/X crawling, sentiment classification, geocoding, social media analysis (tools: web_search, x_keyword_search). | In: Target definitions (keywords, regions). Out: Lead list (JSON: [{name, contact, score}]). Events: LEAD_FOUND. | Web/X APIs; AnalyticsInsightsAgent for scoring. |
-| AdCreativeAgent | Design & test content for ads/emails. | Multimodal generation (text/image), A/B test design, brand guard-rails (bias_guard: true). | In: BrandStyleGuide, campaign goals. Out: Creative assets + test report (JSON: {variants: [...], metrics: {click_rate}}). Events: CREATIVE_READY. | CMSAgent for deployment; view_image for asset review. |
-| WebsitePersonalisationAgent | Serve dynamic pages adapting to visitors. | Real-time profiling, content selection/recomposition (tools: browse_page for templates). | In: Visitor data (IP, history). Out: Personalized page (HTML/JSON). Events: VISIT_PERSONALIZED. | CMSAgent; LeadScoringAgent for intent. |
-| LeadScoringAgent | Qualify and prioritize leads for sales. | Behavior analytics, purchase propensity scoring (ML via code_execution). | In: Lead events + data. Out: Scored leads (JSON: {id, score, next_action}). Events: LEAD_SCORED. | CRMService; AnalyticsInsightsAgent for forecasts. |
+| Agent | Status | Mission | Current Capabilities | Implementation Notes |
+|-------|--------|---------|---------------------|---------------------|
+| **SystemDesignAgent** | ✅ | High-level design orchestration | Domain detection (solar/HVAC/pumping), size extraction, component suggestions | Uses regex parsing, basic OpenAI calls |
+| **WiringAgent** | ✅ | Wire sizing calculations | Rule-based wire sizing with derating factors | Fully functional rule engine |
+| **PerformanceAgent** | ✅ | System performance estimation | Basic efficiency calculations using heuristics | Simple mathematical formulas |
+| **FinancialAgent** | ✅ | Cost estimation & pricing | Per-kW pricing, component database queries | Database integration working |
+| **ComponentAgent** | ✅ | Component CRUD operations | Basic component management | Database operations |
+| **InventoryAgent** | ✅ | Component library management | Component catalog operations | Basic functionality |
+| **BomAgent** | ✅ | Bill of materials generation | BOM creation and export | Working implementation |
+| **DatasheetFetchAgent** | ✅ | PDF parsing & extraction | Basic datasheet processing | Limited PDF parsing |
 
-### 2. Sales & Customer-Facing Advisory
+### **Support & Validation Agents (4 agents)**
 
-Focus on conversion, with ethical guards (e.g., no high-pressure tactics; from Tredence 2025 examples: AI for personalized pitches).
+| Agent | Status | Mission | Current Capabilities | Implementation Notes |
+|-------|--------|---------|---------------------|---------------------|
+| **LearningAgent** | ✅ | Confidence scoring & autonomy | Historical feedback analysis, auto-approval decisions | Core learning loop functional |
+| **CrossLayerValidationAgent** | ✅ | Design validation | Basic design consistency checks | Simple validation rules |
+| **AuditorAgent** | ✅ | Design auditing | Basic audit reporting | Limited auditing capabilities |
+| **SourcingAgent** | ✅ | Component sourcing | Alternative component suggestions | Basic sourcing logic |
 
-| Agent | Mission | Key Skills | I/O | Depends On |
-| ----- | ----- | ----- | ----- | ----- |
-| InitialEngagementAgent | Engage non-technical users via chat/voice. | Natural language understanding, query routing (bias_guard: true). | In: User queries. Out: Responses + lead data (JSON: {intent, prefs}). Events: ENGAGEMENT_STARTED. | CustomerInterfaceAgent; KnowledgeBaseAgent for grounding. |
-| ProductRecommenderAgent | Suggest systems based on needs. | Preference matching, what-if simulations. | In: User specs. Out: Recommendations (JSON: {options: [...], quotes}). Events: RECOMMENDATION_MADE. | SystemDesignAgent for previews; PriceFinderAgent. |
-| NegotiationAgent | Handle objections, discounts, contracts. | Bargaining logic, contract generation (HITL for sign-off). | In: Lead details. Out: Deals (JSON: {terms, status}). Events: DEAL_CLOSED. | FinancialAgent for pricing; DisputeResolutionAgent for escalations. |
+### **Layout & Connection Agents (3 agents)**
 
-### 3. Design & Engineering (Core PRD Focus)
+| Agent | Status | Mission | Current Capabilities | Implementation Notes |
+|-------|--------|---------|---------------------|---------------------|
+| **LinkAgent** | ✅ | Connection management | Wire and connection handling | Basic connection logic |
+| **LayoutAgent** | ✅ | Component positioning | Basic component layout | Simple positioning |
+| **DesignAssemblyAgent** | ✅ | Sub-assembly generation | Assembly creation and management | Working functionality |
 
-Builds on PRD; enhanced with 2025 patterns (e.g., agentic AI for iterative optimization from Dessia.io).
+### **Knowledge & Routing Agents (3 agents)**
 
-| Agent | Mission | Key Skills | I/O | Depends On |
-| ----- | ----- | ----- | ----- | ----- |
-| SystemDesignAgent | Orchestrate technical design (electrical, civil, etc.). | Task graph management, context hand-off (tools: code_execution for simulations). | In: Customer specs, site data. Out: Design ticket (JSON: {schematic, BOM}). Events: DESIGN_COMPLETED. | DomainAdapterAgent, RuleEngineService; PerformanceAgent. |
-| DatasheetParserAgent | Extract structured specs from PDFs/suppliers. | Vision-language parsing, field normalization (tools: view_image for OCR). | In: Component docs. Out: JSON spec. Events: SPECS_PARSED. | ComponentDBService; browse_page for supplier data. |
-| ComponentDBService (Service-Style) | Single source of truth for parts/versions. | CRUD, EOL flagging, variant mapping. | In: Parsed data. Out: Component records. Events: COMPONENT_UPDATED. | DatasheetParserAgent; InventoryAgent. |
-| WiringSizingAgent | Calculate wire/connector sizes safely. | Rule-based computations, derating factors. | In: Load/distance data. Out: Sizing recommendations. Events: WIRING_SIZED. | RuleEngineService; PerformanceAgent. |
-| PerformanceSimulationAgent | Estimate outputs/efficiencies. | Simulations, what-if analysis (tools: code_execution for math). | In: Design snapshot. Out: Metrics (JSON: {kWh/year, efficiency}). Events: PERFORMANCE_ESTIMATED. | External APIs (e.g., PVWatts via browse_page). |
-| CivilStructuralAgent | Handle mounting/conduit layouts. | Placement optimization, structural checks. | In: Site params. Out: Layout actions. Events: CIVIL_PLANNED. | SystemDesignAgent. |
-| OptimizationAgent | Iterate designs for cost/performance. | Filter application, recompute loops. | In: Preferences. Out: Optimized plans. Events: DESIGN_OPTIMIZED. | FinancialAgent, PerformanceSimulationAgent. |
+| Agent | Status | Mission | Current Capabilities | Implementation Notes |
+|-------|--------|---------|---------------------|---------------------|
+| **KnowledgeManagementAgent** | ✅ | Knowledge queries | Basic knowledge retrieval | Simple query handling |
+| **RouterAgent** | ✅ | Command routing | Routes commands to appropriate agents | Core routing logic |
+| **LearningAgent** | ✅ | Confidence & autonomy | Feedback analysis, auto-approval | (Listed above) |
 
-### 4. Procurement & Supply Chain
+---
 
-Automated sourcing (from MobiDev 2025: AI for vendor evaluation).
+## **Enterprise Roadmap: Phase 2-4 (24 Missing Agents)**
 
-| Agent | Mission | Key Skills | I/O | Depends On |
-| ----- | ----- | ----- | ----- | ----- |
-| PriceFinderAgent | Find best prices/availability. | Supplier API queries, comparison (tools: web_search). | In: BOM lines. Out: Quotes (JSON: {matrix: [...]}). Events: PRICES_FETCHED. | SupplierManagerAgent; ComponentDBService. |
-| PurchaseOrderAgent | Execute purchases/negotiations. | Order placement, vendor chat. | In: Approved BOM. Out: Confirmations. Events: ORDER_PLACED. | FinancialAgent; NegotiationAgent. |
-| SupplierManagerAgent | Evaluate/manage vendors. | Reliability scoring, contract handling. | In: Vendor data. Out: Scores/alerts. Events: SUPPLIER_UPDATED. | AnalyticsInsightsAgent; DisputeResolutionAgent. |
+### **Phase 2: Business Workflow Automation (6-12 months)**
+**Target**: Sales, procurement, and customer engagement workflows
 
-### 5. Logistics & Field Operations
+| Agent | Status | Mission | Planned Capabilities | Technical Requirements |
+|-------|--------|---------|---------------------|---------------------|
+| **LeadDiscoveryAgent** | ❌ | Find prospects via web/social search | Web scraping, social media analysis, geocoding | External API integrations, web search tools |
+| **AdCreativeAgent** | ❌ | Generate & test marketing content | Multimodal content generation, A/B testing | Image generation, analytics integration |
+| **ProductRecommenderAgent** | ❌ | AI-powered system recommendations | Preference matching, what-if simulations | Advanced matching algorithms |
+| **PriceFinderAgent** | ❌ | Multi-supplier price comparison | Supplier API queries, price optimization | Supplier system integrations |
+| **NegotiationAgent** | ❌ | Contract negotiation assistance | Bargaining logic, contract generation | Legal template integration |
+| **InitialEngagementAgent** | ❌ | Customer chat interface | Natural language understanding, query routing | Advanced NLP, chat platform integration |
 
-Route optimization (from Ampcome 2025 examples: AI for supply chain).
+**Phase 2 Technical Upgrades:**
+- Event-driven architecture with Temporal.io workflows
+- External API management layer  
+- CRM/ERP system integrations
+- Advanced security and multi-tenancy
 
-| Agent | Mission | Key Skills | I/O | Depends On |
-| ----- | ----- | ----- | ----- | ----- |
-| LogisticsPlannerAgent | Book/optimize routes. | Carrier queries, routing algorithms (tools: code_execution for PuLP optimization). | In: PO confirmations. Out: Shipping plans. Events: ROUTE_PLANNED. | PriceFinderAgent (freight costs); ComplianceCheckerAgent (customs). |
-| DeliveryTrackerAgent | Track & alert on delays. | Real-time monitoring, notifications. | In: Carrier updates. Out: Status reports. Events: DELAY_ALERT. | LogisticsPlannerAgent; IoTGWService for telemetry. |
-| ServiceSchedulerAgent | Assign technicians/create plans. | Skill matching, route optimization. | In: Install/service tasks. Out: Schedules. Events: SERVICE_SCHEDULED. | WorkforceManagerAgent; LogisticsPlannerAgent. |
-| WorkforceManagerAgent | Maintain roster/performance. | HR data scoring, training KPIs. | In: Team metrics. Out: Rosters. Events: WORKFORCE_UPDATED. | AnalyticsInsightsAgent. |
+### **Phase 3: Field Operations Integration (12-18 months)**
+**Target**: Installation, commissioning, and quality control
 
-### 6. Installation, Commissioning & Quality
+| Agent | Status | Mission | Planned Capabilities | Technical Requirements |
+|-------|--------|---------|---------------------|---------------------|
+| **LogisticsPlannerAgent** | ❌ | Route optimization & scheduling | Carrier integration, route algorithms | Logistics API integrations |
+| **ServiceSchedulerAgent** | ❌ | Technician assignment & planning | Skill matching, schedule optimization | Workforce management systems |
+| **ARAssistAgent** | ❌ | Augmented reality installation guidance | 3D overlays, offline caching | AR/VR development platform |
+| **CommissioningAgent** | ❌ | Remote system verification | Checklist automation, sensor integration | IoT device connectivity |
+| **QualityAuditAgent** | ❌ | Automated quality control | Image analysis, defect detection | Computer vision, ML models |
+| **WorkforceManagerAgent** | ❌ | Team performance & training | HR analytics, performance tracking | HR system integrations |
 
-AR overlays for field (from research.aimultiple.com: Agentic AI patterns for real-time guidance).
+**Phase 3 Technical Upgrades:**
+- IoT device integration platform
+- Computer vision processing pipeline
+- Mobile/AR application framework
+- Real-time data streaming
 
-| Agent | Mission | Key Skills | I/O | Depends On |
-| ----- | ----- | ----- | ----- | ----- |
-| ARAssistAgent | Generate 3D overlays for staff. | Asset command, offline caching (tools: view_x_video for demos). | In: Design package. Out: AR guides. Events: INSTALL_GUIDED. | SystemDesignAgent; QualityAuditAgent. |
-| CommissioningAgent | Verify installs remotely. | Checklist automation, sensor checks. | In: Field data. Out: Commission reports. Events: SYSTEM_COMMISSIONED. | IoTGWService; QualityAuditAgent. |
-| QualityAuditAgent | Perform QC/flag issues. | Image/analysis (tools: view_image), fix suggestions. | In: Post-install photos. Out: QC reports. Events: QUALITY_ISSUED. | ARAssistAgent; WarrantyOracleAgent. |
+### **Phase 4: Lifecycle Management (18-24 months)**  
+**Target**: Support, maintenance, compliance, and analytics
 
-### 7. After-Sales Support & Warranty
+| Agent | Status | Mission | Planned Capabilities | Technical Requirements |
+|-------|--------|---------|---------------------|---------------------|
+| **CustomerSupportAgent** | ❌ | Intelligent ticket resolution | Chat escalation, knowledge RAG | Advanced NLP, ticketing integration |
+| **WarrantyOracleAgent** | ❌ | Automated warranty processing | Claim validation, fraud detection | Claims processing systems |
+| **PredictiveMaintenanceAgent** | ❌ | Failure prediction from telemetry | Anomaly detection, maintenance alerts | Advanced ML, time-series analysis |
+| **DisputeResolutionAgent** | ❌ | Conflict mediation & resolution | Negotiation logic, settlement suggestions | Legal workflow systems |
+| **EOLManagerAgent** | ❌ | End-of-life & recycling coordination | Partner coordination, disposal planning | Sustainability tracking systems |
+| **ComplianceAuditorAgent** | ❌ | Regulatory compliance automation | Standards checks, audit trail generation | Regulatory database integrations |
+| **AnalyticsInsightsAgent** | ❌ | Business intelligence & forecasting | Data aggregation, ML forecasting | Advanced analytics platform |
+| **WebsitePersonalizationAgent** | ❌ | Dynamic content personalization | Real-time profiling, content adaptation | Web platform integration |
+| **LeadScoringAgent** | ❌ | Lead qualification & prioritization | Behavior analytics, propensity scoring | Marketing automation platform |
+| **PurchaseOrderAgent** | ❌ | Automated procurement workflows | Order placement, vendor management | ERP system integration |
+| **SupplierManagerAgent** | ❌ | Vendor evaluation & management | Reliability scoring, contract handling | Supplier management systems |
+| **DeliveryTrackerAgent** | ❌ | Logistics monitoring & alerts | Real-time tracking, delay predictions | Shipping API integrations |
 
-Proactive support (from n8n.io: AI agents for customer service).
+**Phase 4 Technical Upgrades:**
+- Advanced ML/AI processing cluster
+- Regulatory compliance automation
+- Business intelligence platform  
+- Sustainability & ESG reporting
 
-| Agent | Mission | Key Skills | I/O | Depends On |
-| ----- | ----- | ----- | ----- | ----- |
-| CustomerSupportAgent | Handle tickets/troubleshoot. | Chat escalation, knowledge RAG. | In: Queries. Out: Solutions. Events: SUPPORT_RESOLVED. | KnowledgeBaseAgent; view_x_video for guides. |
-| WarrantyOracleAgent | Process claims/detect fraud. | Claim validation, repair arrangement (HITL). | In: Claim details. Out: Resolutions. Events: WARRANTY_PROCESSED. | QualityAuditAgent; SupplierManagerAgent. |
-| PredictiveMaintenanceAgent | Forecast issues from telemetry. | Anomaly detection, alerts (tools: code_execution for statsmodels). | In: IoT data. Out: Forecasts. Events: MAINTENANCE_ALERT. | IoTGWService; AnalyticsInsightsAgent. |
-| DisputeResolutionAgent | Mediate customer disputes. | Negotiation, settlement suggestions (bias_guard: true). | In: Dispute info. Out: Agreements. Events: DISPUTE_RESOLVED. | Legal compliance rules; CustomerSupportAgent. |
+---
 
-### 8. End-of-Life & Analytics (Cross-Cutting)
+## **Implementation Strategy & Success Metrics**
 
-Sustainability focus (from IBM 2025: Agentic AI for lifecycle forecasting).
+### **Phase Development Priorities**
 
-| Agent | Mission | Key Skills | I/O | Depends On |
-| ----- | ----- | ----- | ----- | ----- |
-| EOLManagerAgent | Arrange recycling/notify users. | Partner coordination, disposal planning. | In: EOL triggers. Out: Plans. Events: EOL_HANDLED. | SupplierManagerAgent; web_search for recyclers. |
-| ComplianceAuditorAgent | Ensure regulatory adherence. | Standards checks, audit trails. | In: Designs/data. Out: Reports. Events: COMPLIANCE_AUDITED. | DomainAdapterAgent; RuleEngineService. |
-| AnalyticsInsightsAgent | Provide BI/forecasts. | Data aggregation, ML forecasting (tools: code_execution for torch). | In: Aggregated data. Out: Dashboards/forecasts. Events: INSIGHTS_GENERATED. | All agents (telemetry); CRMService. |
-| KnowledgeBaseAgent | RAG over historical data/docs. | Semantic search, grounding. | In: Queries. Out: Contextual info. Events: KNOWLEDGE_QUERIED. | All agents; ComponentDBService. |
-| IoTGWService | Ingest real-time telemetry. | Secure data ingestion, filtering. | In: Device streams. Out: Processed data. Events: TELEMETRY_INGESTED. | PredictiveMaintenanceAgent. |
-| FinanceGateway | Unified payments/FX/credit. | Processor integration, scoring. | In: Transactions. Out: Confirmations. Events: PAYMENT_PROCESSED. | PurchaseOrderAgent; NegotiationAgent. |
-| CRMService & CMSAgent | Store leads/customers/content. | Persistent DB, dynamic blocks. | In: Events/data. Out: Records. Events: CRM_UPDATED. | LeadScoringAgent; WebsitePersonalisationAgent. |
+**Phase 1 (Complete): Foundation & Core Design**
+- ✅ **Target**: Engineering design automation for solar PV systems
+- ✅ **Achievement**: 18 core agents with confidence-driven autonomy
+- ✅ **Success Metrics**: Design time <30 minutes, learning loop functional, basic validation working
 
-## Suggested Build Phasing
+**Phase 2 (6-12 months): Business Workflow Integration**
+- 🎯 **Target**: Sales, procurement, and customer engagement automation
+- 📈 **Success Metrics**: 
+  - Lead conversion rate >25%
+  - Procurement time <48 hours  
+  - Customer engagement automation >50%
+- 🔧 **Technical Requirements**: Event-driven architecture, external API integrations
 
-Phased rollout with KPIs (expanded from PDF; aligned with Gartner 2025: 6-12 month agent maturity curves).
+**Phase 3 (12-18 months): Field Operations Automation**
+- 🎯 **Target**: Installation, commissioning, and quality control
+- 📈 **Success Metrics**:
+  - Installation error rate <3%
+  - First-time-right completion >90%
+  - Quality score improvement >20%
+- 🔧 **Technical Requirements**: IoT integration, computer vision, mobile/AR platforms
 
-| Phase | Focus | Agents Delivered | Target KPI | Timeline (Months from Start) |
-| ----- | ----- | ----- | ----- | ----- |
-| P0 - MVP | Core design-to-quote loop to prove value & latency targets. | SystemDesignAgent, DatasheetParserAgent, ComponentDBService, WiringSizingAgent, PerformanceSimulationAgent, OptimizationAgent. | End-to-end design time <30min; error rate <5% (PVsyst benchmarks). | 0-6 |
-| P1 - Growth & Sales | Lead capture to contract; focus on conversion. | LeadDiscoveryAgent, AdCreativeAgent, WebsitePersonalisationAgent, LeadScoringAgent, InitialEngagementAgent, ProductRecommenderAgent, NegotiationAgent. | Lead conversion >25%; A/B ad CTR >5%. | 6-12 |
-| P2 - Procurement & Logistics | Sourcing to delivery; optimize costs. | PriceFinderAgent, PurchaseOrderAgent, SupplierManagerAgent, LogisticsPlannerAgent, DeliveryTrackerAgent. | Procurement time <48h; delay rate <2%. | 12-18 |
-| P3 - Field Operations & Quality | Installation/commissioning; reduce errors. | ServiceSchedulerAgent, WorkforceManagerAgent, ARAssistAgent, CommissioningAgent, QualityAuditAgent. | Install error rate <3%; first-time-right >90%. | 18-24 |
-| P4 - After-Sales & Lifecycle | Support, warranty, EOL; boost retention. | CustomerSupportAgent, WarrantyOracleAgent, PredictiveMaintenanceAgent, DisputeResolutionAgent, EOLManagerAgent, ComplianceAuditorAgent, AnalyticsInsightsAgent, KnowledgeBaseAgent, IoTGWService, FinanceGateway, CRMService & CMSAgent. | Support ticket resolution <24h; 50% drop in handling time; NPS >80. | 24-30 |
+**Phase 4 (18-24 months): Lifecycle Management & Analytics**
+- 🎯 **Target**: Support, maintenance, compliance, and business intelligence
+- 📈 **Success Metrics**:
+  - Support ticket resolution <24 hours
+  - Predictive maintenance accuracy >85%
+  - Customer retention >90%
+- 🔧 **Technical Requirements**: Advanced ML, regulatory compliance, analytics platform
 
-This taxonomy enables a fully autonomous platform, with agents collaborating via events/orchestration for resilience. Total coverage: 100% of non-physical tasks per PRD/future vision. For implementation, follow the Engineering Playbook v1.1—each agent starts with a Spec Card.
+### **Enterprise Architecture Evolution**
+
+**Current Architecture (Phase 1):**
+```yaml
+Orchestration: Simple registry-based routing
+LLM Integration: Direct OpenAI API calls
+Learning: Confidence-driven autonomy with vector store
+Data: SQLite/PostgreSQL with basic models
+Tools: Regex parsing, rule engines, heuristic calculations
+```
+
+**Target Architecture (Phase 4):**
+```yaml
+Orchestration: Event-driven with Temporal.io workflows
+LLM Integration: Advanced function calling with tool management
+Learning: Multi-modal ML with continuous improvement
+Data: Distributed data lake with real-time streaming
+Tools: External API integration, IoT, computer vision, AR/VR
+```
+
+### **Development Principles**
+
+1. **Incremental Value**: Each phase delivers measurable business value
+2. **Technical Debt Management**: Refactor Phase 1 architecture before adding complexity
+3. **User-Centric Design**: Maintain human-in-the-loop for critical decisions
+4. **Regulatory Compliance**: Build audit trails and compliance from the start
+5. **Scalable Infrastructure**: Design for enterprise-scale from Phase 2 onwards
+
+---
+
+## **Agent Implementation Summary**
+
+### **Current Status Matrix**
+
+| Phase | Agents Planned | Agents Implemented | Completion Rate | Status |
+|-------|----------------|-------------------|-----------------|---------|
+| **Phase 1** | 18 | 18 | 100% | ✅ **Complete** |
+| **Phase 2** | 6 | 0 | 0% | ⏳ **Planned** |
+| **Phase 3** | 6 | 0 | 0% | ⏳ **Planned** |
+| **Phase 4** | 12 | 0 | 0% | ⏳ **Planned** |
+| **Total** | **42** | **18** | **43%** | 🔄 **In Progress** |
+
+### **Next Steps for Enterprise Development**
+
+**Immediate Priorities (Next 3 months):**
+1. **Architecture Refactoring**: Implement event-driven foundation for Phase 2
+2. **External API Framework**: Build secure API integration layer
+3. **Phase 2 Agent Scaffolding**: Create templates for business workflow agents
+
+**Medium-term Goals (3-12 months):**  
+1. **CRM/ERP Integration**: Connect with business systems
+2. **Lead Management Pipeline**: Implement first 3 business agents
+3. **Advanced Security**: Multi-tenant architecture and access control
+
+**Long-term Vision (12-24 months):**
+1. **IoT & Computer Vision**: Field operations automation
+2. **Advanced Analytics**: ML-powered insights and predictions
+3. **Regulatory Compliance**: Automated audit and compliance systems
+
+---
+
+*This taxonomy provides a realistic roadmap from the current Phase 1 MVP to a comprehensive 42-agent enterprise platform. Each phase builds incrementally on proven foundations while delivering measurable business value.*
+
+*For detailed implementation guidance, see [AGENTS.md](AGENTS.md) and [ENGINEERING_PLAYBOOK.md](ENGINEERING_PLAYBOOK.md)*
