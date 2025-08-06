@@ -42,6 +42,7 @@ The platform is architected for enterprise scale but currently implements core e
 
 - **Customer Project Wizard**: A guided interface for non-technical users to plan projects with AI suggestions and cost estimation.
 - **AI-Driven Datasheet Processing**: Asynchronous parsing pipeline with status tracking, Chain-of-Thought extraction and a Reviewer AI for higher accuracy.
+- **Datasheet Library Augmentation**: When a PDF datasheet is parsed, the extracted metadata is automatically added to the component library—populating the part number, manufacturer, category, electrical ratings, ports, dependencies and nested sub‑elements.  This ensures that future designs use *real* components from your library and reduces manual data entry.
 - **Media Management**: Upload or capture component images/videos, validated by AI with Octopart API integration.
 - **Standards Compliance Engine**: Real-time validation against industry standards (e.g., IEC 81346) with webhook-driven revalidation.
 - **Workflow Orchestration**: Self-hosted Temporal.io for reliable execution of complex workflows, including Saga Pattern for rollbacks.

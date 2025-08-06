@@ -188,7 +188,7 @@ return [{
 - **ComponentAgent**: Component CRUD operations
 - **InventoryAgent**: Component library management
 - **BomAgent**: Bill of materials generation
-- **DatasheetFetchAgent**: PDF parsing and extraction
+- **DatasheetFetchAgent**: Parses PDF datasheets, extracts metadata and automatically populates the component library with part numbers, specs and hierarchical data.
 
 ### 4.3 Support & Validation Agents
 - **LearningAgent**: Confidence scoring and auto-approval decisions
