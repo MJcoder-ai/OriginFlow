@@ -194,36 +194,59 @@ const DatasheetSplitView: React.FC<DatasheetSplitViewProps> = ({
           </button>
         </div>
         <div className="p-4 flex-grow space-y-4">
-          {Object.entries(parsedData).map(([key, value]) => (
-            <div key={key}>
-              <label className="block text-sm font-medium text-gray-700 capitalize">
-                {key.replace(/_/g, ' ')}
-              </label>
-              {/* Render objects as JSON in a textarea; render primitives in an input. */}
-              {typeof value === 'object' && value !== null ? (
-                <textarea
-                  value={JSON.stringify(value, null, 2)}
-                  onChange={(e) => {
-                    try {
-                      const parsed = JSON.parse(e.target.value);
-                      handleDataChange(key, parsed);
-                    } catch {
-                      handleDataChange(key, e.target.value);
-                    }
-                  }}
-                  rows={4}
-                  className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm font-mono"
-                />
-              ) : (
-                <input
-                  type="text"
-                  value={String(value ?? '')}
-                  onChange={(e) => handleDataChange(key, e.target.value)}
-                  className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                />
-              )}
+          {/* Render form fields for all parsedData keys except images */}
+          {Object.entries(parsedData)
+            .filter(([k]) => k !== 'images')
+            .map(([key, value]) => (
+              <div key={key}>
+                <label className="block text-sm font-medium text-gray-700 capitalize">
+                  {key.replace(/_/g, ' ')}
+                </label>
+                {/* Render objects as JSON in a textarea; render primitives in an input. */}
+                {typeof value === 'object' && value !== null ? (
+                  <textarea
+                    value={JSON.stringify(value, null, 2)}
+                    onChange={(e) => {
+                      try {
+                        const parsed = JSON.parse(e.target.value);
+                        handleDataChange(key, parsed);
+                      } catch {
+                        handleDataChange(key, e.target.value);
+                      }
+                    }}
+                    rows={4}
+                    className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm font-mono"
+                  />
+                ) : (
+                  <input
+                    type="text"
+                    value={String(value ?? '')}
+                    onChange={(e) => handleDataChange(key, e.target.value)}
+                    className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  />
+                )}
+              </div>
+            ))}
+
+          {/* Images metadata JSON textarea; displayed just above the thumbnails when present */}
+          {parsedData && parsedData.images !== undefined && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 capitalize">images</label>
+              <textarea
+                value={JSON.stringify(parsedData.images, null, 2)}
+                onChange={(e) => {
+                  try {
+                    const parsed = JSON.parse(e.target.value);
+                    handleDataChange('images', parsed);
+                  } catch {
+                    handleDataChange('images', e.target.value);
+                  }
+                }}
+                rows={4}
+                className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm font-mono"
+              />
             </div>
-          ))}
+          )}
 
           {/* Images Section */}
           <div>
