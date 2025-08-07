@@ -13,6 +13,7 @@ from fastapi import (
     HTTPException,
     status,
     BackgroundTasks,
+    Response,
 )
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -192,34 +193,35 @@ async def upload_images(
     "/files/{file_id}/images/{image_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete an image associated with a datasheet",
+    response_class=Response,
 )
 async def delete_image_endpoint(
     file_id: str,
     image_id: str,
     session: AsyncSession = Depends(get_session),
-) -> None:
+) -> Response:
     service = FileService(session)
     try:
         await service.delete_image(file_id, image_id)
     except Exception as exc:
         raise HTTPException(status_code=404, detail=str(exc))
-    return None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.patch(
     "/files/{file_id}/images/{image_id}/primary",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Set an image as the primary thumbnail for a datasheet",
+    response_class=Response,
 )
 async def set_primary_image_endpoint(
     file_id: str,
     image_id: str,
     session: AsyncSession = Depends(get_session),
-) -> None:
+) -> Response:
     service = FileService(session)
     try:
         await service.set_primary_image(file_id, image_id)
     except Exception as exc:
         raise HTTPException(status_code=404, detail=str(exc))
-    return None
-
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
