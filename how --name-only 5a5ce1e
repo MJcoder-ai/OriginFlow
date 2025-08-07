@@ -1,0 +1,10 @@
+[33m06f740c[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m  COMPONENT_ENHANCEMENT_PLAN created
+[33m5a5ce1e[m Merge pull request #205 from MJcoder-ai/codex/implement-phase-1-component-selection-changes
+[33m2b970d2[m[33m ([m[1;31morigin/codex/implement-phase-1-component-selection-changes[m[33m)[m feat: enforce real component selection
+[33mfbcb662[m code development
+[33mcda59be[m  Update AGENT_TAXONOMY.md: Align with Phase 1 reality & enterprise roadmap
+[33m8593dd9[m Update to AGENTS.md and AGENT_TAXONOMY.md
+[33me509b8d[m Update README to reflect the current status of the project
+[33m1c1dc84[m Learning Loop Fixes Applied
+[33mdb8a28c[m Learning Loop Issue
+[33m70ff475[m Merge branch 'main' of https://github.com/MJcoder-ai/OriginFlow
