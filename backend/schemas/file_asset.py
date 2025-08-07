@@ -21,6 +21,13 @@ class FileAssetRead(FileAssetBase):
     parsing_error: str | None = None
     is_human_verified: bool | None = None
 
+    # Fields for image assets.  These will be populated for images
+    # extracted from PDF datasheets or uploaded manually via the images API.
+    is_extracted: bool | None = None
+    is_primary: bool | None = None
+    width: int | None = None
+    height: int | None = None
+
     model_config = ConfigDict(from_attributes=True)
 
 
