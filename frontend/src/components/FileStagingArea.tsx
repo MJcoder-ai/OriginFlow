@@ -134,28 +134,32 @@ export const FileStagingArea = () => {
 
   return (
     <div className="p-2 space-y-2">
-      <div className="flex items-center justify-between">
-        <div className="text-sm font-medium text-gray-500 px-2">Component Library</div>
-        <div className="flex items-center gap-2">
-          {/* Search input toggles on icon click */}
-          {showSearch && (
-            <input
-              type="text"
-              className="border rounded-full text-sm px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 transition"
-              placeholder="Search"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          )}
-          <Search
-            className="h-5 w-5 cursor-pointer text-gray-500 hover:text-gray-700"
-            onClick={() => setShowSearch((prev) => !prev)}
+      <div className="flex items-center gap-2">
+        {/* Hide the label when searching to maximise available width */}
+        {!showSearch && (
+          <div className="text-sm font-medium text-gray-500 px-2 whitespace-nowrap">
+            Component Library
+          </div>
+        )}
+        {/* Search input grows to fill the remaining width of the sidebar */}
+        {showSearch && (
+          <input
+            type="text"
+            className="flex-grow border rounded-full text-sm px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 transition"
+            placeholder="Search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
           />
-          <Filter
-            className="h-5 w-5 cursor-pointer text-gray-500 hover:text-gray-700"
-            onClick={() => setShowFilter((prev) => !prev)}
-          />
-        </div>
+        )}
+        {/* Icons remain aligned at the end */}
+        <Search
+          className="h-5 w-5 cursor-pointer text-gray-500 hover:text-gray-700"
+          onClick={() => setShowSearch((prev) => !prev)}
+        />
+        <Filter
+          className="h-5 w-5 cursor-pointer text-gray-500 hover:text-gray-700"
+          onClick={() => setShowFilter((prev) => !prev)}
+        />
       </div>
       {/* Filter placeholder panel */}
       {showFilter && (
