@@ -11,8 +11,7 @@ from fastapi import HTTPException
 from backend.agents.base import AgentBase
 from backend.agents.registry import get_agent, get_agent_names
 from backend.config import settings
-
-client = AsyncOpenAI(api_key=settings.openai_api_key)
+from backend.services.ai_clients import get_openai_client
 
 
 class RouterAgent(AgentBase):
@@ -21,7 +20,16 @@ class RouterAgent(AgentBase):
     name = "router_agent"
     description = "Selects the most suitable specialist agent(s) for a command."
 
-    async def handle(self, command: str, snapshot: dict | None = None) -> List[Dict[str, Any]]:
+    def __init__(self, client: AsyncOpenAI) -> None:
+        self.client = client
+
+    async def handle(
+        self,
+        command: str,
+        snapshot: dict | None = None,
+        trace_id: str | None = None,
+        **kwargs: Any,
+    ) -> List[Dict[str, Any]]:
         """Return aggregated actions from relevant specialist agents."""
 
         agents = get_agent_names()
@@ -58,7 +66,7 @@ class RouterAgent(AgentBase):
             ]
         msgs += [{"role": "user", "content": command}]
 
-        response = await client.chat.completions.create(
+        response = await self.client.chat.completions.create(
             model=settings.openai_model_router,
             temperature=0,
             max_tokens=20,
@@ -84,9 +92,9 @@ class RouterAgent(AgentBase):
 
         actions: List[Dict[str, Any]] = []
         for name in selected:
-            if name == "knowledge_management_agent":
-                actions += await get_agent(name).handle(command, snapshot)
-            else:
-                actions += await get_agent(name).handle(command)
+            agent = get_agent(name)
+            agent_actions = await agent.handle(command, snapshot=snapshot, trace_id=trace_id)
+            for act in agent_actions:
+                act["agent_name"] = name
+                actions.append(act)
         return actions
-

@@ -15,11 +15,10 @@ from backend.utils.id import generate_id
 from backend.services.component_db_service import get_component_db_service
 
 from backend.agents.base import AgentBase
-from backend.agents.registry import register
+from backend.agents.registry import register, register_spec
 from backend.schemas.ai import AiAction, AiActionType
 
 
-@register
 class SystemDesignAgent(AgentBase):
     """High\u2011level system design agent.
 
@@ -37,7 +36,7 @@ class SystemDesignAgent(AgentBase):
         "Produces a high\u2011level overview of required components and next steps based on the project domain and capacity."
     )
 
-    async def handle(self, command: str) -> List[Dict[str, Any]]:
+    async def handle(self, command: str, **kwargs) -> List[Dict[str, Any]]:
         text = command.lower()
         size_kw: float | None = None
         size_desc = ""
@@ -310,6 +309,7 @@ class SystemDesignAgent(AgentBase):
         return [action]
 
 
-# instantiate the agent so the registry stores an instance
+ # instantiate the agent so the registry stores an instance
 system_design_agent = register(SystemDesignAgent())
+register_spec(name="system_design_agent", domain="design", capabilities=["design:compose"])
 

@@ -1,9 +1,9 @@
 # backend/agents/__init__.py
 """Package for AI agents used by the OriginFlow backend.
 
-Importing agent modules here triggers their registration via the
-``@register`` decorator.  This file ensures new agents are automatically
-available when the backend starts.
+Importing agent modules here triggers their registration with the in-memory
+registry.  This file ensures new agents are automatically available when the
+backend starts.
 """
 
 # Existing agents are imported implicitly elsewhere.
@@ -19,4 +19,9 @@ from . import financial_agent  # noqa: F401
 from . import cross_layer_validation_agent  # noqa: F401
 from . import sourcing_agent  # noqa: F401
 from . import knowledge_management_agent  # noqa: F401
+from . import component_agent  # noqa: F401
+from . import link_agent  # noqa: F401
+from . import layout_agent  # noqa: F401
+from . import auditor_agent  # noqa: F401
+from . import bom_agent  # noqa: F401
 

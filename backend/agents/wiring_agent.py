@@ -3,26 +3,24 @@
 In future versions this agent will integrate with the deterministic rule
 engine to compute wire gauges, fuse sizes and connectors based on load,
 distance and applicable standards.  Currently it acts as a placeholder to
-demonstrate the agent architecture.
-"""
+demonstrate the agent architecture."""
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
 from backend.agents.base import AgentBase
-from backend.agents.registry import register
+from backend.agents.registry import register, register_spec
 from backend.schemas.ai import AiAction, AiActionType
 from backend.services.rule_engine import default_rule_engine
 
 
-@register
 class WiringAgent(AgentBase):
     """Placeholder wiring agent."""
 
     name = "wiring_agent"
     description = "Sizes wires and connectors (stub)."
 
-    async def handle(self, command: str) -> List[Dict[str, Any]]:
+    async def handle(self, command: str, **kwargs) -> List[Dict[str, Any]]:
         """Size wires and protection devices based on load and distance.
 
         The command should contain a numeric power (in kW) and a distance (in metres).
@@ -75,5 +73,6 @@ class WiringAgent(AgentBase):
         ).model_dump()
         return [action]
 
-# instantiate the agent so the registry stores an instance
+
 wiring_agent = register(WiringAgent())
+register_spec(name="wiring_agent", domain="wiring")

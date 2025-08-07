@@ -10,7 +10,7 @@ import re
 from typing import Any, Dict, List
 
 from backend.agents.base import AgentBase
-from backend.agents.registry import register
+from backend.agents.registry import register, register_spec
 from backend.schemas.ai import AiAction, AiActionType
 
 from backend.services.component_db_service import (
@@ -19,14 +19,13 @@ from backend.services.component_db_service import (
 )
 
 
-@register
 class InventoryAgent(AgentBase):
     """Searches the component master database for suitable components."""
 
     name = "inventory_agent"
     description = "Looks up components and suggests options based on category and ratings."
 
-    async def handle(self, command: str) -> List[Dict[str, Any]]:
+    async def handle(self, command: str, **kwargs) -> List[Dict[str, Any]]:
         """Handle inventory search requests.
 
         This method searches the component master table via
@@ -83,4 +82,5 @@ class InventoryAgent(AgentBase):
 
 # instantiate the agent so the registry stores an instance
 inventory_agent = register(InventoryAgent())
+register_spec(name="inventory_agent", domain="design", capabilities=["components:read"])
 

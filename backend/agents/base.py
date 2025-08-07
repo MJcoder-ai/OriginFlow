@@ -13,7 +13,11 @@ class AgentBase(ABC):
     description: str = ""
 
     @abstractmethod
-    async def handle(self, command: str) -> List[Dict[str, Any]]:
-        """Process ``command`` and return a list of action dictionaries."""
+    async def handle(self, command: str, **kwargs) -> List[Dict[str, Any]]:
+        """Return a list of AiAction dicts.
 
-        raise NotImplementedError
+        Accepts optional keyword arguments such as ``snapshot`` or
+        ``context``. Concrete agents may ignore unknown keys.
+        """
+
+        raise NotImplementedError("Agent must implement handle(command, **kwargs))")

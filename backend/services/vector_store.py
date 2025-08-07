@@ -20,15 +20,15 @@ class VectorStore(Protocol):
     async def upsert(
         self, id: str | int, vector: List[float], metadata: Dict[str, Any]
     ) -> None:  # pragma: no cover - interface
-        ...
+        raise NotImplementedError("TODO: implement")
 
     async def search(
         self, query: List[float], k: int, filters: Dict[str, Any] | None
     ) -> List[Dict[str, Any]]:  # pragma: no cover - interface
-        ...
+        raise NotImplementedError("TODO: implement")
 
     async def delete(self, id: str | int) -> None:  # pragma: no cover - interface
-        ...
+        raise NotImplementedError("TODO: implement")
 
 
 logger = get_logger(__name__)

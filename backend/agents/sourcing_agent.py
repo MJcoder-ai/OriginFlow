@@ -14,12 +14,11 @@ from __future__ import annotations
 from typing import Any, Dict, List
 
 from backend.agents.base import AgentBase
-from backend.agents.registry import register
+from backend.agents.registry import register, register_spec
 from backend.schemas.ai import AiAction, AiActionType
 from backend.services.component_db_service import get_component_db_service
 
 
-@register
 class SourcingAgent(AgentBase):
     """Suggest alternative components based on price and availability.
 
@@ -37,7 +36,7 @@ class SourcingAgent(AgentBase):
     name = "sourcing_agent"
     description = "Recommends alternative components based on price and availability."
 
-    async def handle(self, command: str) -> List[Dict[str, Any]]:
+    async def handle(self, command: str, **kwargs) -> List[Dict[str, Any]]:
         text = command.lower()
         # Determine the category referenced in the command
         category: str | None = None
@@ -95,4 +94,5 @@ class SourcingAgent(AgentBase):
 
 # instantiate the agent
 sourcing_agent = register(SourcingAgent())
+register_spec(name="sourcing_agent", domain="design", capabilities=["components:read"])
 

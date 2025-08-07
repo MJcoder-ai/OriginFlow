@@ -18,18 +18,17 @@ import re
 from typing import Any, Dict, List
 
 from backend.agents.base import AgentBase
-from backend.agents.registry import register
+from backend.agents.registry import register, register_spec
 from backend.schemas.ai import AiAction, AiActionType
 
 
-@register
 class CrossLayerValidationAgent(AgentBase):
     """Validate cross-layer connections and dependencies (stub)."""
 
     name = "cross_layer_validation_agent"
     description = "Checks that all ports are connected and required sub-components are present (stub)."
 
-    async def handle(self, command: str) -> List[Dict[str, Any]]:
+    async def handle(self, command: str, **kwargs) -> List[Dict[str, Any]]:
         # Check if the command mentions validation of connections/design
         if not re.search(r"validate (connections?|design)", command, re.IGNORECASE):
             return []
@@ -46,4 +45,8 @@ class CrossLayerValidationAgent(AgentBase):
                 version=1,
             ).model_dump()
         ]
+
+
+cross_layer_validation_agent = register(CrossLayerValidationAgent())
+register_spec(name="cross_layer_validation_agent", domain="design")
 
