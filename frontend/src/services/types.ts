@@ -4,6 +4,7 @@ export interface FileAsset {
   mime: string;
   size: number;
   url: string;
+  parent_asset_id?: string | null;
   uploaded_at: string;
   parsed_payload?: any | null;
   parsed_at: string | null;

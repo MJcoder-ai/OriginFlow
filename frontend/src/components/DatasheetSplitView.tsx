@@ -232,7 +232,7 @@ const DatasheetSplitView: React.FC<DatasheetSplitViewProps> = ({
               {images.map((img) => (
                 <div key={img.id} className="relative border rounded p-2">
                   <img
-                    src={`${API_BASE_URL}${img.url}`}
+                    src={`${API_BASE_URL.replace(/\/api\/v1$/, '')}${img.url}`}
                     alt={img.filename}
                     className="w-24 h-24 object-cover rounded"
                   />

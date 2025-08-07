@@ -14,6 +14,7 @@ class FileAssetBase(BaseModel):
 
 class FileAssetRead(FileAssetBase):
     id: str
+    parent_asset_id: str | None = None
     uploaded_at: datetime | None = None
     parsed_payload: dict | None = None
     parsed_at: datetime | None = None

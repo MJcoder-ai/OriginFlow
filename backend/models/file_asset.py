@@ -30,6 +30,11 @@ class FileAsset(Base):
     mime: Mapped[str] = mapped_column(String, nullable=False)
     size: Mapped[int] = mapped_column(Integer, nullable=False)
     url: Mapped[str] = mapped_column(String, nullable=False)
+    # When this asset is derived from or uploaded for another file (e.g.
+    # an image extracted from a PDF datasheet), ``parent_asset_id`` stores
+    # the ID of that parent asset.  Top-level uploaded files will have this
+    # field set to ``None``.
+    parent_asset_id: Mapped[str | None] = mapped_column(String, nullable=True)
     # ``FileAsset`` records may be associated with a schematic component when a
     # datasheet or image is uploaded from the canvas.  The core component table
     # was renamed to ``schematic_components`` but this model was not updated,

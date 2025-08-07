@@ -104,7 +104,8 @@ async def run_parsing_job(asset_id: str, session: AsyncSession, ai_client: Async
                 mime=mime,
                 size=size,
                 url=url,
-                component_id=asset.id,
+                parent_asset_id=asset.id,
+                component_id=None,
                 is_extracted=True,
                 is_primary=False,
                 width=width,
@@ -360,8 +361,14 @@ class FileService:
         return obj
 
     async def list_assets(self) -> list[FileAsset]:
-        """Return all persisted file assets."""
-        result = await self.session.execute(select(FileAsset))
+        """Return only top-level PDF file assets.
+
+        Child assets such as images use ``parent_asset_id`` to reference their
+        parent datasheet and should not appear in the general file listing.
+        """
+        stmt = select(FileAsset).where(FileAsset.parent_asset_id.is_(None))
+        stmt = stmt.where(FileAsset.mime == "application/pdf")
+        result = await self.session.execute(stmt)
         return result.scalars().all()
 
     @staticmethod
@@ -407,12 +414,14 @@ class FileService:
     # Image management methods
     # ------------------------------------------------------------------
     async def list_images(self, asset_id: str) -> list[dict[str, Any]]:
-        """Return all image assets associated with a datasheet asset.
+        """Return all image assets linked to a datasheet via ``parent_asset_id``.
 
-        This includes both extracted images and manually uploaded images.
-        Images are filtered by ``component_id`` equal to the datasheet's ID.
+        Both images extracted from the PDF and those uploaded manually are
+        returned.  The query filters on ``parent_asset_id`` so that images are
+        associated with their parent datasheet rather than a schematic
+        component.
         """
-        stmt = select(FileAsset).where(FileAsset.component_id == asset_id)
+        stmt = select(FileAsset).where(FileAsset.parent_asset_id == asset_id)
         result = await self.session.execute(stmt)
         images_models = result.scalars().all()
         images: list[dict[str, Any]] = []
@@ -467,7 +476,8 @@ class FileService:
                 mime=content_type,
                 size=size,
                 url=url,
-                component_id=asset.id,
+                parent_asset_id=asset.id,
+                component_id=None,
                 is_extracted=False,
                 is_primary=False,
                 width=width,
@@ -481,10 +491,15 @@ class FileService:
         return saved_assets
 
     async def delete_image(self, asset_id: str, image_id: str) -> None:
-        """Remove an image file associated with a datasheet and its record."""
+        """Remove an image file associated with a datasheet and its record.
+
+        If the deleted image was marked as primary, the largest remaining image
+        (by pixel area) will be promoted to primary.
+        """
         img = await FileService.get(self.session, image_id)
-        if not img or img.component_id != asset_id:
+        if not img or img.parent_asset_id != asset_id:
             raise ValueError("Image not found or does not belong to this asset")
+        was_primary = img.is_primary
         # Remove file from disk
         try:
             path = img.local_path
@@ -495,10 +510,28 @@ class FileService:
         await self.session.delete(img)
         await self.session.commit()
 
+        if was_primary:
+            stmt = select(FileAsset).where(FileAsset.parent_asset_id == asset_id)
+            result = await self.session.execute(stmt)
+            remaining = result.scalars().all()
+            largest = None
+            largest_pixels = 0
+            for im in remaining:
+                try:
+                    if im.width and im.height and (im.width * im.height) > largest_pixels:
+                        largest_pixels = im.width * im.height
+                        largest = im
+                except Exception:
+                    pass
+            if largest:
+                for im in remaining:
+                    im.is_primary = im.id == largest.id
+                    self.session.add(im)
+                await self.session.commit()
+
     async def set_primary_image(self, asset_id: str, image_id: str) -> None:
         """Set a specific image as the primary thumbnail for a datasheet."""
-        # Fetch all images for this asset
-        stmt = select(FileAsset).where(FileAsset.component_id == asset_id)
+        stmt = select(FileAsset).where(FileAsset.parent_asset_id == asset_id)
         result = await self.session.execute(stmt)
         imgs = result.scalars().all()
         target = None
