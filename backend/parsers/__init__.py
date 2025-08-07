@@ -8,5 +8,5 @@ parsers (e.g.
 OCR, form recognition) can be added here in future.
 """
 
-__all__ = ["table_extractor"]
+__all__ = ["table_extractor", "image_extractor"]
 

@@ -15,12 +15,15 @@ from pdfminer.high_level import extract_text
 import re
 # Use our dedicated table extraction module.  This relies on Camelot
 from backend.parsers.table_extractor import extract_tables
+from backend.parsers.image_extractor import extract_images  # image extraction
 
 from backend.config import settings
 
 from backend.models.file_asset import FileAsset
 from backend.schemas.file_asset import FileAssetUpdate
 from backend.utils.id import generate_id
+from pathlib import Path
+from fastapi import UploadFile
 
 
 class ParsedSchema(TypedDict, total=False):
@@ -52,6 +55,90 @@ async def run_parsing_job(asset_id: str, session: AsyncSession, ai_client: Async
 
         extraction_result: dict[str, Any] = {}
         parsed_tables: list[dict[str, Any]] = []
+
+        # ------------------------------------------------------------------
+        # Image extraction from PDF
+        # ------------------------------------------------------------------
+        # Attempt to extract images using pypdf.  Filter out very small images
+        # (e.g. icons) based on raw data size.  Save each image to the
+        # datasheet's upload directory and create a FileAsset entry for it.
+        try:
+            images = extract_images(asset.local_path)
+        except Exception:
+            images = []
+        # Only consider images above 20 kB to avoid logos and icons
+        min_bytes = 20 * 1024
+        images = [img for img in images if img.get("data") and len(img["data"]) > min_bytes]
+        # Directory to store extracted images
+        save_dir = Path(asset.local_path).parent / "images"
+        save_dir.mkdir(parents=True, exist_ok=True)
+        extracted_assets: list[FileAsset] = []
+        largest_pixels = 0
+        largest_asset: FileAsset | None = None
+        for img in images:
+            page = img.get("page")
+            index = img.get("index")
+            ext = img.get("extension", "png")
+            width = img.get("width")
+            height = img.get("height")
+            data_bytes: bytes = img.get("data", b"")  # type: ignore
+            filename = f"page{page}_img{index}.{ext}"
+            file_id = generate_id("asset")
+            file_path = save_dir / filename
+            # Write image to disk
+            with file_path.open("wb") as f:
+                f.write(data_bytes)
+            url = f"/static/uploads/{asset.id}/images/{filename}"
+            size = len(data_bytes)
+            mime_map = {
+                "jpg": "image/jpeg",
+                "jpeg": "image/jpeg",
+                "png": "image/png",
+                "tif": "image/tiff",
+                "tiff": "image/tiff",
+            }
+            mime = mime_map.get(ext.lower(), f"image/{ext.lower()}")
+            new_img = FileAsset(
+                id=file_id,
+                filename=filename,
+                mime=mime,
+                size=size,
+                url=url,
+                component_id=asset.id,
+                is_extracted=True,
+                is_primary=False,
+                width=width,
+                height=height,
+            )
+            session.add(new_img)
+            extracted_assets.append(new_img)
+            # Track largest image by pixel area
+            try:
+                if width and height and (width * height) > largest_pixels:
+                    largest_pixels = width * height
+                    largest_asset = new_img
+            except Exception:
+                pass
+        # Mark largest as primary
+        if largest_asset:
+            largest_asset.is_primary = True
+        elif extracted_assets:
+            # Fallback: mark the first as primary
+            extracted_assets[0].is_primary = True
+        # Append image metadata to extraction_result for front-end consumption
+        if extracted_assets:
+            # Flush session to get IDs for new images
+            await session.flush()
+            extraction_result["images"] = [
+                {
+                    "id": img.id,
+                    "url": img.url,
+                    "width": img.width,
+                    "height": img.height,
+                    "primary": img.is_primary,
+                }
+                for img in extracted_assets
+            ]
 
         # ------------------------------------------------------------------
         # Rule-based extraction via regex heuristics
@@ -315,4 +402,114 @@ class FileService:
         await session.commit()
         await session.refresh(asset)
         return asset
+
+    # ------------------------------------------------------------------
+    # Image management methods
+    # ------------------------------------------------------------------
+    async def list_images(self, asset_id: str) -> list[dict[str, Any]]:
+        """Return all image assets associated with a datasheet asset.
+
+        This includes both extracted images and manually uploaded images.
+        Images are filtered by ``component_id`` equal to the datasheet's ID.
+        """
+        stmt = select(FileAsset).where(FileAsset.component_id == asset_id)
+        result = await self.session.execute(stmt)
+        images_models = result.scalars().all()
+        images: list[dict[str, Any]] = []
+        for img in images_models:
+            images.append(
+                {
+                    "id": img.id,
+                    "filename": img.filename,
+                    "url": img.url,
+                    "is_primary": img.is_primary,
+                    "is_extracted": img.is_extracted,
+                    "width": img.width,
+                    "height": img.height,
+                }
+            )
+        return images
+
+    async def upload_images(self, asset_id: str, files: list[UploadFile]) -> list[FileAsset]:
+        """Upload one or more image files and associate them with a datasheet asset."""
+        asset = await FileService.get(self.session, asset_id)
+        if not asset:
+            raise ValueError("Asset not found")
+        # Directory under uploads/{asset_id}/images
+        save_dir = Path(asset.local_path).parent / "images"
+        save_dir.mkdir(parents=True, exist_ok=True)
+        saved_assets: list[FileAsset] = []
+        for upl in files:
+            # Generate a new asset ID for each uploaded image
+            img_id = generate_id("asset")
+            filename = upl.filename
+            file_path = save_dir / filename
+            # Write the content
+            content = await upl.read()
+            with file_path.open("wb") as buf:
+                buf.write(content)
+            url = f"/static/uploads/{asset.id}/images/{filename}"
+            size = len(content)
+            # Determine content type and dimensions
+            content_type = upl.content_type or "image/png"
+            width = height = None
+            try:
+                from PIL import Image
+                import io
+
+                with Image.open(io.BytesIO(content)) as im:
+                    width, height = im.size
+            except Exception:
+                pass
+            new_asset = FileAsset(
+                id=img_id,
+                filename=filename,
+                mime=content_type,
+                size=size,
+                url=url,
+                component_id=asset.id,
+                is_extracted=False,
+                is_primary=False,
+                width=width,
+                height=height,
+            )
+            self.session.add(new_asset)
+            saved_assets.append(new_asset)
+        await self.session.commit()
+        for img in saved_assets:
+            await self.session.refresh(img)
+        return saved_assets
+
+    async def delete_image(self, asset_id: str, image_id: str) -> None:
+        """Remove an image file associated with a datasheet and its record."""
+        img = await FileService.get(self.session, image_id)
+        if not img or img.component_id != asset_id:
+            raise ValueError("Image not found or does not belong to this asset")
+        # Remove file from disk
+        try:
+            path = img.local_path
+            if path.exists():  # type: ignore[attr-defined]
+                path.unlink(missing_ok=True)  # type: ignore[attr-defined]
+        except Exception:
+            pass
+        await self.session.delete(img)
+        await self.session.commit()
+
+    async def set_primary_image(self, asset_id: str, image_id: str) -> None:
+        """Set a specific image as the primary thumbnail for a datasheet."""
+        # Fetch all images for this asset
+        stmt = select(FileAsset).where(FileAsset.component_id == asset_id)
+        result = await self.session.execute(stmt)
+        imgs = result.scalars().all()
+        target = None
+        for img in imgs:
+            if img.id == image_id:
+                target = img
+                img.is_primary = True
+            else:
+                img.is_primary = False
+            self.session.add(img)
+        if target is None:
+            raise ValueError("Image not found")
+        await self.session.commit()
 

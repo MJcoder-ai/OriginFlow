@@ -49,6 +49,17 @@ class FileAsset(Base):
     parsing_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_human_verified: Mapped[bool] = mapped_column(Boolean, server_default="false", nullable=False)
 
+    # Fields related to images extracted from PDF datasheets.  When a
+    # ``FileAsset`` represents an image produced by the datasheet parser,
+    # ``is_extracted`` will be true.  ``is_primary`` indicates the preferred
+    # thumbnail for the associated component.  ``width`` and ``height`` store
+    # pixel dimensions when available.  These fields are optional so that
+    # existing files without images are unaffected.
+    is_extracted: Mapped[bool] = mapped_column(Boolean, server_default="false", nullable=False)
+    is_primary: Mapped[bool] = mapped_column(Boolean, server_default="false", nullable=False)
+    width: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    height: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
     @property
     def local_path(self) -> Path:
         """Return the local filesystem path for this asset."""

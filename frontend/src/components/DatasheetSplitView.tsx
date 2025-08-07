@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Document, Page } from 'react-pdf';
+import { listImages, uploadImages, deleteImage, setPrimaryImage } from '../services/fileApi';
+import { API_BASE_URL } from '../config';
 
 interface DatasheetSplitViewProps {
   assetId: string;
@@ -24,6 +26,63 @@ const DatasheetSplitView: React.FC<DatasheetSplitViewProps> = ({
   const [pageNumber, setPageNumber] = useState(1);
   const [parsedData, setParsedData] = useState(initialParsedData);
   const [isDirty, setIsDirty] = useState(false);
+  // Images extracted or uploaded for this asset
+  const [images, setImages] = useState<any[]>([]);
+
+  // Fetch existing images on mount or when asset changes
+  useEffect(() => {
+    async function fetchImages() {
+      try {
+        const imgs = await listImages(assetId);
+        setImages(imgs);
+      } catch (err) {
+        console.error('Failed to load images', err);
+      }
+    }
+    fetchImages();
+  }, [assetId]);
+
+  // Upload handler for new images
+  const handleUploadImages = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const list: File[] = [];
+    for (let i = 0; i < files.length; i++) {
+      list.push(files[i]);
+    }
+    try {
+      const saved = await uploadImages(assetId, list);
+      // Append new images to local state
+      setImages((prev) => [...prev, ...saved]);
+    } catch (err) {
+      console.error('Image upload failed', err);
+    }
+    // Reset input value so the same file can be uploaded again if needed
+    e.target.value = '';
+  };
+
+  // Delete an image
+  const handleDeleteImage = async (imageId: string) => {
+    if (!window.confirm('Are you sure you want to delete this image?')) return;
+    try {
+      await deleteImage(assetId, imageId);
+      setImages((prev) => prev.filter((img) => img.id !== imageId));
+    } catch (err) {
+      console.error('Failed to delete image', err);
+    }
+  };
+
+  // Set primary image
+  const handleSetPrimary = async (imageId: string) => {
+    try {
+      await setPrimaryImage(assetId, imageId);
+      setImages((prev) =>
+        prev.map((img) => ({ ...img, is_primary: img.id === imageId }))
+      );
+    } catch (err) {
+      console.error('Failed to set primary image', err);
+    }
+  };
 
   // Callback function when the document is successfully loaded
   function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
@@ -165,6 +224,54 @@ const DatasheetSplitView: React.FC<DatasheetSplitViewProps> = ({
               )}
             </div>
           ))}
+
+          {/* Images Section */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Images</label>
+            <div className="flex flex-wrap gap-3">
+              {images.map((img) => (
+                <div key={img.id} className="relative border rounded p-2">
+                  <img
+                    src={`${API_BASE_URL}${img.url}`}
+                    alt={img.filename}
+                    className="w-24 h-24 object-cover rounded"
+                  />
+                  {img.is_primary && (
+                    <span className="absolute top-1 left-1 bg-blue-500 text-white text-xs px-1 py-0.5 rounded">
+                      Primary
+                    </span>
+                  )}
+                  <div className="mt-1 flex space-x-1">
+                    {!img.is_primary && (
+                      <button
+                        onClick={() => handleSetPrimary(img.id)}
+                        className="text-xs text-blue-600 underline"
+                      >
+                        Make Default
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDeleteImage(img.id)}
+                      className="text-xs text-red-600 underline"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {/* Upload Button */}
+              <label className="flex items-center justify-center w-24 h-24 border-2 border-dashed rounded cursor-pointer text-gray-500">
+                <span className="text-sm">+ Add</span>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={handleUploadImages}
+                  className="hidden"
+                />
+              </label>
+            </div>
+          </div>
         </div>
         <div className="p-4 border-t bg-gray-50 flex justify-end space-x-3">
           <button

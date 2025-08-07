@@ -24,6 +24,9 @@ from backend.schemas.file_asset import FileAssetRead, FileAssetUpdate
 from backend.services.file_service import FileService, run_parsing_job
 from backend.utils.id import generate_id
 
+# Typing helper for JSON-like return values
+from typing import Any
+
 router = APIRouter()
 
 
@@ -146,4 +149,77 @@ async def download_file(
         media_type=asset.mime,
         filename=asset.filename,
     )
+
+
+# ---------------------------------------------------------------------------
+# Image management endpoints
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/files/{file_id}/images",
+    summary="List images associated with a datasheet",
+)
+async def list_images(
+    file_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> list[dict[str, Any]]:
+    service = FileService(session)
+    try:
+        images = await service.list_images(file_id)
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    return images
+
+
+@router.post(
+    "/files/{file_id}/images",
+    summary="Upload additional images for a datasheet",
+)
+async def upload_images(
+    file_id: str,
+    files: list[UploadFile] = File(...),
+    session: AsyncSession = Depends(get_session),
+) -> list[FileAssetRead]:
+    service = FileService(session)
+    try:
+        saved = await service.upload_images(file_id, files)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return [FileAssetRead.model_validate(img) for img in saved]
+
+
+@router.delete(
+    "/files/{file_id}/images/{image_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete an image associated with a datasheet",
+)
+async def delete_image_endpoint(
+    file_id: str,
+    image_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    service = FileService(session)
+    try:
+        await service.delete_image(file_id, image_id)
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    return None
+
+
+@router.patch(
+    "/files/{file_id}/images/{image_id}/primary",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Set an image as the primary thumbnail for a datasheet",
+)
+async def set_primary_image_endpoint(
+    file_id: str,
+    image_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    service = FileService(session)
+    try:
+        await service.set_primary_image(file_id, image_id)
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    return None
 
