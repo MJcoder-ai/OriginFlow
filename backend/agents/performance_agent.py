@@ -1,15 +1,13 @@
-"""Agent providing rough system performance estimations."""
 from __future__ import annotations
 
 import re
 from typing import Any, Dict, List
 
 from backend.agents.base import AgentBase
-from backend.agents.registry import register
+from backend.agents.registry import register, register_spec
 from backend.schemas.ai import AiAction, AiActionType
 
 
-@register
 class PerformanceAgent(AgentBase):
     """Estimates system performance for PV, HVAC and water projects."""
 
@@ -18,7 +16,7 @@ class PerformanceAgent(AgentBase):
         "Roughly estimates annual energy yield or efficiency for PV, HVAC and water systems."
     )
 
-    async def handle(self, command: str) -> List[Dict[str, Any]]:
+    async def handle(self, command: str, **kwargs) -> List[Dict[str, Any]]:
         text = command.lower()
         size_kw: float | None = None
         size_tons: float | None = None
@@ -83,5 +81,5 @@ class PerformanceAgent(AgentBase):
         return [action]
 
 
-# instantiate the agent so the registry stores an instance
 performance_agent = register(PerformanceAgent())
+register_spec(name="performance_agent", domain="design")

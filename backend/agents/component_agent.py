@@ -12,19 +12,18 @@ from pydantic import BaseModel, Field
 from backend.utils.llm import safe_tool_calls
 
 from backend.agents.base import AgentBase
-from backend.agents.registry import register
+from backend.agents.registry import register, register_spec
 from backend.config import settings
 from backend.schemas.ai import AiAction, AiActionType
 from backend.schemas.component import ComponentCreate
 from backend.services.component_service import find_component_by_name
+from backend.services.ai_clients import get_openai_client
 
 # schema for the remove_component tool
 class RemoveComponentPayload(BaseModel):
     """Payload identifying a component to remove."""
 
     name: str = Field(..., description="The name of the component to remove.")
-
-client = AsyncOpenAI(api_key=settings.openai_api_key)
 
 
 class ComponentAgent(AgentBase):
@@ -33,11 +32,13 @@ class ComponentAgent(AgentBase):
     name = "component_agent"
     description = "Adds or removes components."
 
-    async def handle(self, command: str) -> List[Dict[str, Any]]:
-        """Return validated component actions."""
+    def __init__(self, client: AsyncOpenAI) -> None:
+        self.client = client
 
+    async def handle(self, command: str, **kwargs) -> List[Dict[str, Any]]:
+        """Return validated component actions."""
         try:
-            response = await client.chat.completions.create(
+            response = await self.client.chat.completions.create(
                 model=settings.openai_model_agents,
                 temperature=settings.temperature,
                 max_tokens=settings.max_tokens,
@@ -64,7 +65,6 @@ class ComponentAgent(AgentBase):
             )
             tool_calls = safe_tool_calls(response)
         except (OpenAIError, ValueError) as err:
-            # bubble up as 422 so UI can show "couldn't understand"
             raise HTTPException(status_code=422, detail=str(err))
 
         actions: List[Dict[str, Any]] = []
@@ -79,9 +79,10 @@ class ComponentAgent(AgentBase):
                 )
             elif call.function.name == "remove_component":
                 payload = (
-                    RemoveComponentPayload.model_validate_json(call.function.arguments).model_dump()
+                    RemoveComponentPayload.model_validate_json(
+                        call.function.arguments
+                    ).model_dump()
                 )
-                # translate name → id here so front-end gets exact id
                 comp = await find_component_by_name(payload["name"])
                 if not comp:
                     raise HTTPException(404, f'Component "{payload["name"]}" not found')
@@ -97,4 +98,15 @@ class ComponentAgent(AgentBase):
         return actions
 
 
-register(ComponentAgent())
+component_agent = register(ComponentAgent(get_openai_client()))
+register_spec(
+    name="component_agent",
+    domain="design",
+    risk_class="medium",
+    capabilities=[
+        "components:read",
+        "components:create",
+        "components:update",
+        "components:delete",
+    ],
+)

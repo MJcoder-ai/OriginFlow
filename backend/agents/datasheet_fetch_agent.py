@@ -12,18 +12,17 @@ import re
 from typing import Any, Dict, List
 
 from backend.agents.base import AgentBase
-from backend.agents.registry import register
+from backend.agents.registry import register, register_spec
 from backend.schemas.ai import AiAction, AiActionType
 
 
-@register
 class DatasheetFetchAgent(AgentBase):
     """Fetches datasheets and stores parsed data (stub implementation)."""
 
     name = "datasheet_fetch_agent"
     description = "Fetch component datasheets and store parsed data into the master database."
 
-    async def handle(self, command: str) -> List[Dict[str, Any]]:
+    async def handle(self, command: str, **kwargs) -> List[Dict[str, Any]]:
         match = re.search(r"(?:datasheet\s+for\s+)?([A-Za-z0-9\-]+)", command)
         part_number = match.group(1) if match else None
         if not part_number:
@@ -41,4 +40,5 @@ class DatasheetFetchAgent(AgentBase):
 
 # instantiate the agent so the registry stores an instance
 datasheet_fetch_agent = register(DatasheetFetchAgent())
+register_spec(name="datasheet_fetch_agent", domain="design", capabilities=["components:create"])
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import List
+import uuid
 
 from fastapi import HTTPException
 from slowapi import Limiter
@@ -10,18 +11,37 @@ from slowapi.util import get_remote_address
 from openai import OpenAIError
 
 from backend.agents.router_agent import RouterAgent
+from backend.agents.registry import get_spec
 from backend.utils.openai_helpers import map_openai_error
 from backend.schemas.ai import AiAction, AiActionType, BomReportPayload, PositionPayload
 from backend.schemas.component import ComponentCreate
 from backend.schemas.link import LinkCreate
+from backend.schemas.design_context import RequestContext, DesignSnapshot
+from backend.policy.capabilities import ACTION_REQUIRED_SCOPES
+from backend.policy.confidence import get_thresholds_for_action
+from backend.services.ai_clients import get_openai_client
+from backend.utils.logging import get_logger
 
 limiter = Limiter(key_func=get_remote_address)
+
+
+logger = get_logger(__name__)
+
+
+def _check_capabilities(agent_name: str, action: AiAction) -> None:
+    spec = get_spec(agent_name)
+    required = ACTION_REQUIRED_SCOPES.get(action.action, [])
+    missing = [s for s in required if s not in spec.capabilities]
+    if missing:
+        raise PermissionError(
+            f"Agent '{agent_name}' lacks capability for {action.action}: missing {missing}"
+        )
 
 
 class AiOrchestrator:
     """High-level orchestrator coordinating agent calls."""
 
-    router_agent = RouterAgent()
+    router_agent = RouterAgent(get_openai_client())
 
     async def process(
         self,
@@ -36,8 +56,13 @@ class AiOrchestrator:
         confidence scoring can use richer context.
         """
 
+        ctx = RequestContext(
+            trace_id=str(uuid.uuid4()),
+            snapshot=DesignSnapshot(**design_snapshot) if design_snapshot else None,
+        )
+        logger.info("ai.process_command.start", trace_id=ctx.trace_id, agent_router="RouterAgent")
         try:
-            raw = await self.router_agent.handle(command, design_snapshot or {})
+            raw = await self.router_agent.handle(command, snapshot=ctx.snapshot, trace_id=ctx.trace_id)
         except (OpenAIError, ValueError) as err:
             raise map_openai_error(err)
         validated: List[AiAction] = []
@@ -56,11 +81,12 @@ class AiOrchestrator:
             AiActionType.remove_link: 0.4,
         }
         for action in raw:
+            agent_name = action.pop("agent_name", "unknown")
             try:
                 obj = AiAction.model_validate(action)
             except Exception as exc:  # pragma: no cover - defensive
                 raise HTTPException(422, f"Invalid action schema: {exc}") from exc
-            # assign initial heuristic confidence score
+            _check_capabilities(agent_name, obj)
             obj.confidence = _CONFIDENCE_MAP.get(obj.action, 0.5)
 
             if obj.action == AiActionType.add_component:
@@ -95,51 +121,33 @@ class AiOrchestrator:
         auto_approved_actions = []
         pending_actions = []
         
-        import logging
-        logger = logging.getLogger(__name__)
         logger.info(f"Applying confidence-driven autonomy to {len(validated)} actions")
         
         for action in validated:
-            # Set confidence threshold based on action type risk level
-            confidence_threshold = self._get_confidence_threshold(action.action)
-            action_type = action.action.value if hasattr(action.action, 'value') else str(action.action)
-            
-            logger.info(f"Action {action_type}: confidence={action.confidence}, threshold={confidence_threshold}")
-            
-            if action.confidence and action.confidence >= confidence_threshold:
-                # High confidence: mark as auto-approved
+            thr = get_thresholds_for_action(action.action)
+            action_type = action.action.value if hasattr(action.action, "value") else str(action.action)
+
+            logger.info(
+                "action.thresholds",
+                trace_id=ctx.trace_id,
+                action=action_type,
+                confidence=action.confidence,
+            )
+
+            if action.confidence and action.confidence >= thr.auto_approve_min:
                 action.auto_approved = True
                 auto_approved_actions.append(action)
-                logger.info(f"AUTO-APPROVED: {action_type} (confidence {action.confidence} >= {confidence_threshold})")
-            else:
-                # Low confidence: requires human approval
+            elif action.confidence and action.confidence >= thr.human_review_min:
                 action.auto_approved = False
                 pending_actions.append(action)
-                logger.info(f"MANUAL APPROVAL: {action_type} (confidence {action.confidence} < {confidence_threshold})")
+            else:
+                action.auto_approved = False
+                pending_actions.append(action)
         
         logger.info(f"Result: {len(auto_approved_actions)} auto-approved, {len(pending_actions)} pending manual approval")
         
         # Return all actions, but mark which ones are auto-approved
         return validated
-
-    def _get_confidence_threshold(self, action_type: AiActionType) -> float:
-        """Get confidence threshold for auto-approval based on action type risk level.
-        
-        Higher risk actions require higher confidence for auto-approval.
-        Conservative thresholds ensure safety while enabling autonomy for routine tasks.
-        """
-        # Conservative thresholds - require high confidence for auto-approval
-        # Lowered thresholds to make learning more responsive for testing
-        risk_thresholds = {
-            AiActionType.validation: 0.6,        # Safe to auto-validate 
-            AiActionType.report: 0.6,            # Safe to auto-generate reports
-            AiActionType.update_position: 0.75,  # Layout changes need high confidence
-            AiActionType.add_component: 0.8,     # Component addition needs high confidence
-            AiActionType.add_link: 0.8,          # Connections need high confidence
-            AiActionType.remove_component: 0.9,  # Deletion is high risk
-            AiActionType.remove_link: 0.9,       # Deletion is high risk
-        }
-        return risk_thresholds.get(action_type, 0.95)  # Default to very conservative
 
     @classmethod
     def dep(cls) -> "AiOrchestrator":

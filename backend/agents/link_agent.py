@@ -11,12 +11,11 @@ from fastapi import HTTPException
 from backend.utils.llm import safe_tool_calls
 
 from backend.agents.base import AgentBase
-from backend.agents.registry import register
+from backend.agents.registry import register, register_spec
 from backend.config import settings
 from backend.schemas.ai import AiAction, AiActionType
 from backend.schemas.link import LinkCreate
-
-client = AsyncOpenAI(api_key=settings.openai_api_key)
+from backend.services.ai_clients import get_openai_client
 
 
 class LinkAgent(AgentBase):
@@ -25,7 +24,10 @@ class LinkAgent(AgentBase):
     name = "link_agent"
     description = "Adds or removes links between components or suggests them."
 
-    async def handle(self, command: str) -> List[Dict[str, Any]]:
+    def __init__(self, client: AsyncOpenAI) -> None:
+        self.client = client
+
+    async def handle(self, command: str, **kwargs) -> List[Dict[str, Any]]:
         """Return validated link actions."""
 
         tools = [
@@ -47,7 +49,7 @@ class LinkAgent(AgentBase):
             },
         ]
         try:
-            response = await client.chat.completions.create(
+            response = await self.client.chat.completions.create(
                 model=settings.openai_model_agents,
                 temperature=settings.temperature,
                 max_tokens=settings.max_tokens,
@@ -63,7 +65,11 @@ class LinkAgent(AgentBase):
         for call in tool_calls:
             payload = json.loads(call.function.arguments)
             LinkCreate(**payload)
-            kind = AiActionType.add_link if call.function.name == "add_link" else AiActionType.suggest_link
+            kind = (
+                AiActionType.add_link
+                if call.function.name == "add_link"
+                else AiActionType.suggest_link
+            )
             actions.append(
                 AiAction(action=kind, payload=payload, version=1).model_dump()
             )
@@ -72,4 +78,9 @@ class LinkAgent(AgentBase):
         return actions
 
 
-register(LinkAgent())
+link_agent = register(LinkAgent(get_openai_client()))
+register_spec(
+    name="link_agent",
+    domain="wiring",
+    capabilities=["links:create"],
+)

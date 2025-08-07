@@ -17,12 +17,11 @@ import re
 from typing import Any, Dict, List
 
 from backend.agents.base import AgentBase
-from backend.agents.registry import register
+from backend.agents.registry import register, register_spec
 from backend.schemas.ai import AiAction, AiActionType
 from backend.services.component_db_service import get_component_db_service
 
 
-@register
 class FinancialAgent(AgentBase):
     """Cost estimation agent for PV, HVAC and water systems.
 
@@ -37,7 +36,7 @@ class FinancialAgent(AgentBase):
     name = "financial_agent"
     description = "Provides rough cost estimates for PV, HVAC and water projects."
 
-    async def handle(self, command: str) -> List[Dict[str, Any]]:
+    async def handle(self, command: str, **kwargs) -> List[Dict[str, Any]]:
         text = command.lower()
         # Extract system size from the command.  Accept both kW and ton units.
         size_kw: float | None = None
@@ -188,4 +187,5 @@ class FinancialAgent(AgentBase):
 
 # instantiate the agent
 financial_agent = register(FinancialAgent())
+register_spec(name="financial_agent", domain="finance", capabilities=["finance:estimate"])
 

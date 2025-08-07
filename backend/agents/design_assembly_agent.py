@@ -4,12 +4,11 @@ import re
 from typing import Any, Dict, List
 
 from backend.agents.base import AgentBase
-from backend.agents.registry import register
+from backend.agents.registry import register, register_spec
 from backend.schemas.ai import AiAction, AiActionType
 from backend.services.component_db_service import get_component_db_service
 
 
-@register
 class DesignAssemblyAgent(AgentBase):
     """Generates sub-assemblies for components based on dependencies."""
 
@@ -18,7 +17,7 @@ class DesignAssemblyAgent(AgentBase):
         "Looks up a component's dependencies and proposes sub-components for detailed layers."
     )
 
-    async def handle(self, command: str) -> List[Dict[str, Any]]:
+    async def handle(self, command: str, **kwargs) -> List[Dict[str, Any]]:
         text = command.lower()
         if "sub" not in text:
             return []
@@ -129,4 +128,5 @@ class DesignAssemblyAgent(AgentBase):
 
 
 design_assembly_agent = register(DesignAssemblyAgent())
+register_spec(name="design_assembly_agent", domain="design")
 

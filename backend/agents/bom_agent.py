@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import json
 from typing import Any, Dict, List
 
@@ -7,12 +5,11 @@ from fastapi import HTTPException
 from openai import AsyncOpenAI, OpenAIError
 
 from backend.agents.base import AgentBase
-from backend.agents.registry import register
+from backend.agents.registry import register, register_spec
 from backend.config import settings
 from backend.schemas.ai import AiAction, AiActionType, BomReportPayload
 from backend.utils.llm import safe_tool_calls
-
-client = AsyncOpenAI(api_key=settings.openai_api_key)
+from backend.services.ai_clients import get_openai_client
 
 
 class BomAgent(AgentBase):
@@ -21,7 +18,10 @@ class BomAgent(AgentBase):
     name = "bom_agent"
     description = "Produce bill of materials for the design"
 
-    async def handle(self, command: str) -> List[Dict[str, Any]]:
+    def __init__(self, client: AsyncOpenAI) -> None:
+        self.client = client
+
+    async def handle(self, command: str, **kwargs) -> List[Dict[str, Any]]:
         tools = [
             {
                 "type": "function",
@@ -42,7 +42,7 @@ class BomAgent(AgentBase):
             }
         ]
         try:
-            response = await client.chat.completions.create(
+            response = await self.client.chat.completions.create(
                 model=settings.openai_model_agents,
                 temperature=settings.temperature,
                 max_tokens=settings.max_tokens,
@@ -65,4 +65,5 @@ class BomAgent(AgentBase):
         return actions
 
 
-register(BomAgent())
+bom_agent = register(BomAgent(get_openai_client()))
+register_spec(name="bom_agent", domain="bom", capabilities=["bom:read"])
