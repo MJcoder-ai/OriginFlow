@@ -3,7 +3,7 @@
 This module provides a single helper :func:`extract_images` which uses
 :mod:`pypdf` to iterate over the pages of a PDF and yield embedded images.
 Each image's raw bytes are loaded into :class:`PIL.Image` to determine its
-pixel dimensions and other metadata.  Very small images (less than 20 kB)
+pixel dimensions and other metadata.  Very small images (less than 5 kB)
 are ignored to avoid icons and similar boilerplate graphics.
 
 The function returns a list of dictionaries with the following keys::
@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 # Minimum number of bytes for an image to be considered.  This helps skip
 # icons and other tiny graphics that are often embedded in datasheets.
-MIN_BYTES = 20 * 1024
+MIN_BYTES = 5 * 1024
 
 
 def _guess_extension(name: str | None, mime: str | None) -> str:

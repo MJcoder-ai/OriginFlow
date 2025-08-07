@@ -66,8 +66,8 @@ async def run_parsing_job(asset_id: str, session: AsyncSession, ai_client: Async
             images = extract_images(asset.local_path)
         except Exception:
             images = []
-        # Only consider images above 20 kB to avoid logos and icons
-        min_bytes = 20 * 1024
+        # Only consider images above 5 kB to avoid logos and icons
+        min_bytes = 5 * 1024
         images = [img for img in images if img.get("data") and len(img["data"]) > min_bytes]
         # Directory to store extracted images
         save_dir = Path(asset.local_path).parent / "images"
@@ -82,10 +82,26 @@ async def run_parsing_job(asset_id: str, session: AsyncSession, ai_client: Async
             width = img.get("width")
             height = img.get("height")
             data_bytes: bytes = img.get("data", b"")  # type: ignore
+            # Convert unsupported formats (e.g. JP2, TIFF) to JPEG for browser compatibility.
+            # Allowed formats are JPEG/JPG and PNG. Others will be converted to JPEG.
+            if ext.lower() not in ("jpg", "jpeg", "png"):
+                try:
+                    from PIL import Image  # type: ignore
+                    import io  # type: ignore
+                    with Image.open(io.BytesIO(data_bytes)) as im:
+                        # Convert to RGB to avoid palette or alpha issues
+                        rgb = im.convert("RGB")
+                        buf = io.BytesIO()
+                        rgb.save(buf, format="JPEG")
+                        data_bytes = buf.getvalue()
+                        ext = "jpg"
+                        width, height = rgb.size
+                except Exception:
+                    # If conversion fails, keep original data and extension
+                    pass
             filename = f"page{page}_img{index}.{ext}"
             file_id = generate_id("asset")
             file_path = save_dir / filename
-            # Write image to disk
             with file_path.open("wb") as f:
                 f.write(data_bytes)
             url = f"/static/uploads/{asset.id}/images/{filename}"
@@ -94,8 +110,6 @@ async def run_parsing_job(asset_id: str, session: AsyncSession, ai_client: Async
                 "jpg": "image/jpeg",
                 "jpeg": "image/jpeg",
                 "png": "image/png",
-                "tif": "image/tiff",
-                "tiff": "image/tiff",
             }
             mime = mime_map.get(ext.lower(), f"image/{ext.lower()}")
             new_img = FileAsset(
@@ -113,7 +127,6 @@ async def run_parsing_job(asset_id: str, session: AsyncSession, ai_client: Async
             )
             session.add(new_img)
             extracted_assets.append(new_img)
-            # Track largest image by pixel area
             try:
                 if width and height and (width * height) > largest_pixels:
                     largest_pixels = width * height
