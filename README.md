@@ -57,7 +57,7 @@ The platform is architected for enterprise scale but currently implements core e
   - **Datasheet Upload Button**: Use the paperclip icon next to the mic to upload PDF datasheets into the Component Library. A spinner and badge show progress while files upload.
 - **Multi-Line Chat Input**: Compose longer messages in a textarea that auto-resizes as you type.
 - **Component Deletion by Name**: Remove components via the AI assistant or UI by referencing the component's name.
-- **Enhanced Component Library**: A compact filter and search bar appears just under the library heading.  Icons allow you to toggle an inline search input or a filter panel without stealing screen real estate.  Components are automatically prioritised by the AI to surface the most relevant items first, but searching or filtering overrides the ordering.  Each component card maintains its size but now reserves a small area for a thumbnail image when extracted from the datasheet.
+ - **Enhanced Component Library**: A compact filter and search bar appears just under the library heading.  Icons allow you to toggle an inline search input or a filter panel without stealing screen real estate.  When you activate the search, the “Component Library” label collapses and the search field expands to fill the available width of the sidebar.  Components are automatically prioritised by the AI to surface the most relevant items first, but searching or filtering overrides the ordering.  Each component card maintains its size but now reserves a small area for a thumbnail image when extracted from the datasheet.
 - **AI Agents (Phase 1)**: Core design agents for engineering workflows. **18 agents implemented** of the 42 planned in AGENT_TAXONOMY.md:
 
    **✅ Implemented Core Agents:**
