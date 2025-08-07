@@ -3,6 +3,8 @@ import clsx from 'clsx';
 import { useDraggable } from '@dnd-kit/core';
 import { getFileStatus, parseDatasheet } from '../services/fileApi';
 import { API_BASE_URL } from '../config';
+import React, { useState } from 'react';
+import { Search, Filter } from 'lucide-react';
 
 const FileEntry: React.FC<{ u: UploadEntry }> = ({ u }) => {
   const setActiveDatasheet = useAppStore((s) => s.setActiveDatasheet);
@@ -112,12 +114,60 @@ const FileEntry: React.FC<{ u: UploadEntry }> = ({ u }) => {
 
 export const FileStagingArea = () => {
   const uploads = useAppStore((s) => s.uploads.filter((u) => u.progress > 100));
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showFilter, setShowFilter] = useState(false);
   if (!uploads.length) return null;
+
+  // Filter uploads based on search query.  Matches on name or parsed_payload contents.
+  const filteredUploads = uploads.filter((u) => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    if (u.name && u.name.toLowerCase().includes(query)) return true;
+    try {
+      if (u.parsed_payload && JSON.stringify(u.parsed_payload).toLowerCase().includes(query)) return true;
+    } catch (err) {
+      /* ignore JSON stringify errors */
+    }
+    return false;
+  });
 
   return (
     <div className="p-2 space-y-2">
-      <div className="text-sm font-medium text-gray-500 px-2">Component Library</div>
-      {uploads.map((u) => (
+      <div className="flex items-center gap-2">
+        {/* Hide the label when searching to maximise available width */}
+        {!showSearch && (
+          <div className="text-sm font-medium text-gray-500 px-2 whitespace-nowrap">
+            Component Library
+          </div>
+        )}
+        {/* Search input grows to fill the remaining width of the sidebar */}
+        {showSearch && (
+          <input
+            type="text"
+            className="flex-grow border rounded-full text-sm px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 transition"
+            placeholder="Search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        )}
+        {/* Icons remain aligned at the end */}
+        <Search
+          className="h-5 w-5 cursor-pointer text-gray-500 hover:text-gray-700"
+          onClick={() => setShowSearch((prev) => !prev)}
+        />
+        <Filter
+          className="h-5 w-5 cursor-pointer text-gray-500 hover:text-gray-700"
+          onClick={() => setShowFilter((prev) => !prev)}
+        />
+      </div>
+      {/* Filter placeholder panel */}
+      {showFilter && (
+        <div className="px-2 py-1 text-xs text-gray-400 italic bg-gray-50 rounded">
+          Advanced filtering options coming soon.
+        </div>
+      )}
+      {filteredUploads.map((u) => (
         <FileEntry key={u.id} u={u} />
       ))}
     </div>
