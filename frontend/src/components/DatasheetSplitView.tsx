@@ -179,18 +179,16 @@ const DatasheetSplitView: React.FC<DatasheetSplitViewProps> = ({
               }}
             />
           ) : initialParsedData ? (
-            <div className="flex flex-col gap-2">
-              <h3 className="text-sm font-medium text-gray-700 mb-1">Raw data</h3>
+            <div className="flex flex-col gap-0">
+              <h3 className="text-sm font-medium text-gray-700 mb-2">
+                Raw data
+              </h3>
               {/* Editable fallback form for each key/value in parsedData */}
               {Object.entries(parsedData).map(([key, value]) => (
-                <div
-                  key={key}
-                  className="grid grid-cols-[200px,1fr] items-start gap-3 px-3 py-2 border-b last:border-0"
-                >
-                  <div className="text-sm font-medium text-gray-700 capitalize">
+                <div key={key} className="p-3 border-b last:border-0">
+                  <label className="block text-sm font-medium text-gray-600 mb-1 capitalize">
                     {key.replace(/_/g, ' ')}
-                  </div>
-                  <div className="flex flex-col">
+                  </label>
                     {typeof value === 'object' && value !== null ? (
                       <textarea
                         value={JSON.stringify(value, null, 2)}
@@ -208,7 +206,7 @@ const DatasheetSplitView: React.FC<DatasheetSplitViewProps> = ({
                             return updated;
                           });
                         }}
-                        rows={2}
+                        rows={3}
                         className="w-full border rounded px-2 py-1 text-sm font-mono resize-y"
                       />
                     ) : (
@@ -227,7 +225,6 @@ const DatasheetSplitView: React.FC<DatasheetSplitViewProps> = ({
                         className="w-full border rounded px-2 py-1 text-sm"
                       />
                     )}
-                  </div>
                 </div>
               ))}
             </div>
