@@ -34,6 +34,11 @@ The review UI has changed to provide a cleaner, minimal experience:
 - When the attributes API returns no rows (e.g. the catalog is not populated), an **editable raw data** fallback appears.  Each key/value from the original `parsed_payload` is editable; changes auto-save back to `/files/{id}` and mark the datasheet dirty.
 - `ChatInputArea` recognises “confirm and close” or “confirm & close” to trigger the confirmation flow from chat.
 
+Additional layout and styling notes:
+
+- Labels now sit above each input, with lighter text for a cleaner look.
+- Scrollbars reveal on hover with a slim 6px track and thumb.
+
 ## Data model highlights
 - Canonical **Attribute Catalog** (labels, keys, units, types, synonyms, applicability).
 - Versioned **ComponentAttributeValue** with provenance (`source_id`, `confidence`).

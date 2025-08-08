@@ -78,6 +78,17 @@
   height: 0;
 }
 .scroll-container:hover::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
+}
+
+/* Thumb style on hover */
+.scroll-container:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.25);
+  border-radius: 3px;
+}
+
+/* Track style on hover */
+.scroll-container:hover::-webkit-scrollbar-track {
+  background-color: rgba(0, 0, 0, 0.05);
 }
