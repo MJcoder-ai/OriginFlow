@@ -28,10 +28,10 @@ app.middleware('http')(request_id_middleware)
 The review UI has changed to provide a cleaner, minimal experience:
 
 - **Save** is removed; edits auto-save via `PATCH /attributes` with debounce.
-- **Confirm & Close** calls `POST /confirm-close` and is disabled until there are unsaved changes.  Once confirmed, it closes the datasheet without re-triggering parsing.
-- **Re-Analyse** is no longer shown in the datasheet footer.  Instead, the top **Analyze** button will re-parse the current datasheet when a datasheet is active; otherwise it runs the design validation on the project canvas.
+- **Confirm & Close** is now located in the top toolbar.  It calls `POST /confirm-close` and is disabled until there are unsaved changes (including image changes).  Once confirmed, it clears the dirty flag and closes the datasheet without re-triggering parsing.
+- **Re-Analyse** is removed from the datasheet footer.  The top **Analyze** button re-parses the current datasheet when a datasheet is open; otherwise it runs the usual design validation on the project canvas.  Reanalysis no longer closes the datasheet.
 - The attributes panel hides vertical/horizontal scrollbars by default; they appear when the user hovers over the pane.  Containers use `overflow-auto scroll-container` with `min-h-0` so scrollbars render correctly.
-- When the attributes API returns no rows (e.g. the catalog is not populated), a **raw data** fallback shows the original `parsed_payload` in a simple read-only list so users still see some context.
+- When the attributes API returns no rows (e.g. the catalog is not populated), an **editable raw data** fallback appears.  Each key/value from the original `parsed_payload` is editable; changes auto-save back to `/files/{id}` and mark the datasheet dirty.
 - `ChatInputArea` recognises “confirm and close” or “confirm & close” to trigger the confirmation flow from chat.
 
 ## Data model highlights

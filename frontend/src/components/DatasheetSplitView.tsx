@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Document, Page } from 'react-pdf';
-import { listImages, uploadImages, deleteImage, setPrimaryImage } from '../services/fileApi';
-import { confirmClose } from '../services/attributesApi';
+import { listImages, uploadImages, deleteImage, setPrimaryImage, updateParsedData } from '../services/fileApi';
+// Confirm & Close now resides in the toolbar; no direct confirm here.
+import { useAppStore } from '../appStore';
 import AttributesReviewPanel from './AttributesReviewPanel';
 import { API_BASE_URL } from '../config';
 import { Star, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from 'lucide-react';
+import { debounce } from '../utils/debounce';
 
 interface DatasheetSplitViewProps {
   assetId: string;
@@ -28,10 +30,34 @@ const DatasheetSplitView: React.FC<DatasheetSplitViewProps> = ({
   const [scale, setScale] = useState(1.0);
   const [images, setImages] = useState<any[]>([]);
 
+  // Global dirty flag setter from the app store
+  const setDatasheetDirty = useAppStore((s) => s.setDatasheetDirty);
+
   // Track whether any attributes are returned from the backend.
   const [hasAttributes, setHasAttributes] = useState<boolean | null>(null);
-  // Track whether the user has unsaved changes
-  const [dirty, setDirty] = useState(false);
+
+  // When attributes are unavailable we render and edit the raw parsed payload.
+  // Maintain a local copy for editing. Start with the provided initialParsedData or an empty object.
+  const [parsedData, setParsedData] = useState<any>(initialParsedData || {});
+
+  // When the asset or initialParsedData changes, reset the local parsedData
+  useEffect(() => {
+    setParsedData(initialParsedData || {});
+  }, [assetId, initialParsedData]);
+
+  // Debounced saver for the raw parsed payload. The debounce prevents a request on every keystroke.
+  const debouncedSave = React.useMemo(() => {
+    return debounce((data: any) => {
+      updateParsedData(assetId, data, false).catch((err) => {
+        console.error('Failed to save parsed data', err);
+      });
+    }, 500);
+  }, [assetId]);
+
+  // Reset the datasheet dirty flag whenever a new asset is loaded
+  useEffect(() => {
+    setDatasheetDirty(false);
+  }, [assetId]);
 
   useEffect(() => {
     async function fetchImages() {
@@ -65,6 +91,7 @@ const DatasheetSplitView: React.FC<DatasheetSplitViewProps> = ({
     };
   }, [assetId]);
 
+  // Upload handler for new images
   const handleUploadImages = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -74,7 +101,10 @@ const DatasheetSplitView: React.FC<DatasheetSplitViewProps> = ({
     }
     try {
       const saved = await uploadImages(assetId, list);
+      // Append new images to local state
       setImages((prev) => [...prev, ...saved]);
+      // Mark datasheet as dirty when new images are added
+      setDatasheetDirty(true);
     } catch (err) {
       console.error('Image upload failed', err);
     }
@@ -86,6 +116,7 @@ const DatasheetSplitView: React.FC<DatasheetSplitViewProps> = ({
     try {
       await deleteImage(assetId, imageId);
       setImages((prev) => prev.filter((img) => img.id !== imageId));
+      setDatasheetDirty(true);
     } catch (err) {
       console.error('Failed to delete image', err);
     }
@@ -94,7 +125,10 @@ const DatasheetSplitView: React.FC<DatasheetSplitViewProps> = ({
   const handleSetPrimary = async (imageId: string) => {
     try {
       await setPrimaryImage(assetId, imageId);
-      setImages((prev) => prev.map((img) => ({ ...img, is_primary: img.id === imageId })));
+      setImages((prev) =>
+        prev.map((img) => ({ ...img, is_primary: img.id === imageId }))
+      );
+      setDatasheetDirty(true);
     } catch (err) {
       console.error('Failed to set primary image', err);
     }
@@ -109,16 +143,6 @@ const DatasheetSplitView: React.FC<DatasheetSplitViewProps> = ({
   const goToNextPage = () => setPageNumber((p) => Math.min(p + 1, numPages || 1));
   const zoomIn = () => setScale((s) => s + 0.1);
   const zoomOut = () => setScale((s) => Math.max(s - 0.1, 0.1));
-
-  const handleConfirm = async () => {
-    try {
-      await confirmClose(assetId);
-      onClose();
-    } catch (err) {
-      console.error('Failed to confirm datasheet', err);
-      onClose();
-    }
-  };
 
   return (
     <div className="flex h-full min-h-0">
@@ -149,12 +173,16 @@ const DatasheetSplitView: React.FC<DatasheetSplitViewProps> = ({
           ) : hasAttributes ? (
             <AttributesReviewPanel
               componentId={assetId}
-              onDirtyChange={(d) => setDirty(d)}
+              onDirtyChange={(d) => {
+                // Propagate dirty state to the global app store
+                setDatasheetDirty(d);
+              }}
             />
           ) : initialParsedData ? (
             <div className="flex flex-col gap-2">
               <h3 className="text-sm font-medium text-gray-700 mb-1">Raw data</h3>
-              {Object.entries(initialParsedData).map(([key, value]) => (
+              {/* Editable fallback form for each key/value in parsedData */}
+              {Object.entries(parsedData).map(([key, value]) => (
                 <div
                   key={key}
                   className="grid grid-cols-[200px,1fr] items-start gap-3 px-3 py-2 border-b last:border-0"
@@ -162,10 +190,43 @@ const DatasheetSplitView: React.FC<DatasheetSplitViewProps> = ({
                   <div className="text-sm font-medium text-gray-700 capitalize">
                     {key.replace(/_/g, ' ')}
                   </div>
-                  <div className="text-sm text-gray-800 break-words whitespace-pre-wrap">
-                    {typeof value === 'object' && value !== null
-                      ? JSON.stringify(value, null, 2)
-                      : String(value)}
+                  <div className="flex flex-col">
+                    {typeof value === 'object' && value !== null ? (
+                      <textarea
+                        value={JSON.stringify(value, null, 2)}
+                        onChange={(e) => {
+                          let newValue: any = e.target.value;
+                          try {
+                            newValue = JSON.parse(e.target.value);
+                          } catch {
+                            /* keep as string */
+                          }
+                          setParsedData((prev) => {
+                            const updated = { ...prev, [key]: newValue };
+                            setDatasheetDirty(true);
+                            debouncedSave(updated);
+                            return updated;
+                          });
+                        }}
+                        rows={2}
+                        className="w-full border rounded px-2 py-1 text-sm font-mono resize-y"
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        value={String(value ?? '')}
+                        onChange={(e) => {
+                          const newValue: any = e.target.value;
+                          setParsedData((prev) => {
+                            const updated = { ...prev, [key]: newValue };
+                            setDatasheetDirty(true);
+                            debouncedSave(updated);
+                            return updated;
+                          });
+                        }}
+                        className="w-full border rounded px-2 py-1 text-sm"
+                      />
+                    )}
                   </div>
                 </div>
               ))}
@@ -214,22 +275,10 @@ const DatasheetSplitView: React.FC<DatasheetSplitViewProps> = ({
               </label>
             </div>
           </div>
-        </div>
-        <div className="p-4 border-t bg-gray-50 flex justify-end space-x-3">
-          <button
-            onClick={handleConfirm}
-            disabled={hasAttributes ? !dirty : false}
-            className={`px-4 py-2 text-sm font-medium border border-transparent rounded-md shadow-sm focus:outline-none ${
-              hasAttributes && !dirty
-                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                : 'bg-blue-600 text-white hover:bg-blue-700'
-            }`}
-          >
-            Confirm & Close
-          </button>
-        </div>
+        {/* Footer removed — Confirm & Close and Re‑Analyze now live in the toolbar. */}
       </div>
     </div>
+  </div>
   );
 };
 
