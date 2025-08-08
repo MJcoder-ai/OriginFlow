@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Document, Page } from 'react-pdf';
 import { listImages, uploadImages, deleteImage, setPrimaryImage } from '../services/fileApi';
-import { confirmClose, reanalyze } from '../services/attributesApi';
+import { confirmClose } from '../services/attributesApi';
 import AttributesReviewPanel from './AttributesReviewPanel';
 import { API_BASE_URL } from '../config';
 import { Star, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -9,14 +9,29 @@ import { Star, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from 'lucide
 interface DatasheetSplitViewProps {
   assetId: string;
   pdfUrl: string;
+  /**
+   * Parsed payload returned from the backend. Used as a fallback if the
+   * attribute view API does not return any rows. May be null.
+   */
+  initialParsedData?: any;
   onClose: () => void;
 }
 
-const DatasheetSplitView: React.FC<DatasheetSplitViewProps> = ({ assetId, pdfUrl, onClose }) => {
+const DatasheetSplitView: React.FC<DatasheetSplitViewProps> = ({
+  assetId,
+  pdfUrl,
+  initialParsedData,
+  onClose,
+}) => {
   const [numPages, setNumPages] = useState<number | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
   const [scale, setScale] = useState(1.0);
   const [images, setImages] = useState<any[]>([]);
+
+  // Track whether any attributes are returned from the backend.
+  const [hasAttributes, setHasAttributes] = useState<boolean | null>(null);
+  // Track whether the user has unsaved changes
+  const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
     async function fetchImages() {
@@ -28,6 +43,26 @@ const DatasheetSplitView: React.FC<DatasheetSplitViewProps> = ({ assetId, pdfUrl
       }
     }
     fetchImages();
+  }, [assetId]);
+
+  // Determine if the attributes API returns any rows.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { getAttributesView } = await import('../services/attributesApi');
+        const rows = await getAttributesView(assetId);
+        if (!cancelled) {
+          setHasAttributes(rows && rows.length > 0);
+        }
+      } catch (err) {
+        console.error('Failed to load attributes for preview', err);
+        if (!cancelled) setHasAttributes(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [assetId]);
 
   const handleUploadImages = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -85,20 +120,9 @@ const DatasheetSplitView: React.FC<DatasheetSplitViewProps> = ({ assetId, pdfUrl
     }
   };
 
-  const handleReanalyze = async () => {
-    if (!window.confirm('Re-analysing will discard extracted images and metadata. Continue?')) return;
-    try {
-      await reanalyze(assetId);
-      onClose();
-    } catch (err) {
-      console.error('Failed to reanalyze datasheet', err);
-      onClose();
-    }
-  };
-
   return (
-    <div className="flex h-full">
-      <div className="w-1/2 border-r flex flex-col">
+    <div className="flex h-full min-h-0">
+      <div className="w-1/2 border-r flex flex-col min-h-0">
         <div className="flex items-center justify-between p-2 border-b bg-white">
           <div className="flex items-center gap-2">
             <button onClick={goToPrevPage} className="p-1 border rounded"><ChevronLeft className="w-4 h-4" /></button>
@@ -110,15 +134,45 @@ const DatasheetSplitView: React.FC<DatasheetSplitViewProps> = ({ assetId, pdfUrl
             <button onClick={zoomIn} className="p-1 border rounded"><ZoomIn className="w-4 h-4" /></button>
           </div>
         </div>
-        <div className="flex-1 overflow-auto scroll-container bg-gray-50 flex justify-center">
+        <div className="flex-1 overflow-auto scroll-container bg-gray-50 flex justify-center min-h-0">
           <Document file={pdfUrl} onLoadSuccess={onDocumentLoadSuccess} className="m-2">
             <Page pageNumber={pageNumber} scale={scale} />
           </Document>
         </div>
       </div>
-      <div className="w-1/2 flex flex-col">
-        <div className="flex-1 overflow-auto scroll-container p-4 flex flex-col gap-4">
-          <AttributesReviewPanel componentId={assetId} />
+      {/* Right pane: attributes and images */}
+      <div className="w-1/2 flex flex-col min-h-0">
+        <div className="flex-1 overflow-auto scroll-container p-4 flex flex-col gap-4 min-h-0">
+          {/* Show the attributes review panel if the API returned rows; otherwise show a fallback view */}
+          {hasAttributes === null ? (
+            <div className="text-sm text-gray-500">Loading attributes…</div>
+          ) : hasAttributes ? (
+            <AttributesReviewPanel
+              componentId={assetId}
+              onDirtyChange={(d) => setDirty(d)}
+            />
+          ) : initialParsedData ? (
+            <div className="flex flex-col gap-2">
+              <h3 className="text-sm font-medium text-gray-700 mb-1">Raw data</h3>
+              {Object.entries(initialParsedData).map(([key, value]) => (
+                <div
+                  key={key}
+                  className="grid grid-cols-[200px,1fr] items-start gap-3 px-3 py-2 border-b last:border-0"
+                >
+                  <div className="text-sm font-medium text-gray-700 capitalize">
+                    {key.replace(/_/g, ' ')}
+                  </div>
+                  <div className="text-sm text-gray-800 break-words whitespace-pre-wrap">
+                    {typeof value === 'object' && value !== null
+                      ? JSON.stringify(value, null, 2)
+                      : String(value)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-sm text-gray-500">No attributes or parsed data available.</div>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Images</label>
             <div className="flex flex-wrap gap-3">
@@ -164,15 +218,14 @@ const DatasheetSplitView: React.FC<DatasheetSplitViewProps> = ({ assetId, pdfUrl
         <div className="p-4 border-t bg-gray-50 flex justify-end space-x-3">
           <button
             onClick={handleConfirm}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none"
+            disabled={hasAttributes ? !dirty : false}
+            className={`px-4 py-2 text-sm font-medium border border-transparent rounded-md shadow-sm focus:outline-none ${
+              hasAttributes && !dirty
+                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                : 'bg-blue-600 text-white hover:bg-blue-700'
+            }`}
           >
             Confirm & Close
-          </button>
-          <button
-            onClick={handleReanalyze}
-            className="px-4 py-2 text-sm font-medium text-white bg-gray-100 text-gray-700 border border-transparent rounded-md shadow-sm hover:bg-blue-600 hover:text-white focus:outline-none"
-          >
-            Re-Analyze
           </button>
         </div>
       </div>

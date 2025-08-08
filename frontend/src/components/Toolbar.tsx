@@ -1,6 +1,7 @@
 import React from 'react';
 import { useAppStore } from '../appStore';
 import { exportAttributesToCsv } from '../utils/exportCsv';
+import { reanalyze } from '../services/attributesApi';
 
 const Toolbar: React.FC = () => {
   const analyzeAndExecute = useAppStore((s) => s.analyzeAndExecute);
@@ -9,6 +10,33 @@ const Toolbar: React.FC = () => {
   const historyIndex = useAppStore((s) => s.historyIndex);
   const historyLength = useAppStore((s) => s.history.length);
   const activeDatasheet = useAppStore((s) => s.activeDatasheet);
+  const addStatusMessage = useAppStore((s) => s.addStatusMessage);
+  const setActiveDatasheet = useAppStore((s) => s.setActiveDatasheet);
+  const setRoute = useAppStore((s) => s.setRoute);
+
+  const handleAnalyzeClick = async () => {
+    // If a datasheet is currently open, trigger re-analysis of that datasheet
+    if (activeDatasheet) {
+      const confirm = window.confirm(
+        'Re-analysing will discard extracted images and metadata. Continue?'
+      );
+      if (!confirm) return;
+      try {
+        // Show an info status message
+        addStatusMessage('Re-analysing datasheet...', 'info');
+        await reanalyze(activeDatasheet.id);
+        // Close the datasheet view; it will reopen once parsing completes via polling
+        setActiveDatasheet(null);
+        setRoute('components');
+      } catch (err: any) {
+        console.error('Failed to reanalyze datasheet', err);
+        addStatusMessage('Re-Analyze failed', 'error');
+      }
+    } else {
+      // Otherwise run the AI design validation
+      analyzeAndExecute('validate my design');
+    }
+  };
   return (
     <section
       className="grid-in-toolbar h-12 flex items-center justify-between px-6 border-b bg-white shadow-sm"
@@ -17,7 +45,7 @@ const Toolbar: React.FC = () => {
     >
       <div className="flex items-center gap-3">
         <button
-          onClick={() => analyzeAndExecute('validate my design')}
+          onClick={handleAnalyzeClick}
           className="px-3 py-1 text-sm rounded bg-gray-100 text-gray-700 hover:bg-blue-600 hover:text-white"
         >
           Analyze
