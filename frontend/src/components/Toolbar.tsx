@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAppStore } from '../appStore';
+import { exportAttributesToCsv } from '../utils/exportCsv';
 
 const Toolbar: React.FC = () => {
   const analyzeAndExecute = useAppStore((s) => s.analyzeAndExecute);
@@ -7,6 +8,7 @@ const Toolbar: React.FC = () => {
   const redo = useAppStore((s) => s.redo);
   const historyIndex = useAppStore((s) => s.historyIndex);
   const historyLength = useAppStore((s) => s.history.length);
+  const activeDatasheet = useAppStore((s) => s.activeDatasheet);
   return (
     <section
       className="grid-in-toolbar h-12 flex items-center justify-between px-6 border-b bg-white shadow-sm"
@@ -16,14 +18,25 @@ const Toolbar: React.FC = () => {
       <div className="flex items-center gap-3">
         <button
           onClick={() => analyzeAndExecute('validate my design')}
-          className="px-3 py-1 text-sm rounded bg-blue-600 text-white hover:bg-blue-700"
+          className="px-3 py-1 text-sm rounded bg-gray-100 text-gray-700 hover:bg-blue-600 hover:text-white"
         >
           Analyze
         </button>
         <button className="px-3 py-1 text-sm rounded bg-gray-100 hover:bg-gray-200">
           Filter
         </button>
-        <button className="px-3 py-1 text-sm rounded bg-gray-100 hover:bg-gray-200">
+        <button
+          onClick={async () => {
+            if (activeDatasheet) {
+              try {
+                await exportAttributesToCsv(activeDatasheet.id);
+              } catch (err) {
+                console.error('Export failed', err);
+              }
+            }
+          }}
+          className="px-3 py-1 text-sm rounded bg-gray-100 hover:bg-gray-200"
+        >
           Export
         </button>
         {/* Undo/Redo buttons */}

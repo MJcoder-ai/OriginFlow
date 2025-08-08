@@ -68,3 +68,16 @@
     "sidebar main chat-input"
     "status status chat-footer";
 }
+
+/* Hide scrollbars by default on scrollable containers and reveal them on hover */
+.scroll-container {
+  scrollbar-width: none; /* Firefox */
+}
+.scroll-container::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+.scroll-container:hover::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}

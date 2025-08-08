@@ -2,6 +2,7 @@ import { useAppStore } from '../appStore';
 import { Mic, Send, Bot } from 'lucide-react';
 import { FileUploadButton } from './FileUploadButton';
 import React from 'react';
+import { confirmClose } from '../services/attributesApi';
 
 const ChatInputArea = () => {
   const input = useAppStore((s) => s.chatDraft);
@@ -13,9 +14,35 @@ const ChatInputArea = () => {
   const stopListening = useAppStore((s) => s.stopListening);
   const voiceTranscript = useAppStore((s) => s.voiceTranscript);
   const isAiProcessing = useAppStore((s) => s.isAiProcessing);
+  const activeDatasheet = useAppStore((s) => s.activeDatasheet);
+  const setActiveDatasheet = useAppStore((s) => s.setActiveDatasheet);
+  const addStatusMessage = useAppStore((s) => s.addStatusMessage);
 
   const isListening = voiceMode === 'listening';
   const isSpeaking = voiceMode === 'speaking';
+
+  const handleSend = async () => {
+    const trimmed = input.trim();
+    if (!trimmed) return;
+    const normalized = trimmed.toLowerCase();
+    if (
+      activeDatasheet &&
+      (normalized === 'confirm and close' || normalized === 'confirm & close')
+    ) {
+      try {
+        await confirmClose(activeDatasheet.id);
+        setActiveDatasheet(null);
+        addStatusMessage('Datasheet confirmed', 'success');
+      } catch (err) {
+        console.error('Confirm & Close failed', err);
+        addStatusMessage('Failed to confirm datasheet', 'error');
+      }
+      clearChatDraft();
+      return;
+    }
+    analyzeAndExecute(trimmed);
+    clearChatDraft();
+  };
 
   return (
     <div
@@ -29,10 +56,7 @@ const ChatInputArea = () => {
         onKeyDown={(e) => {
           if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            if (input.trim()) {
-              analyzeAndExecute(input);
-              clearChatDraft();
-            }
+            void handleSend();
           }
         }}
         placeholder={isListening ? 'Listening...' : isSpeaking ? 'Echo is speaking...' : 'Ask Echo to do something...'}
@@ -57,19 +81,14 @@ const ChatInputArea = () => {
         >
           {isSpeaking ? <Bot className="h-5 w-5 animate-pulse" /> : <Mic className="h-5 w-5" />}
         </button>
-        <button
-          onClick={() => {
-            if (input.trim()) {
-              analyzeAndExecute(input);
-              clearChatDraft();
-            }
-          }}
-          disabled={isAiProcessing || isListening || isSpeaking}
-          className="p-2 bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 text-white"
-          aria-label="Send message"
-        >
-          <Send className="h-5 w-5" />
-        </button>
+          <button
+            onClick={() => void handleSend()}
+            disabled={isAiProcessing || isListening || isSpeaking}
+            className="p-2 bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 text-white"
+            aria-label="Send message"
+          >
+            <Send className="h-5 w-5" />
+          </button>
       </div>
       </div>
     </div>
