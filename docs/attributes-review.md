@@ -25,13 +25,14 @@ app.middleware('http')(request_id_middleware)
 - `frontend/src/components/AttributesReviewPanel.tsx` — UI panel
 
 ### Integration points
-- Remove **Save** button; edits are auto-saved through `PATCH /attributes`.
-- **Confirm & Close** posts to `POST /confirm-close` and closes the datasheet without triggering a re-parse.
-- **Re-Analyse** is available from the toolbar and retains manually uploaded images.
-- Images show star and trash icons with a clear **Primary** label.
-- PDF and review panes hide scrollbars until hovered using the `.scroll-container` CSS helper and include zoom controls near page navigation.
-- `ChatInputArea` recognises "confirm and close" or "confirm & close" to trigger the same confirmation flow.
-- The toolbar features a subtly styled **Analyze** button, context-aware **Undo/Redo**, an **Export** button that downloads a CSV of current attributes, and a **Filter** placeholder.
+The review UI has changed to provide a cleaner, minimal experience:
+
+- **Save** is removed; edits auto-save via `PATCH /attributes` with debounce.
+- **Confirm & Close** calls `POST /confirm-close` and is disabled until there are unsaved changes.  Once confirmed, it closes the datasheet without re-triggering parsing.
+- **Re-Analyse** is no longer shown in the datasheet footer.  Instead, the top **Analyze** button will re-parse the current datasheet when a datasheet is active; otherwise it runs the design validation on the project canvas.
+- The attributes panel hides vertical/horizontal scrollbars by default; they appear when the user hovers over the pane.  Containers use `overflow-auto scroll-container` with `min-h-0` so scrollbars render correctly.
+- When the attributes API returns no rows (e.g. the catalog is not populated), a **raw data** fallback shows the original `parsed_payload` in a simple read-only list so users still see some context.
+- `ChatInputArea` recognises “confirm and close” or “confirm & close” to trigger the confirmation flow from chat.
 
 ## Data model highlights
 - Canonical **Attribute Catalog** (labels, keys, units, types, synonyms, applicability).

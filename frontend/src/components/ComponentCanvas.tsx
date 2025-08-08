@@ -90,6 +90,8 @@ const ComponentCanvas: React.FC = () => {
         <DatasheetSplitView
           assetId={activeDatasheet.id}
           pdfUrl={activeDatasheet.url}
+          /* Pass the parsed_payload as the initial data for fallback display */
+          initialParsedData={activeDatasheet.payload}
           onClose={handleClose}
         />
       ) : (
