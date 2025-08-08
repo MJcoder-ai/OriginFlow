@@ -16,6 +16,8 @@ from .ai_action_log import AiActionLog  # noqa: F401
 from .component_hierarchy import HierarchicalComponent, ComponentDocument  # noqa: F401
 from .design_vector import DesignVector  # noqa: F401
 from .ai_action_vector import AiActionVector  # noqa: F401
+from .memory import Memory  # noqa: F401
+from .trace_event import TraceEvent  # noqa: F401
 
 __all__ = [
     "Base",
@@ -26,4 +28,6 @@ __all__ = [
     "ComponentDocument",
     "DesignVector",
     "AiActionVector",
+    "Memory",
+    "TraceEvent",
 ]

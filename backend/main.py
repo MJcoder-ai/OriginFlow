@@ -63,6 +63,9 @@ from backend.api.routes import (
     feedback_v2,
     design_knowledge,
     component_library,
+    memory,
+    traces,
+    me,
 )
 
 app.add_middleware(
@@ -100,7 +103,26 @@ app.include_router(component_library.router, prefix=settings.api_prefix)
 app.include_router(feedback.router, prefix=settings.api_prefix)
 # Enriched feedback endpoint with vector logging
 app.include_router(feedback_v2.router, prefix=settings.api_prefix)
+app.include_router(memory.router, prefix=settings.api_prefix)
+app.include_router(traces.router, prefix=settings.api_prefix)
+app.include_router(me.router, prefix=settings.api_prefix)
 include_component_attributes_routes(app)
+
+
+# Create any new database tables on startup. Without a migrations
+# framework this ensures additional ORM models such as Memory and
+# TraceEvent are reflected in the underlying database. If table
+# creation fails the application will still start but endpoints
+# touching missing tables will error.
+@app.on_event("startup")  # pragma: no cover
+async def create_tables() -> None:
+    try:
+        from backend.database.session import engine as async_engine  # type: ignore
+        from backend.models import Base  # type: ignore
+        async with async_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    except Exception as exc:  # pragma: no cover
+        print(f"Database table creation failed: {exc}")
 
 
 @app.get("/")
