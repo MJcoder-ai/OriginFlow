@@ -14,6 +14,8 @@ from backend.services.embedding_service import EmbeddingService
 from backend.services.ai_service import limiter
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from backend.routes.components_attributes import include_component_attributes_routes
+from backend.middleware.request_id import request_id_middleware
 
 
 @asynccontextmanager
@@ -28,6 +30,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="OriginFlow API", lifespan=lifespan)
+app.middleware("http")(request_id_middleware)
 
 
 
@@ -97,6 +100,7 @@ app.include_router(component_library.router, prefix=settings.api_prefix)
 app.include_router(feedback.router, prefix=settings.api_prefix)
 # Enriched feedback endpoint with vector logging
 app.include_router(feedback_v2.router, prefix=settings.api_prefix)
+include_component_attributes_routes(app)
 
 
 @app.get("/")
