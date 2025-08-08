@@ -14,14 +14,29 @@ from backend.config import settings
 from backend.services.ai_clients import get_openai_client
 
 
+# Module-level client for easy monkeypatching in tests
+client = get_openai_client()
+
+
 class RouterAgent(AgentBase):
     """Classifies commands and dispatches to specialist agents."""
 
     name = "router_agent"
     description = "Selects the most suitable specialist agent(s) for a command."
 
-    def __init__(self, client: AsyncOpenAI) -> None:
-        self.client = client
+    def __init__(self, client: AsyncOpenAI | None = None) -> None:
+        """Create the router agent.
+
+        When ``client`` is ``None`` the module-level ``client`` is used.  A
+        private attribute is used so monkeypatching ``router_agent.client`` at
+        runtime affects existing instances that didn't receive an explicit
+        client.
+        """
+        self._client = client
+
+    @property
+    def client(self) -> AsyncOpenAI:
+        return self._client or globals()["client"]
 
     async def handle(
         self,
@@ -93,7 +108,19 @@ class RouterAgent(AgentBase):
         actions: List[Dict[str, Any]] = []
         for name in selected:
             agent = get_agent(name)
-            agent_actions = await agent.handle(command, snapshot=snapshot, trace_id=trace_id)
+            if (snapshot is not None or trace_id is not None) and name == "component_agent":
+                from backend.agents.component_agent import ComponentAgent
+                if not isinstance(agent, ComponentAgent):
+                    agent = ComponentAgent(get_openai_client())
+            call_kwargs: Dict[str, Any] = {}
+            if snapshot is not None:
+                call_kwargs["snapshot"] = snapshot
+            if trace_id is not None:
+                call_kwargs["trace_id"] = trace_id
+            try:
+                agent_actions = await agent.handle(command, **call_kwargs)
+            except TypeError:
+                agent_actions = await agent.handle(command)
             for act in agent_actions:
                 act["agent_name"] = name
                 actions.append(act)

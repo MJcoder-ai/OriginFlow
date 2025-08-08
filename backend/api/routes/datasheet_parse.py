@@ -5,8 +5,15 @@ import asyncio
 from uuid import uuid4
 
 from fastapi import APIRouter, UploadFile, File, Depends
-from pdfminer.high_level import extract_text
 from openai import AsyncOpenAI
+
+# ``pdfminer`` is an optional dependency.  Import lazily so test environments
+# without the package can still import this module.
+try:  # pragma: no cover - import guard
+    from pdfminer.high_level import extract_text  # type: ignore
+except Exception:  # pragma: no cover - fallback when library missing
+    def extract_text(*args, **kwargs):  # type: ignore
+        raise RuntimeError("pdfminer is required for datasheet parsing")
 
 from ..deps import get_ai_client
 

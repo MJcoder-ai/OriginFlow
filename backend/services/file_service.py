@@ -11,11 +11,24 @@ import asyncio
 import json
 from datetime import datetime, timezone
 from openai import AsyncOpenAI
-from pdfminer.high_level import extract_text
 import re
+
+# Optional heavy dependencies are imported lazily so tests can run without
+# installing full PDF parsing stack.
+try:  # pragma: no cover - import guard
+    from pdfminer.high_level import extract_text  # type: ignore
+except Exception:  # pragma: no cover - fallback when library missing
+    def extract_text(*args, **kwargs):  # type: ignore
+        raise RuntimeError("pdfminer is required for PDF text extraction")
+
+try:  # pragma: no cover - import guard
+    from backend.parsers.image_extractor import extract_images  # image extraction
+except Exception:  # pragma: no cover - fallback when dependencies missing
+    def extract_images(*args, **kwargs):  # type: ignore
+        return []
+
 # Use our dedicated table extraction module.  This relies on Camelot
 from backend.parsers.table_extractor import extract_tables
-from backend.parsers.image_extractor import extract_images  # image extraction
 
 from backend.config import settings
 

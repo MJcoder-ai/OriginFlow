@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import List
 import uuid
+import inspect
 
 from fastapi import HTTPException
 from slowapi import Limiter
@@ -60,9 +61,17 @@ class AiOrchestrator:
             trace_id=str(uuid.uuid4()),
             snapshot=DesignSnapshot(**design_snapshot) if design_snapshot else None,
         )
-        logger.info("ai.process_command.start", trace_id=ctx.trace_id, agent_router="RouterAgent")
+        logger.info(
+            "ai.process_command.start", trace_id=ctx.trace_id, agent_router="RouterAgent"
+        )
+        handle_params = inspect.signature(self.router_agent.handle).parameters
+        kwargs: dict = {}
+        if "snapshot" in handle_params:
+            kwargs["snapshot"] = ctx.snapshot
+        if "trace_id" in handle_params:
+            kwargs["trace_id"] = ctx.trace_id
         try:
-            raw = await self.router_agent.handle(command, snapshot=ctx.snapshot, trace_id=ctx.trace_id)
+            raw = await self.router_agent.handle(command, **kwargs)
         except (OpenAIError, ValueError) as err:
             raise map_openai_error(err)
         validated: List[AiAction] = []
