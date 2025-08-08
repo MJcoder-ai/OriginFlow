@@ -201,6 +201,11 @@ interface AppState {
   /** Set performance metrics. */
   setPerformanceMetrics: (metrics: { annualKwh: number | null }) => void;
 
+  /** Flag indicating whether the currently open datasheet has unsaved edits */
+  datasheetDirty: boolean;
+  /** Set the datasheet dirty flag. */
+  setDatasheetDirty: (dirty: boolean) => void;
+
   /** History stack for undo/redo functionality.  Each entry
    *  represents a snapshot of the canvas components and links at a
    *  particular point in time.
@@ -281,6 +286,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   setCostTotal: (cost) => set({ costTotal: cost }),
   performanceMetrics: { annualKwh: null },
   setPerformanceMetrics: (metrics) => set({ performanceMetrics: metrics }),
+
+  // Flag indicating whether the currently open datasheet has unsaved edits
+  // or pending confirmations. Used by the toolbar to enable Confirm & Close.
+  datasheetDirty: false,
+  setDatasheetDirty: (dirty: boolean) => set({ datasheetDirty: dirty }),
 
   // History for undo/redo: start with empty list and no index
   history: [],

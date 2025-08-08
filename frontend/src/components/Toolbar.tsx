@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAppStore } from '../appStore';
 import { exportAttributesToCsv } from '../utils/exportCsv';
-import { reanalyze } from '../services/attributesApi';
+import { reanalyze, confirmClose } from '../services/attributesApi';
 
 const Toolbar: React.FC = () => {
   const analyzeAndExecute = useAppStore((s) => s.analyzeAndExecute);
@@ -13,21 +13,20 @@ const Toolbar: React.FC = () => {
   const addStatusMessage = useAppStore((s) => s.addStatusMessage);
   const setActiveDatasheet = useAppStore((s) => s.setActiveDatasheet);
   const setRoute = useAppStore((s) => s.setRoute);
+  const datasheetDirty = useAppStore((s) => s.datasheetDirty);
+  const setDatasheetDirty = useAppStore((s) => s.setDatasheetDirty);
 
   const handleAnalyzeClick = async () => {
     // If a datasheet is currently open, trigger re-analysis of that datasheet
     if (activeDatasheet) {
-      const confirm = window.confirm(
+      const proceed = window.confirm(
         'Re-analysing will discard extracted images and metadata. Continue?'
       );
-      if (!confirm) return;
+      if (!proceed) return;
       try {
-        // Show an info status message
         addStatusMessage('Re-analysing datasheet...', 'info');
         await reanalyze(activeDatasheet.id);
-        // Close the datasheet view; it will reopen once parsing completes via polling
-        setActiveDatasheet(null);
-        setRoute('components');
+        // Do NOT close the datasheet; leave it open. UI will update when parsing completes.
       } catch (err: any) {
         console.error('Failed to reanalyze datasheet', err);
         addStatusMessage('Re-Analyze failed', 'error');
@@ -35,6 +34,21 @@ const Toolbar: React.FC = () => {
     } else {
       // Otherwise run the AI design validation
       analyzeAndExecute('validate my design');
+    }
+  };
+
+  // Confirm & close handler for the toolbar button
+  const handleConfirmClick = async () => {
+    if (!activeDatasheet) return;
+    try {
+      await confirmClose(activeDatasheet.id);
+      addStatusMessage('Datasheet confirmed', 'success');
+      setDatasheetDirty(false);
+      setActiveDatasheet(null);
+      setRoute('components');
+    } catch (err: any) {
+      console.error('Failed to confirm datasheet', err);
+      addStatusMessage('Failed to confirm datasheet', 'error');
     }
   };
   return (
@@ -67,6 +81,21 @@ const Toolbar: React.FC = () => {
         >
           Export
         </button>
+
+        {/* Confirm & Close appears only when a datasheet is open. Disable until dirty */}
+        {activeDatasheet && (
+          <button
+            onClick={handleConfirmClick}
+            disabled={!datasheetDirty}
+            className={`px-3 py-1 text-sm rounded border border-transparent shadow-sm focus:outline-none ${
+              !datasheetDirty
+                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                : 'bg-blue-600 text-white hover:bg-blue-700'
+            }`}
+          >
+            Confirm & Close
+          </button>
+        )}
         {/* Undo/Redo buttons */}
         <button
           onClick={undo}

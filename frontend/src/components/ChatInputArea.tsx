@@ -17,6 +17,7 @@ const ChatInputArea = () => {
   const activeDatasheet = useAppStore((s) => s.activeDatasheet);
   const setActiveDatasheet = useAppStore((s) => s.setActiveDatasheet);
   const addStatusMessage = useAppStore((s) => s.addStatusMessage);
+  const setDatasheetDirty = useAppStore((s) => s.setDatasheetDirty);
 
   const isListening = voiceMode === 'listening';
   const isSpeaking = voiceMode === 'speaking';
@@ -32,6 +33,8 @@ const ChatInputArea = () => {
       try {
         await confirmClose(activeDatasheet.id);
         setActiveDatasheet(null);
+        // Reset dirty flag after confirmation
+        setDatasheetDirty(false);
         addStatusMessage('Datasheet confirmed', 'success');
       } catch (err) {
         console.error('Confirm & Close failed', err);
