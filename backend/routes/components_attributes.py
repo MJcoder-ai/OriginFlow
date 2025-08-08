@@ -1,7 +1,6 @@
 from __future__ import annotations
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
 from backend.schemas.attributes import AttributeViewItem, AttributePatch, ErrorResponse
 from backend.services.attribute_catalog_service import AttributeCatalogService
@@ -20,12 +19,12 @@ async def get_component_attributes_view(component_id: str, request: Request, svc
 @router.patch("/{component_id}/attributes", status_code=204, responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}})
 async def patch_component_attributes(component_id: str, patches: List[AttributePatch], request: Request, svc: AttributeCatalogService = Depends(get_catalog_service)):
     # TODO: Apply patches (upsert/delete/verify) via repo + versioning + audit
-    return JSONResponse(status_code=204, content=None)
+    return Response(status_code=204)
 
 @router.post("/{component_id}/confirm-close", status_code=204, responses={409: {"model": ErrorResponse}})
 async def confirm_and_close(component_id: str, request: Request):
     # TODO: set is_human_verified=true and mark current attribute versions verified. Do NOT trigger parse here.
-    return JSONResponse(status_code=204, content=None)
+    return Response(status_code=204)
 
 @router.post("/{component_id}/reanalyze", status_code=202)
 async def reanalyze_component(component_id: str, request: Request):
