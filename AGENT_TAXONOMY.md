@@ -55,6 +55,14 @@ This taxonomy documents the complete OriginFlow AI agent ecosystem: **current Ph
 | **RouterAgent** | ✅ | Command routing | Routes commands to appropriate agents | Core routing logic |
 | **LearningAgent** | ✅ | Confidence & autonomy | Feedback analysis, auto-approval | (Listed above) |
 
+### **Planning & UX Support (New)**
+
+| Agent | Status | Mission | Current Capabilities | Implementation Notes |
+|-------|--------|---------|---------------------|---------------------|
+| **PlanningAgent** | 🧪 | Break down complex commands into high‑level tasks | Returns an ordered list of plan tasks (e.g. gather requirements, generate preliminary design, refine/validate) and suggests quick actions | Introduced in this roadmap; currently returns a static plan via `/api/v1/ai/plan` for demonstration. Full integration with the router and specialist agents is planned for Phase 2. |
+
+The PlanningAgent serves as a bridge between free‑form user commands and the specialist agents. It generates a high‑level plan that the UI can visualise as a timeline, providing transparency into the AI’s workflow and enabling the user to track progress. Each task in the plan is marked with a status (pending, in progress, complete or blocked). Quick actions are small, one‑click commands proposed to the user to accelerate common tasks, such as generating a bill of materials or running a design analysis.
+
 ---
 
 ## **Enterprise Roadmap: Phase 2-4 (24 Missing Agents)**
