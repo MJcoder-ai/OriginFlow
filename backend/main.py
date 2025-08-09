@@ -20,17 +20,17 @@ from backend.middleware.request_id import request_id_middleware
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialize heavy services and ensure database tables exist."""
-    print("Initializing AI services...")
+    """Initialize heavy AI services and ensure database tables exist.
+
+    FastAPI does not call startup event handlers when a custom lifespan
+    is used, so we must create tables here. This ensures that new ORM
+    models (e.g. Memory and TraceEvent) exist before requests hit the DB.
+    """
+    print("Initializing AI services…")
     app.state.anonymizer = AnonymizerService()
     app.state.embedder = EmbeddingService()
     print("AI services initialized.")
-
-    # Create any new database tables. This replaces the previous
-    # ``@app.on_event("startup")`` hook which was ignored when using the
-    # lifespan context manager, leaving tables like ``trace_event`` and
-    # ``memory`` missing. If table creation fails we continue startup and
-    # log the error so affected endpoints simply return 500s.
+    # Create tables for all ORM models; safe to run on every startup.
     try:  # pragma: no cover - exercised in integration tests
         from backend.database.session import engine as async_engine  # type: ignore
         from backend.models import Base  # type: ignore
@@ -49,6 +49,9 @@ app.middleware("http")(request_id_middleware)
 
 
 
+
+# Note: table creation moved to `lifespan` above. The startup handler is
+# retained only for reference and is never called.
 
 # --- import agents once so they self-register --------------------
 import backend.agents.component_agent  # noqa: F401

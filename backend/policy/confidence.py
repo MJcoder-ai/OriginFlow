@@ -27,5 +27,14 @@ ACTION_DOMAIN: Dict[AiActionType, str] = {
 
 
 def get_thresholds_for_action(action_type: AiActionType) -> ConfidenceThresholds:
+    """Return per-action confidence thresholds.
+
+    Validation actions carry important instructions (e.g. upload missing
+    datasheets) and should never be auto-approved. We therefore set an
+    unreachable auto-approval threshold for AiActionType.validation.
+    """
+    if action_type == AiActionType.validation:
+        # Force manual review: auto_approve_min > 1.0 ensures no auto-approval
+        return ConfidenceThresholds(auto_approve_min=2.0, human_review_min=0.0)
     domain = ACTION_DOMAIN.get(action_type, "design")
     return DEFAULT_THRESHOLDS.get(domain, DEFAULT_THRESHOLDS["design"])
