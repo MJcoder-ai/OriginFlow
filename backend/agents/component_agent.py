@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any, Dict, List
 
 from openai import AsyncOpenAI, OpenAIError
@@ -36,8 +37,84 @@ class ComponentAgent(AgentBase):
     def __init__(self, client: AsyncOpenAI) -> None:
         self.client = client
 
+    async def _lookup_component(self, command: str) -> List[Dict[str, Any]] | None:
+        """Attempt a direct database lookup before invoking the LLM."""
+        text = command.lower()
+        async for svc in get_component_db_service():
+            comp_service = svc
+            break
+
+        tokens = re.findall(r"[A-Za-z0-9_.-]+", command)
+        for tok in tokens:
+            comp = await comp_service.get_by_part_number(tok)
+            if comp:
+                payload = {
+                    "name": comp.name,
+                    "type": comp.category,
+                    "standard_code": comp.part_number,
+                }
+                return [
+                    AiAction(action=AiActionType.add_component, payload=payload, version=1).model_dump(),
+                    AiAction(
+                        action=AiActionType.validation,
+                        payload={"message": f"Using library component {comp.part_number} from the datasheet"},
+                        version=1,
+                    ).model_dump(),
+                ]
+
+        category = None
+        if any(w in text for w in ["string inverter", "inverter"]):
+            category = "inverter"
+        elif any(
+            w in text for w in ["pv module", "pv panel", "pv", "module", "panel", "solar panel", "solar module"]
+        ):
+            category = "panel"
+        elif any(w in text for w in ["battery", "storage", "accumulator"]):
+            category = "battery"
+
+        if not category:
+            return None
+
+        comps = await comp_service.search(category=category)
+        if not comps:
+            return [
+                AiAction(
+                    action=AiActionType.validation,
+                    payload={
+                        "message": f"No {category} in the library; please upload a {category} datasheet.",
+                    },
+                    version=1,
+                ).model_dump()
+            ]
+
+        comps_sorted = sorted(
+            comps, key=lambda c: c.price if c.price is not None else float("inf")
+        )
+        chosen = comps_sorted[0]
+        payload = {
+            "name": chosen.name,
+            "type": chosen.category,
+            "standard_code": chosen.part_number,
+        }
+        message = (
+            f"ComponentAgent found {len(comps)} {category}(s); selecting the cheapest."
+        )
+        return [
+            AiAction(action=AiActionType.add_component, payload=payload, version=1).model_dump(),
+            AiAction(
+                action=AiActionType.validation,
+                payload={"message": message},
+                version=1,
+            ).model_dump(),
+        ]
+
     async def handle(self, command: str, **kwargs) -> List[Dict[str, Any]]:
         """Return validated component actions."""
+
+        db_actions = await self._lookup_component(command)
+        if db_actions is not None:
+            return db_actions
+
         try:
             response = await self.client.chat.completions.create(
                 model=settings.openai_model_agents,
@@ -74,32 +151,58 @@ class ComponentAgent(AgentBase):
             if call.function.name == "add_component":
                 ComponentCreate(**payload)
                 enriched = dict(payload)
+                validation_msg = None
                 try:
-                    category = None
+                    async for svc in get_component_db_service():
+                        comp_service = svc
+                        break
                     name_lower = enriched.get("name", "").lower()
                     type_lower = enriched.get("type", "").lower()
-                    if "inverter" in name_lower or "inverter" in type_lower:
-                        category = "inverter"
-                    elif "panel" in name_lower or "panel" in type_lower or "solar" in name_lower:
-                        category = "panel"
-                    elif "battery" in name_lower or "battery" in type_lower:
-                        category = "battery"
-                    if category:
-                        async for svc in get_component_db_service():
-                            comp_service = svc
-                            break
-                        comps = await comp_service.search(category=category)
-                        if comps:
-                            comps_sorted = sorted(
-                                comps,
-                                key=lambda c: c.price if c.price is not None else float("inf"),
+                    code = (
+                        enriched.get("standard_code") or enriched.get("part_number")
+                    )
+                    if code:
+                        comp = await comp_service.get_by_part_number(code)
+                        if comp:
+                            enriched["name"] = comp.name
+                            enriched["type"] = comp.category
+                            enriched["standard_code"] = comp.part_number
+                            validation_msg = (
+                                f"Using library component {comp.part_number} from the datasheet"
                             )
-                            chosen = comps_sorted[0]
-                            enriched["name"] = chosen.name
-                            enriched["type"] = chosen.category
-                            enriched["standard_code"] = chosen.part_number
+                    if validation_msg is None:
+                        category = None
+                        if any(w in name_lower or w in type_lower for w in ["string inverter", "inverter"]):
+                            category = "inverter"
+                        elif any(
+                            w in name_lower
+                            or w in type_lower
+                            for w in ["pv", "module", "panel", "solar"]
+                        ):
+                            category = "panel"
+                        elif any(
+                            w in name_lower or w in type_lower for w in ["battery", "storage", "accumulator"]
+                        ):
+                            category = "battery"
+                        if category:
+                            comps = await comp_service.search(category=category)
+                            if comps:
+                                comps_sorted = sorted(
+                                    comps,
+                                    key=lambda c: c.price if c.price is not None else float("inf"),
+                                )
+                                chosen = comps_sorted[0]
+                                enriched["name"] = chosen.name
+                                enriched["type"] = chosen.category
+                                enriched["standard_code"] = chosen.part_number
+                                validation_msg = (
+                                    f"ComponentAgent found {len(comps)} {category}(s); selecting the cheapest."
+                                )
+                            else:
+                                validation_msg = (
+                                    f"No {category} in the library; please upload a {category} datasheet."
+                                )
                 except Exception:
-                    # Fall back to original payload if lookup fails
                     enriched = dict(payload)
                 actions.append(
                     AiAction(
@@ -108,6 +211,14 @@ class ComponentAgent(AgentBase):
                         version=1,
                     ).model_dump()
                 )
+                if validation_msg:
+                    actions.append(
+                        AiAction(
+                            action=AiActionType.validation,
+                            payload={"message": validation_msg},
+                            version=1,
+                        ).model_dump()
+                    )
             elif call.function.name == "remove_component":
                 payload = (
                     RemoveComponentPayload.model_validate_json(

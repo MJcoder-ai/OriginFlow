@@ -194,6 +194,27 @@ class AiOrchestrator:
             # main workflow.
             pass
 
+        # Persist a memory entry when a design report is generated. This allows
+        # downstream services to correlate finalized designs with their trace.
+        try:  # pragma: no cover - best effort
+            from backend.models.memory import Memory  # type: ignore
+            from backend.database.session import SessionMaker  # type: ignore
+
+            async with SessionMaker() as mem_sess:  # type: ignore
+                for act in validated:
+                    if act.action == AiActionType.report:
+                        mem = Memory(
+                            tenant_id="tenant_default",
+                            project_id=None,
+                            kind="design",
+                            tags={"action": "report"},
+                            trace_id=ctx.trace_id,
+                        )
+                        mem_sess.add(mem)
+                await mem_sess.commit()
+        except Exception:
+            pass
+
         # Return all actions, but mark which ones are auto-approved
         return validated
 

@@ -122,9 +122,11 @@ def infer_power(data: dict[str, Any]) -> float | None:
     """Infer numeric power rating from parsed datasheet fields.
 
     This heuristic scans common keys on the top-level payload, any nested
-    ``parameters`` or ``ratings`` dictionaries and the ``variants`` list.  It
-    returns the first convertible value it encounters or ``None`` if no power
-    information is found.
+    ``parameters`` or ``ratings`` dictionaries, the ``variants`` list and any
+    extracted tables.  It returns the **highest** convertible value it
+    encounters or ``None`` if no power information is found.  Selecting the
+    maximum ensures that multi‑variant datasheets default to the most capable
+    option for sizing when the user has not yet chosen a specific variant.
     """
 
     def _to_float(val: Any) -> float | None:
@@ -139,6 +141,8 @@ def infer_power(data: dict[str, Any]) -> float | None:
             return None
         return None
 
+    candidates: list[float] = []
+
     # Direct keys on root payload
     for key in (
         "power",
@@ -146,35 +150,65 @@ def infer_power(data: dict[str, Any]) -> float | None:
         "p_max",
         "max_power",
         "rated_power",
+        "rated_power_pmax",
+        "nominal_power",
         "output_power",
         "wattage",
     ):
         if key in data:
             val = _to_float(data.get(key))
             if val is not None:
-                return val
+                candidates.append(val)
 
     # Look inside parameters/ratings/specs dicts
     for sub in (data.get("parameters"), data.get("ratings"), data.get("specs")):
         if isinstance(sub, dict):
             for k, v in sub.items():
-                if "power" in k.lower() or "pmax" in k.lower():
+                lk = k.lower()
+                if "power" in lk or "pmax" in lk:
                     val = _to_float(v)
                     if val is not None:
-                        return val
+                        candidates.append(val)
 
-    # Check variants list for any power attribute
+    # Check variants list for any power attribute and keep the max value
     variants = data.get("variants")
     if isinstance(variants, list):
         for variant in variants:
             if isinstance(variant, dict):
                 for k, v in variant.items():
-                    if "power" in k.lower() or "pmax" in k.lower():
+                    lk = k.lower()
+                    if "power" in lk or "pmax" in lk:
                         val = _to_float(v)
                         if val is not None:
-                            return val
+                            candidates.append(val)
 
-    return None
+    # Inspect extracted tables for columns like "Pmax" or "Power (W)"
+    tables = data.get("tables")
+    if isinstance(tables, list):
+        for tbl in tables:
+            rows = tbl.get("rows") if isinstance(tbl, dict) else None
+            if not rows:
+                continue
+            try:
+                headers = [h.strip().lower() for h in rows[0]]
+            except Exception:
+                continue
+            power_idx = None
+            for idx, h in enumerate(headers):
+                h_clean = re.sub(r"[^a-z0-9]+", "", h)
+                if "pmax" in h_clean or "power" in h_clean:
+                    power_idx = idx
+                    break
+            if power_idx is None:
+                continue
+            for row in rows[1:]:
+                if len(row) <= power_idx:
+                    continue
+                val = _to_float(row[power_idx])
+                if val is not None:
+                    candidates.append(val)
+
+    return max(candidates) if candidates else None
 
 
 async def run_parsing_job(asset_id: str, session: AsyncSession, ai_client: AsyncOpenAI) -> None:
@@ -468,8 +502,50 @@ async def run_parsing_job(asset_id: str, session: AsyncSession, ai_client: Async
             series_name = extraction_result.get("series_name")
             variants = extraction_result.get("variants")
 
-            # Proceed only if a part number was extracted; skip otherwise
-            if part_number:
+            # If multiple variants are present, create a master record for each variant
+            if isinstance(variants, list) and variants:
+                common = {
+                    "manufacturer": manufacturer or "Unknown",
+                    "category": category,
+                    "description": description,
+                    "ports": ports,
+                    "dependencies": dependencies,
+                    "layer_affinity": layer_affinity,
+                    "sub_elements": sub_elements,
+                    "series_name": series_name,
+                }
+                for var in variants:
+                    if not isinstance(var, dict):
+                        continue
+                    v_part = var.get("part_number") or var.get("pn") or part_number
+                    if not v_part:
+                        continue
+                    v_data = dict(common)
+                    v_data.update(
+                        {
+                            "part_number": v_part,
+                            "name": var.get("name") or name,
+                            "voltage": _to_float(var.get("voltage")) or voltage,
+                            "current": _to_float(var.get("current")) or current,
+                            "power": _to_float(var.get("power"))
+                            or _to_float(var.get("pmax"))
+                            or infer_power(var)
+                            or power,
+                            "specs": {**extraction_result, **var},
+                        }
+                    )
+                    v_data = {k: v for k, v in v_data.items() if v is not None}
+                    existing = await comp_service.get_by_part_number(v_part)
+                    if existing:
+                        for key, value in v_data.items():
+                            setattr(existing, key, value)
+                        session.add(existing)
+                        await session.commit()
+                        await session.refresh(existing)
+                    else:
+                        create_obj = ComponentMasterCreate(**v_data)
+                        await comp_service.create(create_obj)
+            elif part_number:
                 existing = await comp_service.get_by_part_number(part_number)
                 data = {
                     "part_number": part_number,
@@ -486,20 +562,15 @@ async def run_parsing_job(asset_id: str, session: AsyncSession, ai_client: Async
                     "layer_affinity": layer_affinity,
                     "sub_elements": sub_elements,
                     "series_name": series_name,
-                    "variants": variants,
                 }
-                # Remove keys with value None to respect default nullability
                 data = {k: v for k, v in data.items() if v is not None}
-
                 if existing:
-                    # Update the existing record in-place
                     for key, value in data.items():
                         setattr(existing, key, value)
                     session.add(existing)
                     await session.commit()
                     await session.refresh(existing)
                 else:
-                    # Create a new record
                     create_obj = ComponentMasterCreate(**data)
                     await comp_service.create(create_obj)
         except Exception:

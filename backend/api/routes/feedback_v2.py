@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.api.deps import get_session, get_anonymizer, get_embedder
 from backend.models.ai_action_log import AiActionLog
 from backend.models.ai_action_vector import AiActionVector
+from backend.models.memory import Memory as MemoryModel
 from backend.services.anonymizer_service import AnonymizerService
 from backend.services.embedding_service import EmbeddingService
 from backend.services.vector_store import VectorStore, get_vector_store
@@ -147,7 +148,17 @@ async def log_feedback_v2(
                 logger.warning(f"Failed to upsert to vector store: {exc}")
         else:
             logger.info("Skipping vector store upsert due to missing embedding")
-        
+
+        if payload.user_decision in ("approved", "auto"):
+            mem_entry = MemoryModel(
+                tenant_id="tenant_default",
+                project_id=payload.session_id,
+                kind="action_approval",
+                tags={"action": payload.proposed_action.get("action")},
+                trace_id=payload.proposed_action.get("trace_id"),
+            )
+            session.add(mem_entry)
+
         # Now commit the database transaction
         logger.info("Committing to database...")
         try:
