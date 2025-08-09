@@ -8,6 +8,7 @@ from backend.agents.registry import register, register_spec
 from backend.schemas.ai import AiAction, AiActionType
 from backend.services.design_knowledge_service import DesignKnowledgeService
 from backend.database.session import SessionMaker
+from backend.models.memory import Memory
 
 
 class KnowledgeManagementAgent(AgentBase):
@@ -28,6 +29,18 @@ class KnowledgeManagementAgent(AgentBase):
         async with SessionMaker() as session:
             svc = DesignKnowledgeService(session)
             await svc.save_design_as_template(snapshot, template_name)
+            try:
+                mem = Memory(
+                    tenant_id="tenant_default",
+                    project_id=None,
+                    kind="template",
+                    tags={"name": template_name},
+                    trace_id=kwargs.get("trace_id"),
+                )
+                session.add(mem)
+                await session.commit()
+            except Exception:
+                pass
 
         message = f"Successfully saved the current design as template: '{template_name}'"
         action = AiAction(
