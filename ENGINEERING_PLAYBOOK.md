@@ -307,4 +307,19 @@ Common Pitfalls & Fixes:
 * Scaling: Use Ray for distributed agents (AutoGen integration).
 * Prompt Drift: Hash prompts; re-eval on changes: `prompt_hash = hashlib.sha256(prompt.encode()).hexdigest();` test variants in suite.
 
+## 11. Designing Planning Tasks & Quick Actions
+
+With the introduction of a PlanningAgent and the UI features described in the roadmap (plan timelines and quick actions), engineers must structure high‑level workflows in a way that is both coherent for the AI orchestrator and intuitive for users. This section codifies best practices for creating planning tasks and quick actions.
+
+| Guideline | Rationale | Example |
+|-----------|-----------|---------|
+| **Coarse‑Grained Steps** | Break the user’s request into 2–5 meaningful stages that mirror the natural design process. Each task should advance the user’s goal and be observable in the UI. Avoid over‑granular tasks that clutter the timeline. | For “design a 5 kW PV system”, tasks could be: Gather requirements, Generate preliminary design, Refine and validate. |
+| **Stable Identifiers** | Assign deterministic IDs to tasks (e.g. `step1`, `select_panels`) so that progress updates can be correlated over time. Do not use random UUIDs for tasks that may need updates. | Use `PlanTask(id="gather_reqs", …)` instead of `id=str(uuid4())`. |
+| **Use Status Transitions** | Update the task status from `pending` → `in_progress` → `complete` (or `blocked`) as the orchestrator executes each step. This drives progress indicators in the UI. | When the component selection agent starts, mark “Generate preliminary design” as `in_progress`; when it finishes, mark as `complete`. |
+| **Explainable Descriptions** | Include a short description for complex tasks to help users understand why the step is necessary. Descriptions should avoid jargon and reference relevant constraints or inputs. | Description: “Compile relevant constraints and performance goals from the user’s requirements and applicable standards.” |
+| **Quick Actions Should Be Actionable** | Suggest small, next steps that the user can trigger with one click. Quick actions should be context‑aware (e.g. only propose Generate BOM after a preliminary design exists). | After completing the design plan, provide actions like `Generate BOM` or `Run performance analysis`. |
+| **Avoid Decision Fatigue** | Limit quick actions to 3–4 high‑value options. Too many buttons overwhelm users. Deprioritize low‑impact tasks or fold them into a summary. | Suggest only `Generate BOM`, `Validate design` and `See alternatives` instead of listing every possible analysis. |
+
+When implementing a new agent that returns planning information, adhere to these guidelines to provide a consistent, user‑friendly experience. Refer to `backend/schemas/ai.py` for the `PlanTask`, `PlanTaskStatus` and `QuickAction` models that underpin this functionality.
+
 One-sentence takeaway: Treat every OriginFlow agent like a micro-service with a signed contract: small, typed, observable, least-privileged, and version-controlled from day-1, enabling seamless scaling to multi-agent ecosystems.
