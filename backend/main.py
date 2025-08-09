@@ -20,11 +20,25 @@ from backend.middleware.request_id import request_id_middleware
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialize heavy AI services once per process."""
+    """Initialize heavy services and ensure database tables exist."""
     print("Initializing AI services...")
     app.state.anonymizer = AnonymizerService()
     app.state.embedder = EmbeddingService()
     print("AI services initialized.")
+
+    # Create any new database tables. This replaces the previous
+    # ``@app.on_event("startup")`` hook which was ignored when using the
+    # lifespan context manager, leaving tables like ``trace_event`` and
+    # ``memory`` missing. If table creation fails we continue startup and
+    # log the error so affected endpoints simply return 500s.
+    try:  # pragma: no cover - exercised in integration tests
+        from backend.database.session import engine as async_engine  # type: ignore
+        from backend.models import Base  # type: ignore
+        async with async_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    except Exception as exc:  # pragma: no cover
+        print(f"Database table creation failed: {exc}")
+
     yield
     print("Cleaning up AI services.")
 
@@ -107,22 +121,6 @@ app.include_router(memory.router, prefix=settings.api_prefix)
 app.include_router(traces.router, prefix=settings.api_prefix)
 app.include_router(me.router, prefix=settings.api_prefix)
 include_component_attributes_routes(app)
-
-
-# Create any new database tables on startup. Without a migrations
-# framework this ensures additional ORM models such as Memory and
-# TraceEvent are reflected in the underlying database. If table
-# creation fails the application will still start but endpoints
-# touching missing tables will error.
-@app.on_event("startup")  # pragma: no cover
-async def create_tables() -> None:
-    try:
-        from backend.database.session import engine as async_engine  # type: ignore
-        from backend.models import Base  # type: ignore
-        async with async_engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-    except Exception as exc:  # pragma: no cover
-        print(f"Database table creation failed: {exc}")
 
 
 @app.get("/")
