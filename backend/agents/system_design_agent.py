@@ -73,6 +73,7 @@ class SystemDesignAgent(AgentBase):
                 break
 
             missing_msgs: list[str] = []
+            warnings: list[str] = []
 
             panels = await comp_service.search(category="panel")
             panel_candidate = None
@@ -92,21 +93,30 @@ class SystemDesignAgent(AgentBase):
             inverter_candidate = None
             if not missing_msgs:
                 required_power_w = size_kw * 1000.0
+                def inv_sort_key(c: Any) -> tuple[float, float]:
+                    return (
+                        c.price if c.price is not None else float("inf"),
+                        c.power or 0,
+                    )
                 inverters = await comp_service.search(
                     category="inverter", min_power=required_power_w
                 )
                 if inverters:
-                    def inv_sort_key(c: Any) -> tuple[float, float]:
-                        return (
-                            c.price if c.price is not None else float("inf"),
-                            c.power or 0,
-                        )
                     inverters_sorted = sorted(inverters, key=inv_sort_key)
                     inverter_candidate = inverters_sorted[0]
                 else:
-                    missing_msgs.append(
-                        f"No inverter with ≥ {size_kw:g} kW capacity found in the library. Please upload a suitable inverter datasheet."
-                    )
+                    # Fallback to any inverter and record a warning
+                    any_inverters = await comp_service.search(category="inverter")
+                    if any_inverters:
+                        any_sorted = sorted(any_inverters, key=inv_sort_key)
+                        inverter_candidate = any_sorted[0]
+                        warnings.append(
+                            f"No inverter with ≥ {size_kw:g} kW capacity found; selected {inverter_candidate.part_number} instead."
+                        )
+                    else:
+                        missing_msgs.append(
+                            "No inverter components are available in the library. Please upload an inverter datasheet."
+                        )
 
             battery_candidate = None
             if not missing_msgs:
@@ -218,6 +228,8 @@ class SystemDesignAgent(AgentBase):
                 "Connected all panels to the inverter and the inverter to the battery. "
                 "Review and approve these actions."
             )
+            if warnings:
+                summary += " Warnings: " + " ".join(warnings)
             actions.append(
                 AiAction(
                     action=AiActionType.validation,

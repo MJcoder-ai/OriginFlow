@@ -55,11 +55,11 @@ class ParsedSchema(TypedDict, total=False):
     # Extracted variants from a multi-product datasheet. Each variant is a dict with
     # its own attributes such as part_number, power and voltage. This list may be empty
     # for single-product datasheets.
-    variants: list[dict[str, Any]]
+      variants: list[dict[str, Any]]
     # Structured tables extracted from the datasheet.  Each entry has a
     # ``table_type`` and ``rows`` property.  This field is optional and may
     # be omitted or an empty list if no tables were detected or extracted.
-    tables: list[dict[str, Any]]
+      tables: list[dict[str, Any]]
 
 
 # ---------------------------------------------------------------------------
@@ -116,6 +116,65 @@ def infer_category(data: dict[str, Any]) -> str:
         return "pump"
     # Unknown fallback
     return "unknown"
+
+
+def infer_power(data: dict[str, Any]) -> float | None:
+    """Infer numeric power rating from parsed datasheet fields.
+
+    This heuristic scans common keys on the top-level payload, any nested
+    ``parameters`` or ``ratings`` dictionaries and the ``variants`` list.  It
+    returns the first convertible value it encounters or ``None`` if no power
+    information is found.
+    """
+
+    def _to_float(val: Any) -> float | None:
+        try:
+            if isinstance(val, (int, float)):
+                return float(val)
+            if isinstance(val, str):
+                m = re.search(r"(\d+(?:\.\d+)?)", val)
+                if m:
+                    return float(m.group(1))
+        except Exception:
+            return None
+        return None
+
+    # Direct keys on root payload
+    for key in (
+        "power",
+        "pmax",
+        "p_max",
+        "max_power",
+        "rated_power",
+        "output_power",
+        "wattage",
+    ):
+        if key in data:
+            val = _to_float(data.get(key))
+            if val is not None:
+                return val
+
+    # Look inside parameters/ratings/specs dicts
+    for sub in (data.get("parameters"), data.get("ratings"), data.get("specs")):
+        if isinstance(sub, dict):
+            for k, v in sub.items():
+                if "power" in k.lower() or "pmax" in k.lower():
+                    val = _to_float(v)
+                    if val is not None:
+                        return val
+
+    # Check variants list for any power attribute
+    variants = data.get("variants")
+    if isinstance(variants, list):
+        for variant in variants:
+            if isinstance(variant, dict):
+                for k, v in variant.items():
+                    if "power" in k.lower() or "pmax" in k.lower():
+                        val = _to_float(v)
+                        if val is not None:
+                            return val
+
+    return None
 
 
 async def run_parsing_job(asset_id: str, session: AsyncSession, ai_client: AsyncOpenAI) -> None:
@@ -398,6 +457,8 @@ async def run_parsing_job(asset_id: str, session: AsyncSession, ai_client: Async
                 or extraction_result.get("max_power")
                 or extraction_result.get("rated_power")
             )
+            if power is None:
+                power = infer_power(extraction_result)
 
             # Optional complex fields
             ports = extraction_result.get("ports")

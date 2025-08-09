@@ -80,6 +80,35 @@ async def fake_service_provider():  # pragma: no cover - simple stub
     yield FakeService()
 
 
+class WeakInverterService(FakeService):
+    def __init__(self) -> None:
+        super().__init__()
+        # Overwrite inverters with underpowered option
+        self.inverters = [
+            SimpleNamespace(
+                name="TinyInverter",
+                category="inverter",
+                part_number="INV-1",
+                price=100.0,
+                power=1000.0,
+            )
+        ]
+
+    async def search(self, category=None, min_power=None, **kwargs):  # pragma: no cover - simple stub
+        if category == "panel":
+            return self.panels
+        if category == "inverter":
+            # Mimic power filter
+            return [c for c in self.inverters if (c.power or 0) >= (min_power or 0)]
+        if category == "battery":
+            return self.batteries
+        return []
+
+
+async def weak_service_provider():  # pragma: no cover - simple stub
+    yield WeakInverterService()
+
+
 @pytest.mark.asyncio
 async def test_missing_components_prompts_upload(monkeypatch):
     monkeypatch.setattr(sda, "get_component_db_service", empty_service_provider)
@@ -117,4 +146,21 @@ async def test_selects_best_available_components(monkeypatch):
     assert battery_action["payload"]["standard_code"] == "BAT-100"
     assert len(panel_actions) == 13
     assert "CP-400" in actions[-1]["payload"]["message"]
+
+
+@pytest.mark.asyncio
+async def test_falls_back_to_any_inverter(monkeypatch):
+    monkeypatch.setattr(sda, "get_component_db_service", weak_service_provider)
+    agent = sda.SystemDesignAgent()
+    actions = await agent.handle("design 5 kW solar system")
+
+    inverter_action = next(
+        a
+        for a in actions
+        if a["action"] == AiActionType.add_component and a["payload"]["type"] == "inverter"
+    )
+    assert inverter_action["payload"]["standard_code"] == "INV-1"
+    validation = actions[-1]
+    assert validation["action"] == AiActionType.validation
+    assert "No inverter with ≥ 5" in validation["payload"]["message"]
 
