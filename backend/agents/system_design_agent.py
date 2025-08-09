@@ -132,25 +132,32 @@ class SystemDesignAgent(AgentBase):
                     )
 
             if missing_msgs:
+                # Combine all missing component warnings for validation
                 message = "\n".join(missing_msgs)
+                # Extract category names from each missing message for a concise report
                 missing_categories: list[str] = []
                 for msg in missing_msgs:
                     match = re.search(r"No (\w+) components", msg)
                     if match:
                         missing_categories.append(match.group(1))
-                summary = "Missing component categories: " + ", ".join(sorted(set(missing_categories)))
-                report = AiAction(
-                    action=AiActionType.report,
-                    payload={"message": summary},
-                    version=1,
-                ).model_dump()
-                validation = AiAction(
-                    action=AiActionType.validation,
-                    payload={"message": message},
-                    version=1,
-                ).model_dump()
-                actions.extend([report, validation])
-                return actions
+                summary_text = (
+                    "Design could not proceed due to missing components. "
+                    "Please upload datasheets for the following categories: "
+                    + ", ".join(sorted(set(missing_categories)))
+                    + "."
+                )
+                return [
+                    AiAction(
+                        action=AiActionType.validation,
+                        payload={"message": message},
+                        version=1,
+                    ).model_dump(),
+                    AiAction(
+                        action=AiActionType.report,
+                        payload={"message": summary_text},
+                        version=1,
+                    ).model_dump(),
+                ]
 
             panel_power = panel_candidate.power or 400.0
             num_panels = max(1, int(math.ceil((size_kw * 1000.0) / panel_power)))
@@ -232,24 +239,32 @@ class SystemDesignAgent(AgentBase):
                 ).model_dump()
             )
 
-            report_message = (
-                f"Selected {num_panels}x {panel_candidate.part_number} panel(s), "
-                f"inverter {inverter_candidate.part_number}, and battery {battery_candidate.part_number}."
+            # Compose a detailed report summarising selected components and warnings
+            report_msg = (
+                f"Designed a {size_kw:g}\u00a0kW PV system using available library components. "
+                f"Selected {num_panels} panel(s) ({panel_candidate.part_number}), one inverter "
+                f"({inverter_candidate.part_number}) and one battery ({battery_candidate.part_number})."
             )
             if warnings:
-                report_message += " Warnings: " + " ".join(warnings)
-            report = AiAction(
-                action=AiActionType.report,
-                payload={"message": report_message},
-                version=1,
-            ).model_dump()
-            validation = AiAction(
-                action=AiActionType.validation,
-                payload={"message": "Review and approve the proposed system design."},
-                version=1,
-            ).model_dump()
-            actions.insert(0, validation)
-            actions.insert(0, report)
+                report_msg += " Warnings: " + " ".join(warnings)
+            validation_msg = (
+                "Connected all panels to the inverter and the inverter to the battery. "
+                "Review and approve these actions."
+            )
+            actions.append(
+                AiAction(
+                    action=AiActionType.report,
+                    payload={"message": report_msg},
+                    version=1,
+                ).model_dump()
+            )
+            actions.append(
+                AiAction(
+                    action=AiActionType.validation,
+                    payload={"message": validation_msg},
+                    version=1,
+                ).model_dump()
+            )
             return actions
         elif domain == "HVAC" and size_kw:
             comp_id = generate_id("component")

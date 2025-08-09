@@ -116,6 +116,8 @@ async def test_missing_components_prompts_upload(monkeypatch):
     actions = await agent.handle("design 5 kW solar system")
     assert actions[0]["action"] == AiActionType.validation
     assert "upload" in actions[0]["payload"]["message"].lower()
+    # A report action should accompany the validation to inform the user
+    assert any(a["action"] == AiActionType.report for a in actions)
 
 
 @pytest.mark.asyncio
@@ -145,7 +147,10 @@ async def test_selects_best_available_components(monkeypatch):
     assert inverter_action["payload"]["standard_code"] == "INV-5000"
     assert battery_action["payload"]["standard_code"] == "BAT-100"
     assert len(panel_actions) == 13
-    assert "CP-400" in actions[-1]["payload"]["message"]
+    report = next(a for a in actions if a["action"] == AiActionType.report)
+    validation = next(a for a in actions if a["action"] == AiActionType.validation)
+    assert "CP-400" in report["payload"]["message"]
+    assert "review" in validation["payload"]["message"].lower()
 
 
 @pytest.mark.asyncio
@@ -160,7 +165,8 @@ async def test_falls_back_to_any_inverter(monkeypatch):
         if a["action"] == AiActionType.add_component and a["payload"]["type"] == "inverter"
     )
     assert inverter_action["payload"]["standard_code"] == "INV-1"
+    report = next(a for a in actions if a["action"] == AiActionType.report)
     validation = actions[-1]
     assert validation["action"] == AiActionType.validation
-    assert "No inverter with ≥ 5" in validation["payload"]["message"]
+    assert "No inverter with ≥ 5" in report["payload"]["message"]
 
