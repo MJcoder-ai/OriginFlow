@@ -154,6 +154,8 @@ class AiOrchestrator:
                 pending_actions.append(action)
         
         logger.info(f"Result: {len(auto_approved_actions)} auto-approved, {len(pending_actions)} pending manual approval")
+        auto_count = len(auto_approved_actions)
+        pending_count = len(pending_actions)
 
         # Emit trace events for the router output and each validated action.
         # Tracing is best-effort; any failures should not interrupt normal
@@ -194,13 +196,23 @@ class AiOrchestrator:
             # main workflow.
             pass
 
-        # Persist a memory entry when a design report is generated. This allows
-        # downstream services to correlate finalized designs with their trace.
+        # Persist memory entries capturing command outcome counts and any design
+        # report actions so downstream services can correlate finalized designs
+        # with their trace.
         try:  # pragma: no cover - best effort
             from backend.models.memory import Memory  # type: ignore
             from backend.database.session import SessionMaker  # type: ignore
 
             async with SessionMaker() as mem_sess:  # type: ignore
+                mem_sess.add(
+                    Memory(
+                        tenant_id="tenant_default",
+                        project_id=None,
+                        kind="conversation",
+                        tags={"auto_approved": auto_count, "pending": pending_count},
+                        trace_id=ctx.trace_id,
+                    )
+                )
                 for act in validated:
                     if act.action == AiActionType.report:
                         mem = Memory(
