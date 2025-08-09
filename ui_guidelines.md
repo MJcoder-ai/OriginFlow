@@ -195,6 +195,71 @@ To maintain structural alignment without adding visual clutter, some borders are
 
 ---
 
+## 📋 Plan Timeline
+
+OriginFlow’s chat sidebar includes a plan timeline that gives users an at‑a‑glance overview of what the AI intends to do next. The timeline sits at the top of the `ChatHistory` area, above the scrollable list of chat messages. Each entry corresponds to a high‑level task returned by the orchestrator and shows a short title, optional description, and a status indicator.
+
+- **Status Icons:** Use the `lucide-react` icons `Circle` (pending), `Loader2` (in progress), `CheckCircle` (complete), and `AlertTriangle` (blocked). Icons should change colour based on status (grey, blue, green, or yellow) and spin when a task is in progress.
+- **Layout:** Render tasks as a vertical list inside a container with a light grey background and a bottom border. Use the `<PlanTimeline />` component to encapsulate this behaviour. Hide the timeline entirely when there are no tasks.
+- **Interaction:** Timeline items are non-interactive by default; future iterations may enable clicking to expand details or jump to a specific agent output.
+
+```tsx
+// ChatHistory.tsx (excerpt)
+<div className="grid-in-chat-history flex flex-col h-full bg-white overflow-y-auto min-h-0">
+  <PlanTimeline />
+  <div className="flex-1 overflow-y-auto p-4">
+    {messages.map(m => <ChatMessage key={m.id} message={m} />)}
+    {isProcessing && <AiProcessingIndicator />}
+  </div>
+</div>
+```
+
+---
+
+## 🃏 Card Messages
+
+When the AI suggests complex changes—such as recommending a specific inverter, presenting a bill of materials, or summarising a wiring calculation—it should use a **card message** rather than a plain chat bubble. Card messages occupy the full width of the chat column and provide structured information with clear actions.
+
+- **Component:** Use the `<DesignCard />` component. Cards contain a title, description, optional image, a specs table (label/value pairs), and a set of action buttons.
+- **Styling:** Cards have a subtle border, shadow, and rounded corners. They should stand apart from chat bubbles but maintain consistent padding.
+- **Actions:** Each button triggers a command via `analyzeAndExecute()`. Keep labels concise (e.g. “Accept Component”, “Swap for 8 kW”).
+- **Usage:** Populate the `card` field on a `Message` to render a card. Cards override the author alignment to remain left‑aligned.
+
+```ts
+interface Message {
+  id: string;
+  author: 'User' | 'AI';
+  text: string;
+  card?: DesignCardData;
+  type?: 'text' | 'card' | 'status';
+}
+```
+
+---
+
+## ⚡ Quick Actions & Mode Selector
+
+The chat input area now provides shortcuts for common operations and a high‑level mode switch. These elements live inside the `ChatInputArea` component.
+
+- **Quick Action Bar:** A horizontal list of buttons rendered via `<QuickActionBar />`. Each action has a label and a command string that is sent to the AI when clicked. Quick actions wrap to a new line on narrow screens and appear directly above the text input.
+- **Mode Selector:** A dropdown menu rendered by `<ModeSelector />` allows users to choose between Design, Analyze, Manual, and Business modes. This selection informs the orchestrator which tools are available and influences prompt interpretation.
+- **Layout:** Place the quick actions and mode selector at the top of the chat input area, with a small margin separating them from the textarea. The existing microphone, upload, and send buttons remain aligned to the right of the input.
+- **Responsiveness:** On mobile devices, quick actions and the mode selector stack vertically above the input.
+
+```tsx
+// ChatInputArea.tsx (excerpt)
+<div className="grid-in-chat-input p-3 bg-white border-t border-white" style={{ borderLeft: '1px solid #e5e7eb' }}>
+  <QuickActionBar />
+  <div className="flex justify-between items-center mt-2 mb-2">
+    <ModeSelector />
+  </div>
+  <textarea ... />
+  {/* upload, mic and send buttons */}
+</div>
+```
+
+---
+
 ## 📝 ChatInputArea Enhancements
 
 ```tsx
