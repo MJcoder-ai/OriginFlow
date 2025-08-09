@@ -55,11 +55,11 @@ class ParsedSchema(TypedDict, total=False):
     # Extracted variants from a multi-product datasheet. Each variant is a dict with
     # its own attributes such as part_number, power and voltage. This list may be empty
     # for single-product datasheets.
-      variants: list[dict[str, Any]]
+    variants: list[dict[str, Any]]
     # Structured tables extracted from the datasheet.  Each entry has a
     # ``table_type`` and ``rows`` property.  This field is optional and may
     # be omitted or an empty list if no tables were detected or extracted.
-      tables: list[dict[str, Any]]
+    tables: list[dict[str, Any]]
 
 
 # ---------------------------------------------------------------------------
