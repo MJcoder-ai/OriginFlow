@@ -132,14 +132,25 @@ class SystemDesignAgent(AgentBase):
                     )
 
             if missing_msgs:
-                message = " \n".join(missing_msgs)
-                return [
-                    AiAction(
-                        action=AiActionType.validation,
-                        payload={"message": message},
-                        version=1,
-                    ).model_dump()
-                ]
+                message = "\n".join(missing_msgs)
+                missing_categories: list[str] = []
+                for msg in missing_msgs:
+                    match = re.search(r"No (\w+) components", msg)
+                    if match:
+                        missing_categories.append(match.group(1))
+                summary = "Missing component categories: " + ", ".join(sorted(set(missing_categories)))
+                report = AiAction(
+                    action=AiActionType.report,
+                    payload={"message": summary},
+                    version=1,
+                ).model_dump()
+                validation = AiAction(
+                    action=AiActionType.validation,
+                    payload={"message": message},
+                    version=1,
+                ).model_dump()
+                actions.extend([report, validation])
+                return actions
 
             panel_power = panel_candidate.power or 400.0
             num_panels = max(1, int(math.ceil((size_kw * 1000.0) / panel_power)))
@@ -221,22 +232,24 @@ class SystemDesignAgent(AgentBase):
                 ).model_dump()
             )
 
-            summary = (
-                f"Designed a {size_kw:g}\u00a0kW PV system using available library components. "
-                f"Selected {num_panels} panel(s) ({panel_candidate.part_number}), one inverter "
-                f"({inverter_candidate.part_number}) and one battery ({battery_candidate.part_number}). "
-                "Connected all panels to the inverter and the inverter to the battery. "
-                "Review and approve these actions."
+            report_message = (
+                f"Selected {num_panels}x {panel_candidate.part_number} panel(s), "
+                f"inverter {inverter_candidate.part_number}, and battery {battery_candidate.part_number}."
             )
             if warnings:
-                summary += " Warnings: " + " ".join(warnings)
-            actions.append(
-                AiAction(
-                    action=AiActionType.validation,
-                    payload={"message": summary},
-                    version=1,
-                ).model_dump()
-            )
+                report_message += " Warnings: " + " ".join(warnings)
+            report = AiAction(
+                action=AiActionType.report,
+                payload={"message": report_message},
+                version=1,
+            ).model_dump()
+            validation = AiAction(
+                action=AiActionType.validation,
+                payload={"message": "Review and approve the proposed system design."},
+                version=1,
+            ).model_dump()
+            actions.insert(0, validation)
+            actions.insert(0, report)
             return actions
         elif domain == "HVAC" and size_kw:
             comp_id = generate_id("component")
