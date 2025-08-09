@@ -154,7 +154,46 @@ class AiOrchestrator:
                 pending_actions.append(action)
         
         logger.info(f"Result: {len(auto_approved_actions)} auto-approved, {len(pending_actions)} pending manual approval")
-        
+
+        # Emit trace events for the router output and each validated action.
+        # Tracing is best-effort; any failures should not interrupt normal
+        # processing.  We log the raw router actions first, then each
+        # validated action with its confidence and auto-approval flag.  This
+        # creates an auditable chain of decisions for post-mortem analysis.
+        try:  # pragma: no cover - tracing is optional
+            from backend.services.tracing import emit_event  # type: ignore
+            from backend.database.session import SessionMaker  # type: ignore
+
+            prev_sha = None
+            async with SessionMaker() as trace_sess:  # type: ignore
+                await emit_event(
+                    trace_sess,
+                    ctx.trace_id,
+                    actor="RouterAgent",
+                    event_type="router_result",
+                    payload={"raw_actions": raw},
+                    prev_sha=prev_sha,
+                )
+                for act in validated:
+                    ev = await emit_event(
+                        trace_sess,
+                        ctx.trace_id,
+                        actor=str(act.action.value),
+                        event_type="ai_action",
+                        payload={
+                            "action": act.action.value,
+                            "payload": act.payload,
+                            "confidence": act.confidence,
+                            "auto_approved": getattr(act, "auto_approved", False),
+                        },
+                        prev_sha=prev_sha,
+                    )
+                    prev_sha = ev.sha256
+        except Exception:
+            # Do not abort on tracing errors; tracing should never block the
+            # main workflow.
+            pass
+
         # Return all actions, but mark which ones are auto-approved
         return validated
 
