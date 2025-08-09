@@ -43,5 +43,16 @@ class ComponentMaster(Base):
     #: components into detailed layers.  Stored as JSON for flexibility.
     sub_elements: Mapped[list] = mapped_column(JSON, nullable=True)
 
+    # New fields for product families and variants.
+    #
+    # Many datasheets describe multiple product options under a single series
+    # (e.g. different wattages or options). To support these scenarios we
+    # capture the ``series_name`` (family name) and a list of ``variants``.
+    # Each variant is a JSON object with its own attributes such as
+    # ``part_number``, ``power``, ``voltage`` and size. When a datasheet
+    # describes only one product these fields may be left null.
+    series_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    variants: Mapped[list] = mapped_column(JSON, nullable=True)
+
     def __repr__(self) -> str:  # pragma: no cover
         return f"ComponentMaster(part_number={self.part_number!r}, manufacturer={self.manufacturer!r})"

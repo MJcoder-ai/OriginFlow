@@ -30,13 +30,16 @@ async def lifespan(app: FastAPI):
     app.state.anonymizer = AnonymizerService()
     app.state.embedder = EmbeddingService()
     print("AI services initialized.")
-    # Create tables for all ORM models; safe to run on every startup. This
-    # guarantees new tables like ``memory`` and ``trace_event`` exist even when
-    # FastAPI's traditional startup hooks are bypassed by a custom lifespan.
-    from backend.database.session import engine  # type: ignore
-    from backend.models import Base  # type: ignore
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # Create any new database tables.  When using a custom lifespan, startup
+    # event handlers are not executed, so we must create missing tables here.
+    try:
+        from backend.database.session import engine as async_engine  # type: ignore
+        from backend.models import Base  # type: ignore
+        async with async_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    except Exception as exc:
+        # Do not crash if table creation fails; log an error
+        print(f"Database table creation failed: {exc}")
 
     yield
     print("Cleaning up AI services.")

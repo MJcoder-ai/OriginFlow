@@ -56,6 +56,29 @@ class ComponentMasterBase(BaseModel):
         ),
     )
 
+    # Series and variants support.  Many datasheets describe multiple product
+    # variants (e.g. different wattages or options) under a common series.  The
+    # ``series_name`` field stores the family identifier while ``variants`` holds
+    # a list of per-variant attribute dictionaries extracted from the datasheet.
+    # Each variant may include its own part number, power, voltage, dimensions
+    # and other specifications.  These fields are optional and may be omitted
+    # when a datasheet covers a single product.
+    series_name: Optional[str] = Field(
+        None,
+        description=(
+            "Name of the product series or family. A single datasheet may cover multiple "
+            "variants under a common series (e.g. a panel model available in 400\u202fW, 420\u202fW and 450\u202fW)."
+        ),
+    )
+    variants: Optional[list] = Field(
+        None,
+        description=(
+            "List of variant definitions extracted from a multi-product datasheet. "
+            "Each entry should include its own attributes such as part_number, power and voltage. "
+            "This field is optional and may be empty for single-product datasheets."
+        ),
+    )
+
 
 class ComponentMasterCreate(ComponentMasterBase):
     """Schema for creating a record."""

@@ -42,7 +42,7 @@ The platform is architected for enterprise scale but currently implements core e
 
 - **Customer Project Wizard**: A guided interface for non-technical users to plan projects with AI suggestions and cost estimation.
 - **AI-Driven Datasheet Processing**: Asynchronous parsing pipeline with status tracking, Chain-of-Thought extraction and a Reviewer AI for higher accuracy.
-- **Datasheet Library Augmentation**: When a PDF datasheet is parsed, the extracted metadata is automatically added to the component library—populating the part number, manufacturer, category, electrical ratings, ports, dependencies and nested sub‑elements.  This ensures that future designs use *real* components from your library and reduces manual data entry.
+- **Datasheet Library Augmentation**: When a PDF datasheet is parsed, the extracted metadata is automatically added to the component library—populating the part number, manufacturer, category (or a heuristic guess when omitted), electrical ratings, ports, dependencies, series names, per‑product variants and nested sub‑elements.  This ensures that future designs use *real* components from your library and reduces manual data entry.
 - **Media Management**: Datasheet images are linked to their parent PDF via a `parent_asset_id`, so they no longer appear as standalone entries in the component library. Images are automatically extracted from uploaded datasheets using **pypdf** and, if they are in less common formats (e.g. JPEG 2000, TIFF, JBIG2 or raw bitmap), the parser converts them to JPEG before saving for broad browser compatibility. Images can also be uploaded manually. Exactly one image is always marked as the primary thumbnail at a time. Videos remain supported via manual upload, and all media can be validated by AI with Octopart API integration.
 - **Standards Compliance Engine**: Real-time validation against industry standards (e.g., IEC 81346) with webhook-driven revalidation.
 - **Workflow Orchestration**: Self-hosted Temporal.io for reliable execution of complex workflows, including Saga Pattern for rollbacks.
@@ -81,9 +81,9 @@ The platform is architected for enterprise scale but currently implements core e
    Current orchestration uses simple routing. **Event-driven orchestration with Temporal.io workflows planned for Phase 2.**
 
 - **Component Master Database**: Central inventory of manufacturer parts and specifications.
-- **Hierarchical Component Schema**: Components can represent entire product families with variants, shared documents, and **nested sub‑components**. Each record can define ports (DC, AC, grounding, communication), dependencies (e.g. required mounting rails or brackets) and layer affinities. This richness allows the AI to “explode” a single‑line component into detailed assemblies on electrical and structural layers while keeping inventory management efficient.
+- **Hierarchical Component Schema**: Components can represent entire product families with variants, shared documents, and **nested sub‑components**. Each record can define ports (DC, AC, grounding, communication), dependencies (e.g. required mounting rails or brackets) and layer affinities, plus a `series_name` and an array of `variants` extracted from multi‑option datasheets. This richness allows the AI to “explode” a single‑line component into detailed assemblies on electrical and structural layers while keeping inventory management efficient.
 
-    The schema now includes a ``sub_elements`` array so a component can contain its own children (e.g., a solar panel with brackets and rails).  Additional fields ``ports``, ``dependencies`` and ``layer_affinity`` describe physical connection points, required or optional accessories, and the canvas layers where each element belongs.  See `backend/models/component_master.py` for details.  Alembic migrations add these columns to the database.
+    The schema now includes a ``sub_elements`` array so a component can contain its own children (e.g., a solar panel with brackets and rails).  Additional fields ``ports``, ``dependencies`` and ``layer_affinity`` describe physical connection points, required or optional accessories, and the canvas layers where each element belongs.  New ``series_name`` and ``variants`` columns capture product families and per‑option attributes from multi‑product datasheets.  See `backend/models/component_master.py` for details.  Alembic migrations add these columns to the database.
 - **Performance Benchmarks**:
   | **Nodes** | **CPU (cores)** | **RAM (GB)** |
   |-----------|-----------------|--------------|
@@ -114,6 +114,10 @@ and design context, embeds them and stores the vectors in a configurable
 vector store. These vectors are retrieved by the `LearningAgent` and the
 `ReferenceConfidenceService` to compute context-aware confidence scores
 for future actions.
+
+Validation actions are never auto-applied. The confidence policy sets an
+unreachable auto-approval threshold for `AiActionType.validation`, so
+warnings and missing-data prompts always require manual review.
 
 The vector store backend is selected via environment variables:
 

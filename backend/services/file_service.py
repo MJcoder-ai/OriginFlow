@@ -48,10 +48,74 @@ class ParsedSchema(TypedDict, total=False):
     category: str
     parameters: dict[str, Any]
     ratings: dict[str, Any]
+    # Series name for product families. Datasheets covering multiple variants
+    # often describe them under a single family or series identifier. This
+    # field captures that identifier when present.
+    series_name: str
+    # Extracted variants from a multi-product datasheet. Each variant is a dict with
+    # its own attributes such as part_number, power and voltage. This list may be empty
+    # for single-product datasheets.
+    variants: list[dict[str, Any]]
     # Structured tables extracted from the datasheet.  Each entry has a
     # ``table_type`` and ``rows`` property.  This field is optional and may
     # be omitted or an empty list if no tables were detected or extracted.
     tables: list[dict[str, Any]]
+
+
+# ---------------------------------------------------------------------------
+# Category inference helper
+# ---------------------------------------------------------------------------
+
+# Many datasheets do not explicitly specify the component category.  When
+# ``category`` or ``device_type`` is missing or set to "unknown", we use a
+# simple heuristic to guess the category based on the extracted text,
+# description and part number.  This improves lookup accuracy when the
+# SystemDesignAgent needs to find a matching panel, inverter or battery.
+def infer_category(data: dict[str, Any]) -> str:
+    """Infer a component category from extracted datasheet fields.
+
+    Args:
+        data: The partially parsed extraction result.
+
+    Returns:
+        A string such as "panel", "inverter", "battery", "pump", or "unknown".
+    """
+    # Build a single lowercase string containing key textual fields.  We
+    # deliberately include part number, name, description, and category, plus
+    # any known parameters or specs, to search for indicative keywords.  The
+    # check is order-agnostic and case-insensitive.
+    text_parts: list[str] = []
+    try:
+        for field_name in ("part_number", "name", "description", "category"):
+            val = data.get(field_name)
+            if val:
+                text_parts.append(str(val))
+    except Exception:
+        pass
+    for key in ("parameters", "ratings", "specs"):
+        try:
+            val = data.get(key)
+            if isinstance(val, dict):
+                text_parts.append(" ".join(f"{k}:{v}" for k, v in val.items()))
+        except Exception:
+            pass
+    combined = " ".join(text_parts).lower()
+    def contains_any(words: list[str]) -> bool:
+        return any(w in combined for w in words)
+    # Panels: look for common PV module terms
+    if contains_any(["panel", "module"]) or (contains_any(["solar"]) and not contains_any(["controller"])):
+        return "panel"
+    # Inverters: inverter, converter or charger keywords
+    if contains_any(["inverter", "converter", "charger"]):
+        return "inverter"
+    # Batteries: battery, accumulator keywords
+    if contains_any(["battery", "accumulator"]):
+        return "battery"
+    # Pumps: pumping keywords
+    if contains_any(["pump", "water pump", "pumping"]):
+        return "pump"
+    # Unknown fallback
+    return "unknown"
 
 
 async def run_parsing_job(asset_id: str, session: AsyncSession, ai_client: AsyncOpenAI) -> None:
@@ -245,6 +309,19 @@ async def run_parsing_job(asset_id: str, session: AsyncSession, ai_client: Async
             ai_payload = json.loads(validator_resp.choices[0].message.content)
             extraction_result.update(ai_payload)
 
+        # Infer a category when missing or unknown.  Some datasheets omit a
+        # category or mislabel it as "unknown".  Use heuristic inference to
+        # assign a sensible category (panel, inverter, battery, pump) based on
+        # part number, description and specs.  See ``infer_category()`` for
+        # details.  Only update when a non-unknown guess is returned.
+        category_value = extraction_result.get("category") or extraction_result.get("device_type")
+        if not category_value or (
+            isinstance(category_value, str) and category_value.lower() == "unknown"
+        ):
+            guessed_cat = infer_category(extraction_result)
+            if guessed_cat and guessed_cat != "unknown":
+                extraction_result["category"] = guessed_cat
+
         # Persist success results
         asset.parsed_payload = extraction_result
         asset.parsing_status = "success"
@@ -327,6 +404,8 @@ async def run_parsing_job(asset_id: str, session: AsyncSession, ai_client: Async
             dependencies = extraction_result.get("dependencies")
             layer_affinity = extraction_result.get("layer_affinity")
             sub_elements = extraction_result.get("sub_elements")
+            series_name = extraction_result.get("series_name")
+            variants = extraction_result.get("variants")
 
             # Proceed only if a part number was extracted; skip otherwise
             if part_number:
@@ -345,6 +424,8 @@ async def run_parsing_job(asset_id: str, session: AsyncSession, ai_client: Async
                     "dependencies": dependencies,
                     "layer_affinity": layer_affinity,
                     "sub_elements": sub_elements,
+                    "series_name": series_name,
+                    "variants": variants,
                 }
                 # Remove keys with value None to respect default nullability
                 data = {k: v for k, v in data.items() if v is not None}
