@@ -1,6 +1,8 @@
 import { useAppStore } from '../appStore';
 import { Mic, Send, Bot } from 'lucide-react';
 import { FileUploadButton } from './FileUploadButton';
+import QuickActionBar from './QuickActionBar';
+import ModeSelector from './ModeSelector';
 import React from 'react';
 import { confirmClose } from '../services/attributesApi';
 
@@ -52,20 +54,32 @@ const ChatInputArea = () => {
       className="grid-in-chat-input p-3 bg-white border-t border-white"
       style={{ borderLeft: '1px solid #e5e7eb' }}
     >
+      {/* Quick actions appear above the input */}
+      <QuickActionBar />
+      {/* Mode selector aligns to the right on its own row */}
+      <div className="flex justify-between items-center mt-2 mb-2">
+        <ModeSelector />
+      </div>
       <div className="relative">
-      <textarea
-        value={isListening ? voiceTranscript : input}
-        onChange={(e) => setInput(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            void handleSend();
+        <textarea
+          value={isListening ? voiceTranscript : input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              void handleSend();
+            }
+          }}
+          placeholder={
+            isListening
+              ? 'Listening...'
+              : isSpeaking
+              ? 'Echo is speaking...'
+              : 'Ask Echo to do something...'
           }
-        }}
-        placeholder={isListening ? 'Listening...' : isSpeaking ? 'Echo is speaking...' : 'Ask Echo to do something...'}
-        className="w-full h-full p-2 border border-gray-300 rounded bg-white text-black placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none pr-20"
-        rows={2}
-        readOnly={isListening || isSpeaking}
+          className="w-full h-full p-2 border border-gray-300 rounded bg-white text-black placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none pr-24"
+          rows={2}
+          readOnly={isListening || isSpeaking}
         />
         <div className="absolute right-2 bottom-2 flex gap-2">
           {/* File upload button (paperclip) */}
@@ -75,15 +89,19 @@ const ChatInputArea = () => {
               if (isListening) {
                 stopListening();
               } else {
-              startListening();
-            }
-          }}
-          className={`p-2 rounded-md ${isListening ? 'bg-red-600 text-white' : 'bg-gray-100'}`}
-          aria-label="Record voice command"
-          disabled={isAiProcessing || isSpeaking}
-        >
-          {isSpeaking ? <Bot className="h-5 w-5 animate-pulse" /> : <Mic className="h-5 w-5" />}
-        </button>
+                startListening();
+              }
+            }}
+            className={`p-2 rounded-md ${isListening ? 'bg-red-600 text-white' : 'bg-gray-100'}`}
+            aria-label="Record voice command"
+            disabled={isAiProcessing || isSpeaking}
+          >
+            {isSpeaking ? (
+              <Bot className="h-5 w-5 animate-pulse" />
+            ) : (
+              <Mic className="h-5 w-5" />
+            )}
+          </button>
           <button
             onClick={() => void handleSend()}
             disabled={isAiProcessing || isListening || isSpeaking}
@@ -92,10 +110,11 @@ const ChatInputArea = () => {
           >
             <Send className="h-5 w-5" />
           </button>
-      </div>
+        </div>
       </div>
     </div>
   );
 };
 
 export default ChatInputArea;
+

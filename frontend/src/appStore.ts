@@ -63,6 +63,61 @@ export interface Message {
   id: string;
   author: 'User' | 'AI';
   text: string;
+  /**
+   * Optional rich card data associated with the message.  If present,
+   * the chat UI will render a card instead of a plain text bubble.
+   * Cards can contain component suggestions, bill of materials summaries
+   * or other structured content with actions.  When `card` is defined
+   * the `text` field should be considered a fallback/plain description.
+   */
+  card?: DesignCardData;
+  /**
+   * Optional message classification.  If set to 'status' the message
+   * represents a system status update rather than a user/AI conversation
+   * turn.  Card messages are implicitly classified as 'card'.
+   */
+  type?: 'text' | 'card' | 'status';
+}
+
+/**
+ * Supported statuses for a plan task.  When a user asks the AI to
+ * perform a complex operation, the orchestrator can break it into
+ * discrete steps and populate the planTasks array with tasks
+ * representing each stage of the workflow.  The frontend will
+ * visualise this sequence in the chat sidebar.
+ */
+export type PlanTaskStatus = 'pending' | 'in_progress' | 'complete' | 'blocked';
+
+/**
+ * Representation of a single high‑level task in the AI's plan.
+ */
+export interface PlanTask {
+  id: string;
+  /** Short human‑readable title for the task. */
+  title: string;
+  /** Detailed description explaining the objective of the task. */
+  description?: string;
+  /** Current execution status. */
+  status: PlanTaskStatus;
+}
+
+/**
+ * Data structure for rendering rich design cards in the chat interface.
+ * Cards present structured information about components or proposals
+ * and can include a list of interactive actions.  The UI will
+ * display the title, description, optional image and specs table.
+ */
+export interface DesignCardData {
+  /** Title or headline for the card (e.g. component name). */
+  title: string;
+  /** Free‑form description or summary. */
+  description?: string;
+  /** URL for an image preview.  If omitted, a placeholder will be shown. */
+  imageUrl?: string;
+  /** Structured list of key/value specs to display in a table. */
+  specs?: { label: string; value: string }[];
+  /** List of suggested actions.  Each action will render as a button in the card. */
+  actions?: { label: string; command: string }[];
 }
 
 /**
@@ -95,6 +150,42 @@ interface AppState {
   selectedComponentId: string | null;
   /** History of messages in the chat panel. */
   messages: Message[];
+
+  /**
+   * High‑level plan returned by the orchestrator.  When the user
+   * requests a complex operation (e.g. “Design a 5 kW PV system”) the
+   * orchestrator breaks it into tasks and populates this array.  The
+   * UI visualises tasks in a timeline and updates their statuses as
+   * they progress.
+   */
+  planTasks: PlanTask[];
+  /** Replace the entire plan tasks list. */
+  setPlanTasks: (tasks: PlanTask[]) => void;
+  /** Update the status of a single task by id. */
+  updatePlanTaskStatus: (id: string, status: PlanTaskStatus) => void;
+  /** Clear all plan tasks. */
+  clearPlanTasks: () => void;
+
+  /**
+   * Suggested quick actions displayed beneath the chat input.  Each
+   * action defines a user‑friendly label and a command string that
+   * will be sent to the AI when clicked.  The orchestrator can
+   * populate this list based on context and recent interactions.
+   */
+  quickActions: { id: string; label: string; command: string }[];
+  /** Set the full quick actions list. */
+  setQuickActions: (actions: { id: string; label: string; command: string }[]) => void;
+
+  /**
+   * Current high‑level chat mode.  Determines which tools are
+   * available to the AI and influences how prompts are interpreted.
+   * For example, 'design' mode allows multi‑file editing and system
+   * design, whereas 'analyze' is read‑only.  'manual' restricts AI
+   * modifications and 'business' is reserved for sales and CRM flows.
+   */
+  currentMode: 'design' | 'analyze' | 'manual' | 'business';
+  /** Update the current chat mode. */
+  setCurrentMode: (mode: 'design' | 'analyze' | 'manual' | 'business') => void;
   /** Last natural-language prompt sent to the AI. */
   lastPrompt: string;
   /** Update which component is selected. */
@@ -272,6 +363,23 @@ export const useAppStore = create<AppState>((set, get) => ({
   bomItems: null,
   selectedComponentId: null,
   messages: [],
+  // High‑level plan defaults to empty.  When the orchestrator
+  // generates a plan it will replace this array.
+  planTasks: [],
+  setPlanTasks: (tasks) => set({ planTasks: tasks }),
+  updatePlanTaskStatus: (id, status) =>
+    set((s) => ({
+      planTasks: s.planTasks.map((t) =>
+        t.id === id ? { ...t, status } : t
+      ),
+    })),
+  clearPlanTasks: () => set({ planTasks: [] }),
+
+  // Quick actions and mode selection defaults
+  quickActions: [],
+  setQuickActions: (actions) => set({ quickActions: actions }),
+  currentMode: 'design',
+  setCurrentMode: (mode) => set({ currentMode: mode }),
   lastPrompt: '',
   status: 'loading',
   statusMessages: [],
