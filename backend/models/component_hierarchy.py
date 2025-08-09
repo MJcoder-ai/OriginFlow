@@ -14,7 +14,6 @@ from typing import List, Optional
 import datetime
 from sqlalchemy import String, Boolean, JSON, TIMESTAMP
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.dialects.postgresql import UUID as PGUUID, ARRAY
 from sqlalchemy.sql import func
 
 from backend.models import Base
@@ -34,11 +33,11 @@ class HierarchicalComponent(Base):
 
     __tablename__ = "components"
 
-    base_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True)
-    variant_id: Mapped[Optional[uuid.UUID]] = mapped_column(PGUUID(as_uuid=True), primary_key=True, nullable=True)
+    base_id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    variant_id: Mapped[Optional[str]] = mapped_column(String, primary_key=True, nullable=True)
     is_base_component: Mapped[bool] = mapped_column(Boolean, nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
-    domain: Mapped[List[str]] = mapped_column(ARRAY(String), nullable=False)
+    domain: Mapped[List[str]] = mapped_column(JSON, nullable=False)
     brand: Mapped[str] = mapped_column(String, nullable=False)
     mpn: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     version: Mapped[str] = mapped_column(String, default="1.0.0")
@@ -46,9 +45,9 @@ class HierarchicalComponent(Base):
     trust_level: Mapped[str] = mapped_column(String, default="User-Added")
     attributes: Mapped[dict] = mapped_column(JSON, nullable=False)
     configurable_options: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
-    compliance_tags: Mapped[Optional[List[str]]] = mapped_column(ARRAY(String), nullable=True)
+    compliance_tags: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
     photos_icons: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
-    available_regions: Mapped[Optional[List[str]]] = mapped_column(ARRAY(String), nullable=True)
+    available_regions: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime.datetime] = mapped_column(
         TIMESTAMP(timezone=True), server_default=func.now()
     )
@@ -76,13 +75,13 @@ class ComponentDocument(Base):
 
     __tablename__ = "documents"
 
-    id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    base_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    base_id: Mapped[str] = mapped_column(String, nullable=False)
     type: Mapped[str] = mapped_column(String, nullable=False)
     asset_id: Mapped[str] = mapped_column(String, nullable=False)
     version: Mapped[str] = mapped_column(String, default="1.0.0")
     description: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    covered_variants: Mapped[Optional[List[uuid.UUID]]] = mapped_column(ARRAY(PGUUID(as_uuid=True)), nullable=True)
+    covered_variants: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
     is_shared: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime.datetime] = mapped_column(
         TIMESTAMP(timezone=True), server_default=func.now()
