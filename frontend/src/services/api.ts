@@ -105,6 +105,27 @@ export const api = {
     return res.json();
   },
 
+  /** Execute a plan task or quick action for an ODL session. */
+  async act(
+    sessionId: string,
+    taskId: string,
+    action?: string,
+  ): Promise<{
+    patch: { add_nodes: any[]; add_edges: any[]; removed_nodes: any[]; removed_edges: any[] };
+    card?: any;
+  }> {
+    const res = await fetch(`${API_BASE_URL}/odl/${encodeURIComponent(sessionId)}/act`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ task_id: taskId, action }),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Act endpoint error ${res.status}: ${text.slice(0, 120)}`);
+    }
+    return res.json();
+  },
+
 
   /** POST a natural-language command and receive deterministic actions. */
   async sendCommandToAI(command: string): Promise<AiAction[]> {

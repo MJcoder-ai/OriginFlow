@@ -166,6 +166,9 @@ interface AppState {
   /** Clear all plan tasks. */
   clearPlanTasks: () => void;
 
+  /** Perform a plan task: call the ODL act endpoint, apply the patch, and update the UI. */
+  performPlanTask: (task: PlanTask) => Promise<void>;
+
   /**
    * Suggested quick actions displayed beneath the chat input.  Each
    * action defines a user‑friendly label and a command string that
@@ -374,6 +377,73 @@ export const useAppStore = create<AppState>((set, get) => ({
       ),
     })),
   clearPlanTasks: () => set({ planTasks: [] }),
+
+  async performPlanTask(task) {
+    // Session management: for now we default to 'global' session
+    const sessionId = (get() as any).sessionId ?? 'global';
+    // Mark task in progress
+    get().updatePlanTaskStatus(task.id, 'in_progress');
+    set({ isAiProcessing: true });
+    try {
+      const { patch, card } = await api.act(sessionId, task.id);
+      // Apply added nodes to canvas
+      if (patch.add_nodes) {
+        set((s) => ({
+          canvasComponents: [
+            ...s.canvasComponents,
+            ...patch.add_nodes.map((n: any) => ({
+              id: n.id,
+              name: n.data?.label ?? n.type,
+              type: n.type,
+              x: Math.random() * 500,
+              y: Math.random() * 300,
+              ports: [
+                { id: 'input', type: 'in' },
+                { id: 'output', type: 'out' },
+              ],
+            })),
+          ],
+        }));
+      }
+      // Apply added edges to links
+      if (patch.add_edges) {
+        set((s) => ({
+          links: [
+            ...s.links,
+            ...patch.add_edges.map((e: any) => ({
+              id: `${e.source}_${e.target}_${crypto.randomUUID()}`,
+              source_id: e.source,
+              target_id: e.target,
+            })),
+          ],
+        }));
+      }
+      // Render design card as a chat message
+      if (card) {
+        get().addMessage({
+          id: crypto.randomUUID(),
+          author: 'AI',
+          text: card.title,
+          card: {
+            title: card.title,
+            description: card.description,
+            imageUrl: (card as any).image_url,
+            specs: card.specs?.map((s: any) => ({ label: s.label, value: s.value })),
+            actions: card.actions?.map((a: any) => ({ label: a.label, command: a.command })),
+          },
+          type: 'card',
+        });
+      }
+      // Mark the task complete
+      get().updatePlanTaskStatus(task.id, 'complete');
+    } catch (err) {
+      console.error('Failed to perform plan task', err);
+      get().updatePlanTaskStatus(task.id, 'blocked');
+      get().addStatusMessage('Failed to execute task', 'error');
+    } finally {
+      set({ isAiProcessing: false });
+    }
+  },
 
   // Quick actions and mode selection defaults
   quickActions: [],

@@ -29,14 +29,7 @@ const PlanTimeline: React.FC = () => {
   // Retrieve plan + actions from the store
   const tasks = useAppStore((s) => s.planTasks);
   const updatePlanTaskStatus = useAppStore((s) => s.updatePlanTaskStatus);
-  const analyzeAndExecute = useAppStore((s) => s.analyzeAndExecute);
-
-  // Default commands to kick off when a task is moved into in_progress
-  const defaultCommands: Record<string, string> = {
-    gather: 'ask me clarifying questions and constraints',
-    generate_design: 'generate preliminary design',
-    refine_validate: 'validate my design',
-  };
+  const performPlanTask = useAppStore((s) => s.performPlanTask);
 
   const next = (s: PlanTask['status']): PlanTask['status'] => {
     if (s === 'pending') return 'in_progress';
@@ -47,11 +40,11 @@ const PlanTimeline: React.FC = () => {
 
   const onToggle = (task: PlanTask) => {
     const nextStatus = next(task.status);
-    updatePlanTaskStatus(task.id, nextStatus);
-    // Optional: when a task is started, kick off a sensible default command
+    // When moving a task into in_progress, perform it via the act endpoint
     if (nextStatus === 'in_progress') {
-      const cmd = defaultCommands[task.id];
-      if (cmd) analyzeAndExecute(cmd);
+      performPlanTask(task);
+    } else {
+      updatePlanTaskStatus(task.id, nextStatus);
     }
   };
 

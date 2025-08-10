@@ -25,16 +25,9 @@ from backend.schemas.ai import DesignCard, CardSpecItem, CardAction
 
 
 class BaseDomainAgent:
-    """Abstract base class for domain agents.
+    """Abstract base class for domain agents."""
 
-    Parameters
-    ----------
-    session_id: str
-        The current design session identifier.  Used to fetch or
-        persist data specific to the user’s project.
-    """
-
-    def __init__(self, session_id: str) -> None:
+    def __init__(self, session_id: str | None = None) -> None:
         self.session_id = session_id
 
     async def execute(self, task_id: str, graph: ODLGraph) -> Tuple[GraphPatch, Optional[DesignCard]]:
@@ -66,23 +59,39 @@ class BaseDomainAgent:
 
 
 class PVDesignAgent(BaseDomainAgent):
-    """Agent responsible for selecting PV components and sizing arrays.
-
-    In future implementations this agent will analyse the required
-    capacity, roof constraints and available components to propose
-    appropriate PV modules and inverters.  It will produce a
-    ``GraphPatch`` adding component nodes and electrical connections,
-    and a ``DesignCard`` summarising the selection.
-    """
+    """Agent responsible for selecting PV components and sizing arrays."""
 
     async def execute(self, task_id: str, graph: ODLGraph) -> Tuple[GraphPatch, Optional[DesignCard]]:
-        # Demonstrate loop by adding a dummy PV string node
-        patch = GraphPatch(
-            add_nodes=[
-                ODLNode(id="pv_string_1", type="pv_string", data={"rated_power": 5000})
-            ]
-        )
-        return patch, None
+        """Simple PV design agent implementation.
+
+        When the task_id indicates a design operation (e.g. 'generate_design'),
+        this agent adds a dummy PV string node to the ODL graph and returns
+        a design card summarising the change.  Replace this stub with real
+        sizing and component selection logic as you build out the domain agent.
+        """
+        import uuid
+        tid = (task_id or "").lower()
+        if tid in {"generate_design", "generate_preliminary_design", "prelim_design"}:
+            new_id = f"pv_string_{uuid.uuid4().hex[:8]}"
+            node = ODLNode(id=new_id, type="pv_string", data={"rated_power": 5000})
+            patch = GraphPatch(
+                add_nodes=[node],
+                add_edges=[],
+                removed_nodes=[],
+                removed_edges=[],
+            )
+            card = DesignCard(
+                title="Preliminary PV array",
+                description="Added a 5 kW string to the design graph.",
+                specs=[{"label": "Rated power", "value": "5000 W"}],
+                actions=[
+                    {"label": "Accept", "command": "accept pv design"},
+                    {"label": "See alternatives", "command": "generate_design alternative"},
+                ],
+            )
+            return patch, card
+        # default: no change
+        return GraphPatch(add_nodes=[], add_edges=[], removed_nodes=[], removed_edges=[]), None
 
 
 class WiringAgent(BaseDomainAgent):

@@ -93,9 +93,9 @@ class GraphPatch(BaseModel):
     """
 
     add_nodes: List[ODLNode] | None = None
-    remove_node_ids: List[str] | None = None
     add_edges: List[ODLEdge] | None = None
-    remove_edges: List[Dict[str, str]] | None = None
+    removed_nodes: List[str] | None = None
+    removed_edges: List[Dict[str, str]] | None = None
 
 
 class GraphDiff(BaseModel):
@@ -112,12 +112,12 @@ class GraphDiff(BaseModel):
 
 
 class OdlActRequest(BaseModel):
-    """Request body for /odl/{session_id}/act."""
+    """Request body for executing a plan task or quick action in an ODL session."""
     task_id: str | None = None  # e.g. "generate_design"
-    action: str | None = None   # e.g. quick action key like "bom"
+    action: str | None = None   # e.g. "bom" or other quick action key
 
 
 class OdlActResponse(BaseModel):
-    """Response for /odl/{session_id}/act."""
+    """Response for executing a plan task or quick action."""
     patch: GraphPatch
     card: DesignCard | None = None
