@@ -49,7 +49,7 @@ OriginFlow/
 ├── frontend/                    # React TypeScript app
 │   ├── src/components/          # UI components
 │   │   ├── ChatPanel.tsx        # AI chat interface
-│   │   ├── ChecklistPanel.tsx   # Action approval UI
+│   │   ├── PlanTimeline.tsx    # Task timeline UI
 │   │   ├── Workspace.tsx        # Design canvas
 │   │   └── [+25 more components]
 │   ├── src/services/

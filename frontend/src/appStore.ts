@@ -166,7 +166,14 @@ interface AppState {
   /** Clear all plan tasks. */
   clearPlanTasks: () => void;
 
-  /** Perform a plan task: call the ODL act endpoint, apply the patch, and update the UI. */
+  /** Unique design session identifier (default 'global' for legacy behaviour). */
+  sessionId: string;
+
+  /**
+   * Execute a plan task via the backend.  Sends the task to the
+   * ``/odl/{session_id}/act`` endpoint, applies the returned patch,
+   * shows any design card in the chat, and updates the task status.
+   */
   performPlanTask: (task: PlanTask) => Promise<void>;
 
   /**
@@ -271,19 +278,6 @@ interface AppState {
   /** Update the current layer. */
   setCurrentLayer: (layer: string) => void;
 
-  /**
-   * Queue of AI-generated actions awaiting user approval. These are surfaced
-   * in the checklist UI so the user can approve or reject each one.
-   */
-  pendingActions: AiAction[];
-  /** Add multiple pending actions to the queue. */
-  addPendingActions: (actions: AiAction[]) => void;
-  /** Approve a pending action by index and execute it. */
-  approvePendingAction: (index: number) => Promise<void>;
-  /** Reject a pending action by index. */
-  rejectPendingAction: (index: number) => void;
-  /** Log an auto-approved action for learning feedback. */
-  logAutoApproval: (action: AiAction) => Promise<void>;
 
   /** Total cost of the current design, if estimated by the AI. */
   costTotal: number | null;
@@ -366,6 +360,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   bomItems: null,
   selectedComponentId: null,
   messages: [],
+  // Current ODL session (default 'global').  Override when creating per-user sessions.
+  sessionId: 'global',
   // High‑level plan defaults to empty.  When the orchestrator
   // generates a plan it will replace this array.
   planTasks: [],
@@ -530,96 +526,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     'Networking/Monitoring',
   ],
   currentLayer: 'Single-Line Diagram',
-
-  // Pending AI actions awaiting user confirmation
-  pendingActions: [],
   setCurrentLayer: (layer) => set({ currentLayer: layer }),
-  addPendingActions: (actions) =>
-    set((s) => ({ pendingActions: [...s.pendingActions, ...actions] })),
-  approvePendingAction: async (index) => {
-    const actions = get().pendingActions;
-    const action = actions[index];
-    if (!action) return;
-    // Record history before applying the approved action
-    get().recordHistory();
-    // Log the user's approval before executing the action.
-    const designContext = { components: get().canvasComponents, links: get().links };
-    const history = get().messages.slice(-5);
-    try {
-      await fetch(`${API_BASE_URL}/ai/log-feedback-v2`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          session_id: undefined,
-          user_prompt: get().lastPrompt,
-          proposed_action: action,
-          user_decision: 'approved',
-          component_type: action.payload?.type,
-          design_context: designContext,
-          user_preferences: {},
-          session_history: { messages: history },
-          confidence_shown: action.confidence,
-          confirmed_by: 'human',
-        }),
-      });
-    } catch (err) {
-      console.warn('Failed to log AI feedback', err);
-    }
-    await get().applyAiActions([action]);
-    set((s) => ({ pendingActions: s.pendingActions.filter((_, i) => i !== index) }));
-  },
-  rejectPendingAction: (index) => {
-    const actions = get().pendingActions;
-    const action = actions[index];
-    if (action) {
-      const designContext = { components: get().canvasComponents, links: get().links };
-      const history = get().messages.slice(-5);
-      fetch(`${API_BASE_URL}/ai/log-feedback-v2`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          session_id: undefined,
-          user_prompt: get().lastPrompt,
-          proposed_action: action,
-          user_decision: 'rejected',
-          component_type: action.payload?.type,
-          design_context: designContext,
-          user_preferences: {},
-          session_history: { messages: history },
-          confidence_shown: action.confidence,
-          confirmed_by: 'human',
-        }),
-      }).catch((err) => console.warn('Failed to log AI feedback', err));
-    }
-    set((s) => ({ pendingActions: s.pendingActions.filter((_, i) => i !== index) }));
-  },
-  
-  logAutoApproval: async (action) => {
-    // Log auto-approval for learning feedback with 'auto' decision
-    const designContext = { components: get().canvasComponents, links: get().links };
-    const history = get().messages.slice(-5);
-    try {
-      await fetch(`${API_BASE_URL}/ai/log-feedback-v2`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          session_id: undefined,
-          user_prompt: get().lastPrompt,
-          proposed_action: action,
-          user_decision: 'auto',  // Mark as auto-approved
-          component_type: action.payload?.type,
-          design_context: designContext,
-          user_preferences: {},
-          session_history: { messages: history },
-          confidence_shown: action.confidence,
-          confirmed_by: 'auto',  // Auto-confirmed by learning system
-        }),
-      });
-    } catch (err) {
-      console.warn('Failed to log auto-approval feedback', err);
-    }
-  },
-  
+
   voiceMode: 'idle',
   isContinuousConversation: false,
   voiceTranscript: '',
@@ -794,8 +702,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   async executeAiActions(actions) {
-    const approvalActions: AiAction[] = [];
-
+    // In plan–act mode, execute all modifications immediately.
+    const applyNow: AiAction[] = [];
     for (const action of actions) {
       switch (action.action) {
         case 'addComponent':
@@ -803,30 +711,32 @@ export const useAppStore = create<AppState>((set, get) => ({
         case 'removeComponent':
         case 'updatePosition':
         case 'suggestLink':
-          approvalActions.push(action);
+          applyNow.push(action);
           break;
-
-        case 'validation':
-          if (action.payload && (action.payload as any).message) {
-            get().addMessage({
-              id: crypto.randomUUID(),
-              author: 'AI',
-              text: (action.payload as any).message,
-            });
+        case 'validation': {
+          const msg = (action.payload as any)?.message;
+          if (msg) {
+            get().addMessage({ id: crypto.randomUUID(), author: 'AI', text: msg });
           }
           break;
-
-        case 'report':
-          get().setBom(action.payload.items);
+        }
+        case 'report': {
+          get().setBom((action.payload as any).items);
           break;
-
+        }
         default:
           console.error('AI action not implemented', action);
       }
     }
-
-    if (approvalActions.length > 0) {
-      get().addPendingActions(approvalActions);
+    if (applyNow.length > 0) {
+      // Record history for undo/redo
+      get().recordHistory();
+      await get().applyAiActions(applyNow);
+      get().addMessage({
+        id: crypto.randomUUID(),
+        author: 'AI',
+        text: `✅ Applied ${applyNow.length} action(s) automatically.`,
+      });
     }
   },
 
@@ -880,83 +790,45 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   async analyzeAndExecute(command) {
-    const { addMessage, setIsAiProcessing, canvasComponents, links } = get();
+    const { addMessage, setIsAiProcessing } = get();
     set({ lastPrompt: command });
-
-    // 1. Add user message and set processing state
+    // Announce command and mark AI busy
     addMessage({ id: crypto.randomUUID(), author: 'User', text: command });
     setIsAiProcessing(true);
     get().addStatusMessage('Processing command', 'info');
 
-    try {
-      const plan = await api.getPlan(command);
-      set({
-        planTasks: plan?.tasks ?? [],
-        quickActions: plan?.quick_actions ?? [],
-      });
-    } catch {
-      set({ planTasks: [], quickActions: [] });
-    }
-
-    try {
-      const snapshot = { components: canvasComponents, links };
-      const actions = await api.analyzeDesign(snapshot, command);
-      const pending: AiAction[] = [];
-
-      actions.forEach((act) => {
-        switch (act.action) {
-          case 'validation': {
-            // Show validation messages directly in the chat. Additionally
-            // parse simple cost or performance estimates from the message and
-            // update the store accordingly. For example a financial agent may
-            // return "Estimated cost ... $1234" and a performance agent may
-            // return "produces roughly 5000 kWh per year".
-            const msg: string = (act.payload as any).message;
-            addMessage({ id: crypto.randomUUID(), author: 'AI', text: msg });
-            // Parse cost
-            const costMatch = msg.match(/\$([0-9]+(?:\.[0-9]+)?)/);
-            if (costMatch) {
-              const costVal = parseFloat(costMatch[1]);
-              if (!isNaN(costVal)) {
-                get().setCostTotal(costVal);
-              }
-            }
-            // Parse annual kWh values
-            const kwhMatch = msg.match(/([0-9]+(?:,[0-9]{3})*(?:\.[0-9]+)?)\s*kWh/i);
-            if (kwhMatch) {
-              const numStr = kwhMatch[1].replace(/,/g, '');
-              const kwh = parseFloat(numStr);
-              if (!isNaN(kwh)) {
-                get().setPerformanceMetrics({ annualKwh: kwh });
-              }
-            }
-            break;
-          }
-          case 'report':
-            // Set the BOM and inform the user
-            get().setBom((act.payload as any).items);
-            addMessage({ id: crypto.randomUUID(), author: 'AI', text: 'Here is your bill of materials.' });
-            break;
-          default:
-            pending.push(act);
+    (async () => {
+      try {
+        const plan = await api.getPlan(command);
+        if (plan.quick_actions && Array.isArray(plan.quick_actions)) {
+          set({
+            quickActions: plan.quick_actions.map((qa: any) => ({
+              id: qa.id,
+              label: qa.label,
+              command: qa.command,
+            })),
+          });
         }
-      });
-
-      if (pending.length > 0) {
-        get().addPendingActions(pending);
-        get().addStatusMessage(`${pending.length} action(s) ready. Review & approve to apply.`, 'info');
+        if (plan.tasks && Array.isArray(plan.tasks)) {
+          const tasks = plan.tasks.map((t: any) => ({
+            id: t.id,
+            title: t.title,
+            description: t.description,
+            status: (t.status ?? 'pending') as PlanTaskStatus,
+          }));
+          set({ planTasks: tasks });
+          for (const task of tasks) {
+            await get().performPlanTask(task);
+          }
+        } else {
+          set({ planTasks: [] });
+        }
+      } catch (err) {
+        console.error('Failed to load plan', err);
+      } finally {
+        setIsAiProcessing(false);
       }
-    } catch (error) {
-      console.error('AI command failed:', error);
-      const errorMessage = 'Sorry, I ran into an error trying to do that.';
-      // 3. Add AI error message
-      addMessage({ id: crypto.randomUUID(), author: 'AI', text: errorMessage });
-      set({ status: 'Error: AI command failed' });
-      get().addStatusMessage('AI command failed', 'error');
-    } finally {
-      // 4. Reset processing state
-      setIsAiProcessing(false);
-    }
+    })();
   },
   setBom(items) {
     set({ bomItems: items });

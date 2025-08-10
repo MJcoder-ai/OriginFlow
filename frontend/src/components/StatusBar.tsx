@@ -11,7 +11,6 @@ const StatusBar: React.FC = () => {
   const messages = useAppStore((s) => s.statusMessages);
   const latest = messages[messages.length - 1];
   const colorClass = latest?.icon ? statusColors[latest.icon] ?? 'text-gray-600' : 'text-gray-600';
-  const pendingCount = useAppStore((s) => s.pendingActions.length);
   const cost = useAppStore((s) => s.costTotal);
   const perf = useAppStore((s) => s.performanceMetrics.annualKwh);
 
@@ -30,10 +29,7 @@ const StatusBar: React.FC = () => {
         {cost !== null && <span className="mr-4">Cost: ${cost.toFixed(0)}</span>}
         {perf !== null && <span>Annual kWh: {perf.toLocaleString()}</span>}
       </span>
-      {/* Right section: pending action count */}
-      <span className="flex-none ml-4 whitespace-nowrap">
-        {pendingCount > 0 && <span>{pendingCount} pending action{pendingCount > 1 ? 's' : ''}</span>}
-      </span>
+      {/* Right section removed (pending actions no longer exist) */}
     </footer>
   );
 };
