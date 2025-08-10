@@ -75,13 +75,23 @@ export const api = {
     if (!response.ok) throw new Error('Failed to delete component');
   },
 
-  async getPlan(command: string): Promise<PlanResponse> {
-    const res = await fetch(`${API_BASE_URL}/ai/plan`, {
+  /** Get a high-level plan (optionally for a specific ODL session). */
+  async getPlan(
+    command: string,
+    options?: { sessionId?: string }
+  ): Promise<PlanResponse> {
+    const url = options?.sessionId
+      ? `${API_BASE_URL}/odl/${encodeURIComponent(options.sessionId)}/plan`
+      : `${API_BASE_URL}/ai/plan`;
+    const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ command }),
     });
-    if (!res.ok) throw new Error(`Plan failed: ${res.status}`);
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Plan endpoint error ${res.status}: ${text.slice(0, 120)}`);
+    }
     return res.json();
   },
 
@@ -95,27 +105,6 @@ export const api = {
     return res.json();
   },
 
-  /**
-   * Request a detailed multi-step plan from the AI.
-   * Returns an ordered list of ``PlanTask`` objects and optional quick actions.
-   */
-  async getPlan(
-    command: string
-  ): Promise<{
-    tasks: PlanTask[];
-    quick_actions?: { id: string; label: string; command: string }[];
-  }> {
-    const res = await fetch(`${API_BASE_URL}/ai/plan`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ command }),
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Plan endpoint error ${res.status}: ${text.slice(0, 120)}`);
-    }
-    return res.json();
-  },
 
   /** POST a natural-language command and receive deterministic actions. */
   async sendCommandToAI(command: string): Promise<AiAction[]> {
