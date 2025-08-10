@@ -95,6 +95,28 @@ export const api = {
     return res.json();
   },
 
+  /**
+   * Request a detailed multi-step plan from the AI.
+   * Returns an ordered list of ``PlanTask`` objects and optional quick actions.
+   */
+  async getPlan(
+    command: string
+  ): Promise<{
+    tasks: PlanTask[];
+    quick_actions?: { id: string; label: string; command: string }[];
+  }> {
+    const res = await fetch(`${API_BASE_URL}/ai/plan`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command }),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Plan endpoint error ${res.status}: ${text.slice(0, 120)}`);
+    }
+    return res.json();
+  },
+
   /** POST a natural-language command and receive deterministic actions. */
   async sendCommandToAI(command: string): Promise<AiAction[]> {
     const res = await fetch(`${API_BASE_URL}/ai/command`, {
