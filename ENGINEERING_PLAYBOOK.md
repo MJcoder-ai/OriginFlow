@@ -307,6 +307,8 @@ Common Pitfalls & Fixes:
 * Scaling: Use Ray for distributed agents (AutoGen integration).
 * Prompt Drift: Hash prompts; re-eval on changes: `prompt_hash = hashlib.sha256(prompt.encode()).hexdigest();` test variants in suite.
 
+One-sentence takeaway: Treat every OriginFlow agent like a micro-service with a signed contract: small, typed, observable, least-privileged, and version-controlled from day-1, enabling seamless scaling to multi-agent ecosystems.
+
 ## 11. Designing Planning Tasks & Quick Actions
 
 With the introduction of a PlanningAgent and the UI features described in the roadmap (plan timelines and quick actions), engineers must structure high‑level workflows in a way that is both coherent for the AI orchestrator and intuitive for users. This section codifies best practices for creating planning tasks and quick actions.
@@ -322,4 +324,29 @@ With the introduction of a PlanningAgent and the UI features described in the ro
 
 When implementing a new agent that returns planning information, adhere to these guidelines to provide a consistent, user‑friendly experience. Refer to `backend/schemas/ai.py` for the `PlanTask`, `PlanTaskStatus` and `QuickAction` models that underpin this functionality.
 
-One-sentence takeaway: Treat every OriginFlow agent like a micro-service with a signed contract: small, typed, observable, least-privileged, and version-controlled from day-1, enabling seamless scaling to multi-agent ecosystems.
+## 12. Building ODL-Based Domain Agents and Planners (New)
+The introduction of the OriginFlow Design Language (ODL) transforms the platform from a file‑centred system into a graph‑centred one. Designs are now represented as graphs of typed nodes and edges, captured by the `ODLNode` and `ODLEdge` models defined in `backend/schemas/odl.py`. Each design session maintains a dedicated graph managed by `backend/services/odl_graph_service.py`. Agents and planners operate on these graphs via patches, enabling fine‑grained, multi‑layer edits.
+
+### 12.1 Graph‑First Mindset
+**Model the World as a Graph**: Every entity in the design—PV module, inverter, wire, roof surface, mounting bracket, sensor—is a node. Relationships such as electrical connections, physical mounting, data flow or membership in an assembly become directed edges. This abstraction decouples the agents from any particular layout or file format, enabling cross‑layer reasoning.
+
+**Design Domain Agents Around Tasks**: Each domain agent (e.g. `PVDesignAgent`, `WiringAgent`, `StructuralAgent`, `NetworkAgent`, `AssemblyAgent`) implements a common `execute(task_id, graph)` interface. Agents read the graph, apply domain logic, and return a `GraphPatch` plus an optional `DesignCard`. The patch lists nodes and edges to add or remove; the card contains a human‑readable summary and action buttons for user approval.
+
+**Avoid In‑Place Mutations**: Domain agents should be pure functions with no side effects. They should not directly mutate the graph. Instead, they create patches that the orchestrator applies via the graph service. This enables diff computation, user approvals, undo operations and audit trails.
+
+**Use Rich Cards for Explainability**: Every structural change should be accompanied by a card that explains the rationale in plain language, lists key specifications and presents actionable options. Cards are defined in `backend/schemas/ai.py` and rendered in the chat sidebar.
+
+### 12.2 Planner & Plan–Act Loop
+The `PlannerAgent` acts as the conductor of the multi‑agent orchestra. It breaks the user’s intent into sequential tasks and suggests quick actions. The planner does not perform domain work; it merely decides the order of operations. A simple implementation lives in `backend/agents/planner_agent.py`.
+
+**Parse User Intent and Graph Context**: The planner inspects the user’s command and, in future versions, the current graph to decide which tasks are necessary. For instance, a command containing "design" leads to tasks like gathering requirements, generating preliminary designs and refining and validating them.
+
+**Create PlanTask Objects**: For each high‑level action, instantiate a `PlanTask` with a deterministic ID, a short title and an optional description. Initialise all tasks with status `pending`. The orchestrator updates statuses as tasks start and finish.
+
+**Suggest QuickAction Objects**: Provide small, context‑aware commands that the user can trigger with a single click (e.g. “Generate BOM”, “Run analysis”). Do not overwhelm the user—3 to 4 suggestions suffice.
+
+**Dispatch to Domain Agents**: The orchestrator takes the plan and, for each task, invokes the appropriate domain agent’s `execute` method. After applying the returned patch to the graph, it moves to the next task. Between tasks the orchestrator may call the planner again if the graph has changed significantly.
+
+**Stream Progress to the Frontend**: Use WebSockets or Server‑Sent Events to push updates about task status and graph diffs to the UI in real time. The chat sidebar’s timeline uses these events to visualise progress.
+
+By adopting an ODL‑centric, plan–act architecture, OriginFlow can support complex, multi‑layer engineering projects with the same sophistication that Cursor brings to code editing. This model lays the groundwork for autonomous optimisation across electrical, structural, communications and business domains, while keeping the human firmly in the loop.
