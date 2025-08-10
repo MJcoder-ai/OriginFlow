@@ -60,8 +60,15 @@ This taxonomy documents the complete OriginFlow AI agent ecosystem: **current Ph
 | Agent | Status | Mission | Current Capabilities | Implementation Notes |
 |-------|--------|---------|---------------------|---------------------|
 | **PlanningAgent** | 🧪 | Break down complex commands into high‑level tasks | Returns an ordered list of plan tasks (e.g. gather requirements, generate preliminary design, refine/validate) and suggests quick actions | Introduced in this roadmap; currently returns a static plan via `/api/v1/ai/plan` for demonstration. Full integration with the router and specialist agents is planned for Phase 2. |
+| **ODL Domain Agents** | 🧪 | Domain‑specific reasoning over ODL graphs | Each agent (PVDesignAgent, WiringAgent, StructuralAgent, NetworkAgent, AssemblyAgent) takes a task ID and the current ODL graph, performs domain logic (e.g. component sizing, wire gauge calculation, structural checks, network design, grouping assemblies) and returns a GraphPatch and an optional DesignCard | New skeleton agents introduced in this update. They currently return empty patches but provide a template for future domain implementations. |
 
 The PlanningAgent serves as a bridge between free‑form user commands and the specialist agents. It generates a high‑level plan that the UI can visualise as a timeline, providing transparency into the AI’s workflow and enabling the user to track progress. Each task in the plan is marked with a status (pending, in progress, complete or blocked). Quick actions are small, one‑click commands proposed to the user to accelerate common tasks, such as generating a bill of materials or running a design analysis.
+
+### **ODL Domain Agents & Graph Service (New)**
+
+To enable a plan–act loop across multiple engineering disciplines, we introduce a formal representation of the design as an **ODL graph**. Each design session is backed by a directed graph containing typed nodes (e.g. panels, inverters, roof surfaces, sensors) and typed edges representing relationships (e.g. electrical connections, physical mounting, data links). The `odl_graph_service` module manages these graphs in memory and exposes CRUD functions for creating sessions, retrieving graphs, applying patches and computing diffs. The `planner_agent` consults these graphs when decomposing commands, and ODL domain agents operate on them to produce precise modifications.
+
+Each ODL domain agent implements a unified `execute(task_id, graph)` method and returns a `GraphPatch` plus an optional `DesignCard` summarising its recommendation. The patch contains lists of nodes and edges to add or remove; cards supply user‑friendly explanations and actions. In this release these agents are stubs—returning empty patches—to illustrate the API shape. Future implementations will encode detailed domain knowledge and integrate with rule engines and databases.
 
 ---
 
