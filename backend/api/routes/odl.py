@@ -28,7 +28,14 @@ from backend.services.odl_graph_service import (
     apply_patch,
 )
 from backend.agents.planner_agent import PlannerAgent
-from backend.agents.odl_domain_agents import PVDesignAgent, WiringAgent, StructuralAgent, NetworkAgent, AssemblyAgent
+from backend.agents.odl_domain_agents import (
+    PVDesignAgent,
+    WiringAgent,
+    StructuralAgent,
+    NetworkAgent,
+    AssemblyAgent,
+    BaseDomainAgent,
+)
 
 router = APIRouter()
 
@@ -101,7 +108,14 @@ async def plan_for_session(session_id: str, req: Annotated[AiCommandRequest, Bod
 
 @router.post("/odl/{session_id}/act", response_model=OdlActResponse)
 async def act_for_session(session_id: str, req: OdlActRequest) -> OdlActResponse:
-    """Execute a domain step over the session's ODL graph and return a patch."""
+    """Execute a plan task or quick action against the session's ODL graph.
+
+    The planner generates task identifiers (e.g. 'generate_design') corresponding
+    to domain-specific operations.  This endpoint dispatches to the appropriate
+    domain agent, applies the resulting patch to the session graph, and returns
+    both the patch and an optional design card.  The frontend should update its
+    canvas representation based on the returned patch.
+    """
     try:
         g = get_graph(session_id)
     except KeyError:
@@ -110,20 +124,19 @@ async def act_for_session(session_id: str, req: OdlActRequest) -> OdlActResponse
     task = (req.task_id or "").lower()
     action = (req.action or "").lower()
 
-    # minimal routing: expand as needed
-    if task in {"generate_design", "prelim"} or action in {"design", "bom"}:
-        agent = PVDesignAgent(session_id)
-    elif task in {"wiring"}:
-        agent = WiringAgent(session_id)
-    elif task in {"refine_validate", "validate"}:
-        agent = StructuralAgent(session_id)
+    # Select an agent based on task or action keywords; extend as needed
+    if task in {"generate_design", "generate_preliminary_design", "prelim_design"} or action.startswith("design"):
+        agent: BaseDomainAgent = PVDesignAgent()
+    elif task.startswith("wiring") or action.startswith("wiring"):
+        agent = WiringAgent()
+    elif task.startswith("refine") or action.startswith("validate"):
+        agent = StructuralAgent()
     else:
-        agent = PVDesignAgent(session_id)
+        agent = PVDesignAgent()
 
-    # serialise graph for the agent; agent returns a patch + optional card
+    # Serialize the current graph for the agent and execute it
     graph_model = serialize_graph(g)
     patch, card = await agent.execute(task_id=task or action, graph=graph_model)
-
-    # apply the patch and return it along with the card
+    # Apply the patch to the session graph
     apply_patch(session_id, patch)
     return OdlActResponse(patch=patch, card=card)

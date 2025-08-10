@@ -69,8 +69,8 @@ def apply_patch(session_id, patch):
             if node.id not in g:
                 g.add_node(node.id, type=node.type, data=node.data)
                 added_nodes.append(node.id)
-    if patch.remove_node_ids:
-        for node_id in patch.remove_node_ids:
+    if patch.removed_nodes:
+        for node_id in patch.removed_nodes:
             if g.has_node(node_id):
                 g.remove_node(node_id)
                 removed_nodes.append(node_id)
@@ -83,8 +83,8 @@ def apply_patch(session_id, patch):
                     g.add_node(edge.target, type="unknown", data={})
                 g.add_edge(edge.source, edge.target, type=edge.type, data=edge.data)
                 added_edges.append({"source": edge.source, "target": edge.target})
-    if patch.remove_edges:
-        for edge_spec in patch.remove_edges:
+    if patch.removed_edges:
+        for edge_spec in patch.removed_edges:
             src = edge_spec.get("source")
             tgt = edge_spec.get("target")
             if src is not None and tgt is not None and g.has_edge(src, tgt):
