@@ -1,4 +1,4 @@
-# OriginFlow UI Guidelines (v3.2.3)
+# OriginFlow UI Guidelines (v3.3)
 
 This document defines the implementation specification for all major UI components in the OriginFlow app. It provides layout structure, responsive behavior, styling patterns, accessibility expectations, and code patterns for consistent implementation.
 
@@ -380,6 +380,7 @@ interface AppState {
 
 | Version | Date       | Notes                                                           |
 | ------- | ---------- | --------------------------------------------------------------- |
+| v3.3    | 2025-08-09 | Added plan timeline, card messages, quick actions & mode selector to chat sidebar; updated guidelines accordingly |
 | v3.2.3  | 2024-07-24 | Merged 3.2.1 + 3.2.2, updated layout, fixed naming + view logic |
 | v3.2.2  | 2024-07-24 | Refined grid with explicit footer alignment                     |
 | v3.2.1  | 2024-07-23 | Added focus traps, theme system, color coding for statuses      |
