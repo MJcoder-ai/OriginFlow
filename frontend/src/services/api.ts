@@ -3,7 +3,7 @@
  * Centralized service for making API calls to the backend.
  * Provides helper functions to fetch and persist canvas data.
  */
-import { CanvasComponent, Link } from '../appStore';
+import { CanvasComponent, Link, PlanTask } from '../appStore';
 import { AiAction } from '../types/ai';
 import { DesignSnapshot } from '../types/analysis';
 import { API_BASE_URL } from '../config';
@@ -71,6 +71,28 @@ export const api = {
       body: JSON.stringify({ command, snapshot }),
     });
     if (!res.ok) throw new Error(`Analyze failed: ${res.status}`);
+    return res.json();
+  },
+
+  /**
+   * Request a detailed multi-step plan from the AI.
+   * Returns an ordered list of ``PlanTask`` objects and optional quick actions.
+   */
+  async getPlan(
+    command: string
+  ): Promise<{
+    tasks: PlanTask[];
+    quick_actions?: { id: string; label: string; command: string }[];
+  }> {
+    const res = await fetch(`${API_BASE_URL}/ai/plan`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command }),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Plan endpoint error ${res.status}: ${text.slice(0, 120)}`);
+    }
     return res.json();
   },
 
