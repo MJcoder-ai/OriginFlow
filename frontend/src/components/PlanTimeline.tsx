@@ -28,9 +28,9 @@ const statusColors: Record<PlanTask['status'], string> = {
 const PlanTimeline: React.FC = () => {
   const tasks = useAppStore((s) => s.planTasks);
   const performPlanTask = useAppStore((s) => s.performPlanTask);
-  const updateStatus = useAppStore((s) => s.updatePlanTaskStatus);
+  const updatePlanTaskStatus = useAppStore((s) => s.updatePlanTaskStatus);
   if (!tasks || tasks.length === 0) return null;
-  const nextStatus = (status: PlanTask['status']) => {
+  const nextStatusFn = (status: PlanTask['status']) => {
     if (status === 'pending') return 'in_progress';
     if (status === 'in_progress') return 'complete';
     return 'pending';
@@ -48,11 +48,11 @@ const PlanTimeline: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  const newStatus = nextStatus(task.status);
-                  if (newStatus === 'in_progress') {
+                  const nextStatus = nextStatusFn(task.status);
+                  if (nextStatus === 'in_progress') {
                     performPlanTask(task);
                   } else {
-                    updateStatus(task.id, newStatus);
+                    updatePlanTaskStatus(task.id, nextStatus);
                   }
                 }}
                 className="flex items-start space-x-2 text-left group focus:outline-none"

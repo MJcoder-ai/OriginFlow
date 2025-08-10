@@ -375,9 +375,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   clearPlanTasks: () => set({ planTasks: [] }),
 
   async performPlanTask(task) {
-    // Session management: for now we default to 'global' session
-    const sessionId = (get() as any).sessionId ?? 'global';
-    // Mark task in progress
+    const sessionId = (get() as any).sessionId || 'global';
+    // Ensure a graph exists for this session
+    try {
+      await api.createOdlSession(sessionId);
+    } catch (err) {
+      console.warn('ODL session init failed', err);
+    }
     get().updatePlanTaskStatus(task.id, 'in_progress');
     set({ isAiProcessing: true });
     try {
@@ -435,7 +439,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     } catch (err) {
       console.error('Failed to perform plan task', err);
       get().updatePlanTaskStatus(task.id, 'blocked');
-      get().addStatusMessage('Failed to execute task', 'error');
+      get().addStatusMessage('Failed to perform task', 'error');
     } finally {
       set({ isAiProcessing: false });
     }
@@ -790,7 +794,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   async analyzeAndExecute(command) {
-    const { addMessage, setIsAiProcessing } = get();
+    const { addMessage, setIsAiProcessing, setPlanTasks, setQuickActions } = get();
     set({ lastPrompt: command });
     // Announce command and mark AI busy
     addMessage({ id: crypto.randomUUID(), author: 'User', text: command });
@@ -799,36 +803,67 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     (async () => {
       try {
-        const plan = await api.getPlan(command);
+        const sessionId = (get() as any).sessionId || 'global';
+        // Ensure session exists
+        try {
+          await api.createOdlSession(sessionId);
+        } catch (err) {
+          console.warn('ODL session init failed', err);
+        }
+        // Request a plan for this session
+        const plan = await api.getPlanForSession(sessionId, command);
+        if (plan.tasks && Array.isArray(plan.tasks)) {
+          setPlanTasks(
+            plan.tasks.map((t: any) => ({
+              id: t.id,
+              title: t.title,
+              description: t.description,
+              status: (t.status ?? 'pending') as any,
+            }))
+          );
+        }
         if (plan.quick_actions && Array.isArray(plan.quick_actions)) {
-          set({
-            quickActions: plan.quick_actions.map((qa: any) => ({
+          setQuickActions(
+            plan.quick_actions.map((qa: any) => ({
               id: qa.id,
               label: qa.label,
               command: qa.command,
-            })),
-          });
+            }))
+          );
         }
+        // Execute each plan task automatically via act endpoint
         if (plan.tasks && Array.isArray(plan.tasks)) {
-          const tasks = plan.tasks.map((t: any) => ({
-            id: t.id,
-            title: t.title,
-            description: t.description,
-            status: (t.status ?? 'pending') as PlanTaskStatus,
-          }));
-          set({ planTasks: tasks });
-          for (const task of tasks) {
-            await get().performPlanTask(task);
+          for (const t of plan.tasks) {
+            await get().performPlanTask({
+              id: t.id,
+              title: t.title,
+              description: t.description,
+              status: (t.status ?? 'pending') as any,
+            } as any);
           }
-        } else {
-          set({ planTasks: [] });
         }
       } catch (err) {
         console.error('Failed to load plan', err);
-      } finally {
-        setIsAiProcessing(false);
       }
     })();
+    try {
+      const { canvasComponents, links } = get();
+      // For design commands we rely solely on plan–act; skip analyzeDesign
+      const lower = command.toLowerCase();
+      const snapshot = { components: canvasComponents, links };
+      let actions: AiAction[] = [];
+      if (!lower.includes('design')) {
+        actions = await api.analyzeDesign(snapshot, command);
+      }
+      if (actions.length > 0) {
+        await get().executeAiActions(actions);
+      }
+    } catch (err) {
+      console.error('Failed to analyze design', err);
+      get().addStatusMessage('Failed to perform actions', 'error');
+    } finally {
+      setIsAiProcessing(false);
+    }
   },
   setBom(items) {
     set({ bomItems: items });
