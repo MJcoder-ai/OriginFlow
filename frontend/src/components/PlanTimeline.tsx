@@ -26,8 +26,35 @@ const statusColors: Record<PlanTask['status'], string> = {
 };
 
 const PlanTimeline: React.FC = () => {
-  // Retrieve the current plan from the global store
+  // Retrieve plan + actions from the store
   const tasks = useAppStore((s) => s.planTasks);
+  const updatePlanTaskStatus = useAppStore((s) => s.updatePlanTaskStatus);
+  const analyzeAndExecute = useAppStore((s) => s.analyzeAndExecute);
+
+  // Default commands to kick off when a task is moved into in_progress
+  const defaultCommands: Record<string, string> = {
+    gather: 'ask me clarifying questions and constraints',
+    generate_design: 'generate preliminary design',
+    refine_validate: 'validate my design',
+  };
+
+  const next = (s: PlanTask['status']): PlanTask['status'] => {
+    if (s === 'pending') return 'in_progress';
+    if (s === 'in_progress') return 'complete';
+    if (s === 'complete') return 'pending';
+    return 'pending';
+  };
+
+  const onToggle = (task: PlanTask) => {
+    const nextStatus = next(task.status);
+    updatePlanTaskStatus(task.id, nextStatus);
+    // Optional: when a task is started, kick off a sensible default command
+    if (nextStatus === 'in_progress') {
+      const cmd = defaultCommands[task.id];
+      if (cmd) analyzeAndExecute(cmd);
+    }
+  };
+
   if (!tasks || tasks.length === 0) return null;
   return (
     <div className="p-4 border-b border-gray-200 bg-gray-50">
@@ -40,18 +67,27 @@ const PlanTimeline: React.FC = () => {
           return (
             <li key={task.id} className="flex items-start space-x-2">
               {/* Icon reflecting the current status */}
-              <Icon
-                className={`h-4 w-4 mt-0.5 ${color} ${isSpinning ? 'animate-spin' : ''}`}
-                aria-hidden="true"
-              />
-              <div className="flex-1">
-                <div className="text-sm font-medium text-gray-900">{task.title}</div>
-                {task.description && (
-                  <div className="text-xs text-gray-500 leading-snug">
-                    {task.description}
+              <button
+                type="button"
+                onClick={() => onToggle(task)}
+                className="flex items-start space-x-2 text-left group cursor-pointer focus:outline-none"
+                aria-label={`Toggle status for ${task.title}`}
+              >
+                <Icon
+                  className={`h-4 w-4 mt-0.5 ${color} ${isSpinning ? 'animate-spin' : ''}`}
+                  aria-hidden="true"
+                />
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-gray-900 group-hover:underline">
+                    {task.title}
                   </div>
-                )}
-              </div>
+                  {task.description && (
+                    <div className="text-xs text-gray-500 leading-snug">
+                      {task.description}
+                    </div>
+                  )}
+                </div>
+              </button>
             </li>
           );
         })}

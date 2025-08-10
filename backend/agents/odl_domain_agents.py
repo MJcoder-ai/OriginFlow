@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from typing import Tuple, Optional
 
-from backend.schemas.odl import ODLGraph, GraphPatch
+from backend.schemas.odl import ODLGraph, GraphPatch, ODLNode
 from backend.schemas.ai import DesignCard, CardSpecItem, CardAction
 
 
@@ -76,8 +76,13 @@ class PVDesignAgent(BaseDomainAgent):
     """
 
     async def execute(self, task_id: str, graph: ODLGraph) -> Tuple[GraphPatch, Optional[DesignCard]]:
-        # TODO: Implement PV sizing logic and card generation
-        return await super().execute(task_id, graph)
+        # Demonstrate loop by adding a dummy PV string node
+        patch = GraphPatch(
+            add_nodes=[
+                ODLNode(id="pv_string_1", type="pv_string", data={"rated_power": 5000})
+            ]
+        )
+        return patch, None
 
 
 class WiringAgent(BaseDomainAgent):

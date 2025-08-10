@@ -275,6 +275,7 @@ return [{
 # .env file configuration
 OPENAI_API_KEY=sk-...                    # Required: OpenAI API for LLM calls
 DATABASE_URL=sqlite:///./originflow.db   # Optional: Defaults to SQLite
+AI_AUTO_APPROVE=false                    # Optional: require human approval for all actions
 ```
 
 ### 6.2 Optional Vector Store Configuration  

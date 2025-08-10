@@ -19,7 +19,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Body
 
-from backend.schemas.odl import ODLGraph, GraphPatch, GraphDiff
+from backend.schemas.odl import ODLGraph, GraphPatch, GraphDiff, OdlActRequest, OdlActResponse
 from backend.schemas.ai import PlanResponse, AiCommandRequest
 from backend.services.odl_graph_service import (
     init_session,
@@ -28,6 +28,7 @@ from backend.services.odl_graph_service import (
     apply_patch,
 )
 from backend.agents.planner_agent import PlannerAgent
+from backend.agents.odl_domain_agents import PVDesignAgent, WiringAgent, StructuralAgent, NetworkAgent, AssemblyAgent
 
 router = APIRouter()
 
@@ -96,3 +97,33 @@ async def plan_for_session(session_id: str, req: Annotated[AiCommandRequest, Bod
     planner = PlannerAgent(session_id)
     tasks, actions = await planner.create_plan(req.command)
     return PlanResponse(tasks=tasks, quick_actions=actions if actions else None)
+
+
+@router.post("/odl/{session_id}/act", response_model=OdlActResponse)
+async def act_for_session(session_id: str, req: OdlActRequest) -> OdlActResponse:
+    """Execute a domain step over the session's ODL graph and return a patch."""
+    try:
+        g = get_graph(session_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    task = (req.task_id or "").lower()
+    action = (req.action or "").lower()
+
+    # minimal routing: expand as needed
+    if task in {"generate_design", "prelim"} or action in {"design", "bom"}:
+        agent = PVDesignAgent(session_id)
+    elif task in {"wiring"}:
+        agent = WiringAgent(session_id)
+    elif task in {"refine_validate", "validate"}:
+        agent = StructuralAgent(session_id)
+    else:
+        agent = PVDesignAgent(session_id)
+
+    # serialise graph for the agent; agent returns a patch + optional card
+    graph_model = serialize_graph(g)
+    patch, card = await agent.execute(task_id=task or action, graph=graph_model)
+
+    # apply the patch and return it along with the card
+    apply_patch(session_id, patch)
+    return OdlActResponse(patch=patch, card=card)

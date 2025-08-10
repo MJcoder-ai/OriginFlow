@@ -33,6 +33,7 @@ from __future__ import annotations
 from typing import Any, Dict, List
 
 from pydantic import BaseModel, Field
+from backend.schemas.ai import DesignCard  # for ODL act responses
 
 
 class ODLNode(BaseModel):
@@ -108,3 +109,15 @@ class GraphDiff(BaseModel):
     removed_nodes: List[str]
     added_edges: List[Dict[str, str]]
     removed_edges: List[Dict[str, str]]
+
+
+class OdlActRequest(BaseModel):
+    """Request body for /odl/{session_id}/act."""
+    task_id: str | None = None  # e.g. "generate_design"
+    action: str | None = None   # e.g. quick action key like "bom"
+
+
+class OdlActResponse(BaseModel):
+    """Response for /odl/{session_id}/act."""
+    patch: GraphPatch
+    card: DesignCard | None = None
