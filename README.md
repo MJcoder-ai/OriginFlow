@@ -29,13 +29,13 @@ The platform is architected for enterprise scale but currently implements core e
  - **ODL Graph & Plan–Act Loop (New)**: Designs are now backed by the OriginFlow Design Language (ODL), a network‑graph representation of all components, connections and annotations. Each node corresponds to a physical or logical entity (panel, inverter, roof, sensor) and each edge captures a relation (electrical, mechanical, data). A new PlannerAgent decomposes your natural language commands into a sequence of high‑level tasks, which are displayed in the Plan Timeline and executed by specialised domain agents (PV design, wiring, structural, network and assemblies). These agents operate on the ODL graph via patches and return rich Design Cards summarising their suggestions. A companion `/api/v1/odl/{session_id}/act` endpoint now applies these patches on demand, completing the loop. This plan–act loop allows OriginFlow to evolve a design across layers and disciplines while giving you full visibility and control.
 - **Interactive Layer Selector**: Use the layer selector in the toolbar to create and switch between named layers (e.g. Single‑Line, High‑Level, Electrical, Structural, Networking). New components automatically inherit the current layer, and their layer assignment is persisted. Layers allow different stakeholders to focus on the view relevant to them while sharing a single underlying model.
 
-   - **Sub‑Assembly Generation**: Once a component is placed, you can expand it into its required sub‑assemblies. Select a component and click **Generate Sub‑Assembly** to populate the appropriate detail layer (electrical or structural) with brackets, rails, combiner boxes or other accessories based on **both dependency rules and nested sub‑elements** defined in the component library. The **DesignAssemblyAgent** looks up the component in the master database and returns the necessary ``addComponent`` actions for every required item and sub‑element, which appear in the interactive checklist for your approval.
+    - **Sub‑Assembly Generation**: Once a component is placed, you can expand it into its required sub‑assemblies. Select a component and click **Generate Sub‑Assembly** to populate the appropriate detail layer (electrical or structural) with brackets, rails, combiner boxes or other accessories based on **both dependency rules and nested sub‑elements** defined in the component library. The **DesignAssemblyAgent** looks up the component in the master database and returns the necessary ``addComponent`` actions for every required item and sub‑element, applying them automatically.
 
 - **Detailed Layers**: Beyond the high‑level single‑line view, OriginFlow lets you toggle into *electrical detail* or *structural* layers. Electrical detail layers expose all physical ports on a component (e.g. multiple MPPT inputs and AC terminals on an inverter) so you can size strings and branch circuits correctly. Structural layers show mounting brackets, rails and roof attachments for PV systems. Each layer stores its own component positions and visibility, keeping complex designs organised without cluttering the main schematic.
 
-- **Deterministic Rule Engine & Wiring Agent**: A built‑in rule engine performs verifiable safety‑critical calculations such as wire sizing. Given a load and distance, it returns the correct gauge, cross‑section area, current, voltage drop and recommended fuse rating. The **WiringAgent** parses natural‑language requests like `size wiring for 5 kW over 20 m` and produces a detailed report. These suggestions appear in the interactive checklist for your approval.
+  - **Deterministic Rule Engine & Wiring Agent**: A built‑in rule engine performs verifiable safety‑critical calculations such as wire sizing. Given a load and distance, it returns the correct gauge, cross‑section area, current, voltage drop and recommended fuse rating. The **WiringAgent** parses natural‑language requests like `size wiring for 5 kW over 20 m` and produces a detailed report, adding the recommended components directly to your design.
 
-- **AI‑Generated Connections**: The SystemDesignAgent now proposes both components *and* the links between them. When designing a solar PV system, for example, it will not only add the panels, inverter and battery but also suggest connecting each PV string to the inverter and the inverter to the battery. These suggestions use human‑readable names instead of opaque IDs and are queued in the checklist for your approval.
+  - **AI‑Generated Connections**: The SystemDesignAgent now proposes both components *and* the links between them. When designing a solar PV system, for example, it will not only add the panels, inverter and battery but also suggest connecting each PV string to the inverter and the inverter to the battery. These suggestions use human‑readable names instead of opaque IDs and are applied automatically.
 
 - **Real-Component Designs**: The SystemDesignAgent selects actual panels, inverters and batteries from the component library. If a required category is missing, it asks you to upload the datasheet and waits for the component to be added before proceeding.
 
@@ -47,12 +47,11 @@ The platform is architected for enterprise scale but currently implements core e
 - **Media Management**: Datasheet images are linked to their parent PDF via a `parent_asset_id`, so they no longer appear as standalone entries in the component library. Images are automatically extracted from uploaded datasheets using **pypdf** and, if they are in less common formats (e.g. JPEG 2000, TIFF, JBIG2 or raw bitmap), the parser converts them to JPEG before saving for broad browser compatibility. Images can also be uploaded manually. Exactly one image is always marked as the primary thumbnail at a time. Videos remain supported via manual upload, and all media can be validated by AI with Octopart API integration.
 - **Standards Compliance Engine**: Real-time validation against industry standards (e.g., IEC 81346) with webhook-driven revalidation.
 - **Workflow Orchestration**: Self-hosted Temporal.io for reliable execution of complex workflows, including Saga Pattern for rollbacks.
-- **Interactive AI Checklist**: Review and approve AI-suggested actions before they modify your design.
-- **Feedback Logging**: Each approval or rejection is recorded, enabling confidence modeling and audit trails.
+- **Feedback Logging**: Each AI action is recorded, enabling confidence modeling and audit trails.
 - **Enterprise Settings Console**: Tabbed settings UI that surfaces Profile, Organization, Roles & Permissions, Memory and Traceability sections based on user permissions.
 - **Memory & Traceability APIs**: Endpoints `/me`, `/memory`, `/traces`, `/traces/{trace_id}` expose user profiles, stored memories and tamper-evident trace events.
-- **Variant Splitting & Memory Logging**: Multi‑option datasheets are automatically split into individual variant records, ensuring each product variant can be selected separately. Every AI command is recorded as a memory entry summarising the command and the number of auto-approved versus pending actions, and linked to the conversation’s trace ID for auditing.
-- **Confidence-Driven Autonomy & Advanced Learning**: The **LearningAgent** no longer relies solely on action type when estimating whether a user will approve a suggestion.  It now analyses the domain of the command (e.g. solar PV, HVAC or pumping) and computes separate approval rates for each domain and action type using the feedback log.  At runtime, it also inspects the payload of each action to guess the domain when computing confidence scores.  These domain-aware confidence scores allow OriginFlow to automatically apply routine changes in areas where the AI has a strong track record, while still queuing novel or complex tasks for human approval.  As more feedback is gathered, the confidence model retrains and gradually raises the autonomy threshold in mature domains.  See `backend/agents/learning_agent.py` for implementation details and `backend/models/ai_action_log.py` for the logging schema.
+- **Variant Splitting & Memory Logging**: Multi‑option datasheets are automatically split into individual variant records, ensuring each product variant can be selected separately. Every AI command is recorded as a memory entry summarising the command and the actions taken, and linked to the conversation’s trace ID for auditing.
+- **Confidence-Driven Autonomy & Advanced Learning**: The **LearningAgent** no longer relies solely on action type when estimating whether a suggestion will succeed. It analyses the domain of each command (e.g. solar PV, HVAC or pumping) and computes separate approval rates for each domain and action type using the feedback log. At runtime, it also inspects action payloads to infer the domain when computing confidence scores. These domain-aware scores let OriginFlow apply routine changes automatically while flagging low-confidence tasks as blocked. As more feedback is gathered, the confidence model retrains and gradually raises the autonomy threshold in mature domains. See `backend/agents/learning_agent.py` for implementation details and `backend/models/ai_action_log.py` for the logging schema.
 - **Extensibility**: Plug-in framework for components, AI models, and workflows via Component Pack Studio and marketplace.
 - **Observability**: Grafana dashboards, OpenTelemetry traces, and Workflow Visibility Dashboard for monitoring.
 - **Chat Sidebar**: Dedicated panel for collaborating with the AI assistant. This sidebar has evolved into a mission‑control centre: it now displays a high‑level Plan Timeline at the top of the chat history, uses rich Design Cards to present AI suggestions, and includes a Quick‑Action Bar and Mode Selector above the input. Conversation history persists across sessions, and the AI proactively notifies you when required components are missing or guides you to upload datasheets or choose alternatives.
@@ -74,7 +73,7 @@ The platform is architected for enterprise scale but currently implements core e
    - **FinancialAgent** – Cost estimation using per-kW pricing heuristics (Phase 1: simple calculations)
    - **SourcingAgent** – Searches component library for alternatives (Phase 1: local search only)
    - **CrossLayerValidationAgent** – Basic validation with manual check reminders (Phase 1: stub implementation)
-   - **LearningAgent** – Domain-aware confidence scoring with auto-approval for high-confidence actions
+   - **LearningAgent** – Domain-aware confidence scoring with automatic execution for high-confidence actions
    - **ComponentAgent**, **InventoryAgent**, **BomAgent**, **LinkAgent**, **LayoutAgent** – Core CRUD operations
    - **AuditorAgent**, **DatasheetFetchAgent**, **DesignAssemblyAgent**, **KnowledgeManagementAgent** – Support functions
 
@@ -113,16 +112,14 @@ OriginFlow uses AI agents for engineering design tasks. **Current Phase 1 status
 **Current Limitation**: Simple router-based orchestration. Event-driven workflows with Temporal.io planned for Phase 2.
 
 ### 2.6 Feedback Vector Logging & Confidence
-OriginFlow logs every AI suggestion along with the user's decision. The
+OriginFlow logs every AI action along with its outcome. The
 v2 feedback endpoint (`/api/v1/ai/log-feedback-v2`) anonymises prompts
 and design context, embeds them and stores the vectors in a configurable
 vector store. These vectors are retrieved by the `LearningAgent` and the
 `ReferenceConfidenceService` to compute context-aware confidence scores
 for future actions.
 
-Validation actions are never auto-applied. The confidence policy sets an
-unreachable auto-approval threshold for `AiActionType.validation`, so
-warnings and missing-data prompts always require manual review.
+Validation actions are informational only and are never auto-applied.
 
 The vector store backend is selected via environment variables:
 

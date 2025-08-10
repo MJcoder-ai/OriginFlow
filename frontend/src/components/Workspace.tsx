@@ -11,7 +11,6 @@ import { useAppStore, CanvasComponent, Port } from '../appStore';
 import LinkLayer from './LinkLayer';
 import LayerSelector from './LayerSelector';
 import SubAssemblyButton from './SubAssemblyButton';
-import ChecklistPanel from './ChecklistPanel';
 import clsx from 'clsx';
 
 /** A component card rendered on the canvas with a connection handle */
@@ -226,11 +225,10 @@ const Workspace: React.FC = () => {
       onMouseMove={handleCanvasMouseMove}
       onMouseUp={handleCanvasMouseUp}
     >
-      {/* Display the layer selector, sub-assembly button and pending actions */}
+      {/* Display the layer selector and sub-assembly button */}
       <div className="p-2 flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
         <LayerSelector />
         <SubAssemblyButton />
-        <ChecklistPanel />
       </div>
       <div className="flex-grow relative">
         <LinkLayer pendingLink={pendingLink} mousePos={mousePos} />

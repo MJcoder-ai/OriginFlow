@@ -42,10 +42,9 @@ Both endpoints return `200 OK` on success and are backward compatible.
 
 ## Frontend Integration
 
-The checklist UI logs an entry whenever a user approves or rejects an AI
-action before the operation is applied to the canvas.  New fields for
-v2 should be provided by the caller to enable anonymization and
-embedding.
+Design actions are applied automatically and an entry is logged for each
+operation the AI performs on the canvas. New fields for v2 should be
+provided by the caller to enable anonymization and embedding.
 
 ## Creating New Embeddings
 

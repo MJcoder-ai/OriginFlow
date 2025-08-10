@@ -26,29 +26,15 @@ const statusColors: Record<PlanTask['status'], string> = {
 };
 
 const PlanTimeline: React.FC = () => {
-  // Retrieve plan + actions from the store
   const tasks = useAppStore((s) => s.planTasks);
-  const updatePlanTaskStatus = useAppStore((s) => s.updatePlanTaskStatus);
   const performPlanTask = useAppStore((s) => s.performPlanTask);
-
-  const next = (s: PlanTask['status']): PlanTask['status'] => {
-    if (s === 'pending') return 'in_progress';
-    if (s === 'in_progress') return 'complete';
-    if (s === 'complete') return 'pending';
+  const updateStatus = useAppStore((s) => s.updatePlanTaskStatus);
+  if (!tasks || tasks.length === 0) return null;
+  const nextStatus = (status: PlanTask['status']) => {
+    if (status === 'pending') return 'in_progress';
+    if (status === 'in_progress') return 'complete';
     return 'pending';
   };
-
-  const onToggle = (task: PlanTask) => {
-    const nextStatus = next(task.status);
-    // When moving a task into in_progress, perform it via the act endpoint
-    if (nextStatus === 'in_progress') {
-      performPlanTask(task);
-    } else {
-      updatePlanTaskStatus(task.id, nextStatus);
-    }
-  };
-
-  if (!tasks || tasks.length === 0) return null;
   return (
     <div className="p-4 border-b border-gray-200 bg-gray-50">
       <div className="mb-2 text-xs font-semibold uppercase text-gray-600">Plan</div>
@@ -59,11 +45,17 @@ const PlanTimeline: React.FC = () => {
           const isSpinning = task.status === 'in_progress';
           return (
             <li key={task.id} className="flex items-start space-x-2">
-              {/* Icon reflecting the current status */}
               <button
                 type="button"
-                onClick={() => onToggle(task)}
-                className="flex items-start space-x-2 text-left group cursor-pointer focus:outline-none"
+                onClick={() => {
+                  const newStatus = nextStatus(task.status);
+                  if (newStatus === 'in_progress') {
+                    performPlanTask(task);
+                  } else {
+                    updateStatus(task.id, newStatus);
+                  }
+                }}
+                className="flex items-start space-x-2 text-left group focus:outline-none"
                 aria-label={`Toggle status for ${task.title}`}
               >
                 <Icon

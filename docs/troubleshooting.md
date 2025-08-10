@@ -40,11 +40,3 @@ ensure that agents generate link actions using `source_id` and `target_id`.
 Components can provide an optional `id` when created so subsequent links may
 reference them before they are persisted.
 
-## Checklist Panel Missing
-
-If running `design a 5 kW solar PV system` causes components to appear without
-any checklist items, the frontend is likely bypassing the `pendingActions`
-queue. Update `executeAiActions` in `frontend/src/appStore.ts` so that design
-modifications are queued and only informational actions (like `validation` or
-`report`) execute immediately. Once queued, the `ChecklistPanel` will display the
-pending actions for approval.
