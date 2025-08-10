@@ -172,7 +172,7 @@ return [{
 
 **Learning Integration:**
 - Actions automatically get confidence scores from `LearningAgent`
-- High-confidence actions (>0.8) are auto-approved
+- All actions are auto-executed with their confidence logged
 - All decisions logged to `ai_action_log` table
 
 
@@ -191,7 +191,7 @@ return [{
 - **DatasheetFetchAgent**: Parses PDF datasheets, extracts metadata and automatically populates the component library with part numbers, specs and hierarchical data.
 
 ### 4.3 Support & Validation Agents
-- **LearningAgent**: Confidence scoring and auto-approval decisions
+- **LearningAgent**: Confidence scoring and action validation
 - **CrossLayerValidationAgent**: Design validation (basic checks)
 - **AuditorAgent**: Design auditing and compliance
 - **SourcingAgent**: Component sourcing and alternatives
@@ -275,7 +275,6 @@ return [{
 # .env file configuration
 OPENAI_API_KEY=sk-...                    # Required: OpenAI API for LLM calls
 DATABASE_URL=sqlite:///./originflow.db   # Optional: Defaults to SQLite
-AI_AUTO_APPROVE=false                    # Optional: require human approval for all actions
 ```
 
 ### 6.2 Optional Vector Store Configuration  
@@ -350,12 +349,11 @@ async def test_ai_command_endpoint():
 
 ### 7.3 Learning System Testing
 ```python
-# Test confidence scoring and auto-approval
+# Test confidence scoring
 def test_learning_loop():
-    # 1. Submit action for approval
-    # 2. Approve action (creates training data)  
-    # 3. Submit same action again
-    # 4. Verify higher confidence and potential auto-approval
+    # 1. Submit action and record outcome
+    # 2. Submit same action again
+    # 3. Verify higher confidence after learning
     pass
 ```
 

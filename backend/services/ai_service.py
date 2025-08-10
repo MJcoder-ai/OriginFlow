@@ -10,7 +10,6 @@ from fastapi import HTTPException
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from openai import OpenAIError
-import os
 
 from backend.agents.router_agent import RouterAgent
 from backend.agents.registry import get_spec
@@ -20,7 +19,6 @@ from backend.schemas.component import ComponentCreate
 from backend.schemas.link import LinkCreate
 from backend.schemas.design_context import RequestContext, DesignSnapshot
 from backend.policy.capabilities import ACTION_REQUIRED_SCOPES
-from backend.policy.confidence import get_thresholds_for_action
 from backend.services.ai_clients import get_openai_client
 from backend.utils.logging import get_logger
 
@@ -28,7 +26,6 @@ limiter = Limiter(key_func=get_remote_address)
 
 
 logger = get_logger(__name__)
-AI_AUTO_APPROVE = os.getenv("AI_AUTO_APPROVE", "false").lower() == "true"
 
 
 def _check_capabilities(agent_name: str, action: AiAction) -> None:
@@ -127,51 +124,15 @@ class AiOrchestrator:
             # back to heuristic values without crashing.
             pass
 
-        # Confidence-driven autonomy (gated by env flag)
-        auto_approved_actions = []
-        pending_actions = []
-        if AI_AUTO_APPROVE:
-            logger.info(f"Applying confidence-driven autonomy to {len(validated)} actions")
-            for action in validated:
-                thr = get_thresholds_for_action(action.action)
-                action_type = action.action.value if hasattr(action.action, "value") else str(action.action)
+        # In the plan–act model all actions are auto-approved.  Set the flag
+        # uniformly and emit tracing events (best effort) before returning.
+        for action in validated:
+            action.auto_approved = True
+        auto_count = len(validated)
 
-                logger.info(
-                    "action.thresholds",
-                    trace_id=ctx.trace_id,
-                    action=action_type,
-                    confidence=action.confidence,
-                )
-
-                if action.confidence and action.confidence >= thr.auto_approve_min:
-                    action.auto_approved = True
-                    auto_approved_actions.append(action)
-                elif action.confidence and action.confidence >= thr.human_review_min:
-                    action.auto_approved = False
-                    pending_actions.append(action)
-                else:
-                    action.auto_approved = False
-                    pending_actions.append(action)
-
-            logger.info(f"Result: {len(auto_approved_actions)} auto-approved, {len(pending_actions)} pending manual approval")
-            auto_count = len(auto_approved_actions)
-            pending_count = len(pending_actions)
-        else:
-            logger.info("Confidence-driven autonomy disabled; routing all actions to human review")
-            for action in validated:
-                action.auto_approved = False
-            auto_count = 0
-            pending_count = len(validated)
-
-        # Emit trace events for the router output and each validated action.
-        # Tracing is best-effort; any failures should not interrupt normal
-        # processing.  We log the raw router actions first, then each
-        # validated action with its confidence and auto-approval flag.  This
-        # creates an auditable chain of decisions for post-mortem analysis.
-        try:  # pragma: no cover - tracing is optional
+        try:  # Emit trace events; ignore any errors
             from backend.services.tracing import emit_event  # type: ignore
             from backend.database.session import SessionMaker  # type: ignore
-
             prev_sha = None
             async with SessionMaker() as trace_sess:  # type: ignore
                 await emit_event(
@@ -192,48 +153,42 @@ class AiOrchestrator:
                             "action": act.action.value,
                             "payload": act.payload,
                             "confidence": act.confidence,
-                            "auto_approved": getattr(act, "auto_approved", False),
+                            "auto_approved": True,
                         },
                         prev_sha=prev_sha,
                     )
                     prev_sha = ev.sha256
         except Exception:
-            # Do not abort on tracing errors; tracing should never block the
-            # main workflow.
             pass
 
-        # Persist memory entries capturing command outcome counts and any design
-        # report actions so downstream services can correlate finalized designs
-        # with their trace.
-        try:  # pragma: no cover - best effort
+        # Best-effort memory logging; tags record number of auto-approved actions
+        try:
             from backend.models.memory import Memory  # type: ignore
             from backend.database.session import SessionMaker  # type: ignore
-
             async with SessionMaker() as mem_sess:  # type: ignore
                 mem_sess.add(
                     Memory(
                         tenant_id="tenant_default",
                         project_id=None,
                         kind="conversation",
-                        tags={"auto_approved": auto_count, "pending": pending_count},
+                        tags={"auto_approved": auto_count, "pending": 0},
                         trace_id=ctx.trace_id,
                     )
                 )
                 for act in validated:
                     if act.action == AiActionType.report:
-                        mem = Memory(
-                            tenant_id="tenant_default",
-                            project_id=None,
-                            kind="design",
-                            tags={"action": "report"},
-                            trace_id=ctx.trace_id,
+                        mem_sess.add(
+                            Memory(
+                                tenant_id="tenant_default",
+                                project_id=None,
+                                kind="design",
+                                tags={"action": "report"},
+                                trace_id=ctx.trace_id,
+                            )
                         )
-                        mem_sess.add(mem)
                 await mem_sess.commit()
         except Exception:
             pass
-
-        # Return all actions, but mark which ones are auto-approved
         return validated
 
     @classmethod

@@ -126,6 +126,44 @@ export const api = {
     return res.json();
   },
 
+  /**
+   * Create or reset an ODL design session.  Must be called before
+   * using `/odl/{session_id}/plan` or `/odl/{session_id}/act`.
+   */
+  async createOdlSession(sessionId: string): Promise<string> {
+    const res = await fetch(`${API_BASE_URL}/odl/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId }),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Create session error ${res.status}: ${text.slice(0, 200)}`);
+    }
+    return res.text();
+  },
+
+  /**
+   * Get a plan tailored to a specific ODL session.  Uses
+   * `/odl/{session_id}/plan` to return tasks and quick actions
+   * appropriate for the current graph.
+   */
+  async getPlanForSession(
+    sessionId: string,
+    command: string,
+  ): Promise<{ tasks: any[]; quick_actions?: any[] }> {
+    const res = await fetch(`${API_BASE_URL}/odl/${encodeURIComponent(sessionId)}/plan`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command }),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Plan session error ${res.status}: ${text.slice(0, 200)}`);
+    }
+    return res.json();
+  },
+
 
   /** POST a natural-language command and receive deterministic actions. */
   async sendCommandToAI(command: string): Promise<AiAction[]> {
