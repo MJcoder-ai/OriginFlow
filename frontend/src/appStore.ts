@@ -810,7 +810,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   async analyzeAndExecute(command) {
-    const { addMessage, setIsAiProcessing, executeAiActions, canvasComponents, links } = get();
+    const { addMessage, setIsAiProcessing, canvasComponents, links } = get();
     set({ lastPrompt: command });
 
     // 1. Add user message and set processing state
@@ -821,11 +821,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const plan = await api.getPlan(command);
       set({
-        planTasks: plan.tasks,
-        quickActions: plan.quick_actions ?? [],
+        planTasks: plan?.tasks ?? [],
+        quickActions: plan?.quick_actions ?? [],
       });
-    } catch (error) {
-      console.error('Plan generation failed:', error);
+    } catch {
       set({ planTasks: [], quickActions: [] });
     }
 
@@ -833,22 +832,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       const snapshot = { components: canvasComponents, links };
       const actions = await api.analyzeDesign(snapshot, command);
       const pending: AiAction[] = [];
-      const autoApproved: AiAction[] = [];
-      
+
       actions.forEach((act) => {
-        // Check if action is auto-approved by the learning system
-        if (act.auto_approved) {
-          autoApproved.push(act);
-          // Log auto-approval for learning
-          get().logAutoApproval(act);
-          return; // Skip to next action, don't add to pending
-        }
-        
         switch (act.action) {
           case 'validation': {
-            // Show validation messages directly in the chat.  Additionally
+            // Show validation messages directly in the chat. Additionally
             // parse simple cost or performance estimates from the message and
-            // update the store accordingly.  For example a financial agent may
+            // update the store accordingly. For example a financial agent may
             // return "Estimated cost ... $1234" and a performance agent may
             // return "produces roughly 5000 kWh per year".
             const msg: string = (act.payload as any).message;
@@ -881,19 +871,10 @@ export const useAppStore = create<AppState>((set, get) => ({
             pending.push(act);
         }
       });
-      
-      // Execute auto-approved actions immediately
-      if (autoApproved.length > 0) {
-        await get().applyAiActions(autoApproved);
-        addMessage({ 
-          id: crypto.randomUUID(), 
-          author: 'AI', 
-          text: `✅ Auto-applied ${autoApproved.length} high-confidence action(s) based on learning.` 
-        });
-      }
-      
+
       if (pending.length > 0) {
         get().addPendingActions(pending);
+        get().addStatusMessage(`${pending.length} action(s) ready. Review & approve to apply.`, 'info');
       }
     } catch (error) {
       console.error('AI command failed:', error);
