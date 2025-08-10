@@ -10,6 +10,7 @@ from fastapi import HTTPException
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from openai import OpenAIError
+import os
 
 from backend.agents.router_agent import RouterAgent
 from backend.agents.registry import get_spec
@@ -27,6 +28,7 @@ limiter = Limiter(key_func=get_remote_address)
 
 
 logger = get_logger(__name__)
+AI_AUTO_APPROVE = os.getenv("AI_AUTO_APPROVE", "false").lower() == "true"
 
 
 def _check_capabilities(agent_name: str, action: AiAction) -> None:
@@ -125,37 +127,41 @@ class AiOrchestrator:
             # back to heuristic values without crashing.
             pass
 
-        # Apply confidence-driven autonomy: automatically approve high-confidence actions
-        # and mark them for auto-execution instead of requiring human approval.
+        # Confidence-driven autonomy (gated by env flag)
         auto_approved_actions = []
         pending_actions = []
-        
-        logger.info(f"Applying confidence-driven autonomy to {len(validated)} actions")
-        
-        for action in validated:
-            thr = get_thresholds_for_action(action.action)
-            action_type = action.action.value if hasattr(action.action, "value") else str(action.action)
+        if AI_AUTO_APPROVE:
+            logger.info(f"Applying confidence-driven autonomy to {len(validated)} actions")
+            for action in validated:
+                thr = get_thresholds_for_action(action.action)
+                action_type = action.action.value if hasattr(action.action, "value") else str(action.action)
 
-            logger.info(
-                "action.thresholds",
-                trace_id=ctx.trace_id,
-                action=action_type,
-                confidence=action.confidence,
-            )
+                logger.info(
+                    "action.thresholds",
+                    trace_id=ctx.trace_id,
+                    action=action_type,
+                    confidence=action.confidence,
+                )
 
-            if action.confidence and action.confidence >= thr.auto_approve_min:
-                action.auto_approved = True
-                auto_approved_actions.append(action)
-            elif action.confidence and action.confidence >= thr.human_review_min:
+                if action.confidence and action.confidence >= thr.auto_approve_min:
+                    action.auto_approved = True
+                    auto_approved_actions.append(action)
+                elif action.confidence and action.confidence >= thr.human_review_min:
+                    action.auto_approved = False
+                    pending_actions.append(action)
+                else:
+                    action.auto_approved = False
+                    pending_actions.append(action)
+
+            logger.info(f"Result: {len(auto_approved_actions)} auto-approved, {len(pending_actions)} pending manual approval")
+            auto_count = len(auto_approved_actions)
+            pending_count = len(pending_actions)
+        else:
+            logger.info("Confidence-driven autonomy disabled; routing all actions to human review")
+            for action in validated:
                 action.auto_approved = False
-                pending_actions.append(action)
-            else:
-                action.auto_approved = False
-                pending_actions.append(action)
-        
-        logger.info(f"Result: {len(auto_approved_actions)} auto-approved, {len(pending_actions)} pending manual approval")
-        auto_count = len(auto_approved_actions)
-        pending_count = len(pending_actions)
+            auto_count = 0
+            pending_count = len(validated)
 
         # Emit trace events for the router output and each validated action.
         # Tracing is best-effort; any failures should not interrupt normal

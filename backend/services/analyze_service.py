@@ -1,4 +1,5 @@
 from __future__ import annotations
+import os
 
 from openai import OpenAIError
 
@@ -32,26 +33,31 @@ class AnalyzeOrchestrator(AiOrchestrator):
         except Exception:
             pass
         
-        # Apply confidence-driven autonomy - same logic as AiOrchestrator
+        # Confidence-driven autonomy (gated by env flag)
         import logging
         logger = logging.getLogger(__name__)
-        logger.info(f"Applying confidence-driven autonomy to {len(actions)} actions")
-        
-        for action in actions:
-            # Set confidence threshold based on action type risk level
-            confidence_threshold = self._get_confidence_threshold(action.action)
-            action_type = action.action.value if hasattr(action.action, 'value') else str(action.action)
-            
-            logger.info(f"Action {action_type}: confidence={action.confidence}, threshold={confidence_threshold}")
-            
-            if action.confidence and action.confidence >= confidence_threshold:
-                # High confidence: mark as auto-approved
-                action.auto_approved = True
-                logger.info(f"AUTO-APPROVED: {action_type} (confidence {action.confidence} >= {confidence_threshold})")
-            else:
-                # Low confidence: requires human approval
+        AI_AUTO_APPROVE = os.getenv("AI_AUTO_APPROVE", "false").lower() == "true"
+        if AI_AUTO_APPROVE:
+            logger.info(f"Applying confidence-driven autonomy to {len(actions)} actions")
+            for action in actions:
+                # Set confidence threshold based on action type risk level
+                confidence_threshold = self._get_confidence_threshold(action.action)
+                action_type = action.action.value if hasattr(action.action, 'value') else str(action.action)
+
+                logger.info(f"Action {action_type}: confidence={action.confidence}, threshold={confidence_threshold}")
+
+                if action.confidence and action.confidence >= confidence_threshold:
+                    # High confidence: mark as auto-approved
+                    action.auto_approved = True
+                    logger.info(f"AUTO-APPROVED: {action_type} (confidence {action.confidence} >= {confidence_threshold})")
+                else:
+                    # Low confidence: requires human approval
+                    action.auto_approved = False
+                    logger.info(f"MANUAL APPROVAL: {action_type} (confidence {action.confidence} < {confidence_threshold})")
+        else:
+            logger.info("Confidence-driven autonomy disabled; routing all actions to human review")
+            for action in actions:
                 action.auto_approved = False
-                logger.info(f"MANUAL APPROVAL: {action_type} (confidence {action.confidence} < {confidence_threshold})")
         
         return actions
 
