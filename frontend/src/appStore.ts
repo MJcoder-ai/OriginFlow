@@ -819,6 +819,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     get().addStatusMessage('Processing command', 'info');
 
     try {
+      const plan = await api.getPlan(command);
+      set({
+        planTasks: plan.tasks,
+        quickActions: plan.quick_actions ?? [],
+      });
+    } catch (error) {
+      console.error('Plan generation failed:', error);
+      set({ planTasks: [], quickActions: [] });
+    }
+
+    try {
       const snapshot = { components: canvasComponents, links };
       const actions = await api.analyzeDesign(snapshot, command);
       const pending: AiAction[] = [];

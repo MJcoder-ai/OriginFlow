@@ -3,7 +3,7 @@
  * Centralized service for making API calls to the backend.
  * Provides helper functions to fetch and persist canvas data.
  */
-import { CanvasComponent, Link } from '../appStore';
+import { CanvasComponent, Link, PlanTask } from '../appStore';
 import { AiAction } from '../types/ai';
 import { DesignSnapshot } from '../types/analysis';
 import { API_BASE_URL } from '../config';
@@ -11,6 +11,17 @@ import { API_BASE_URL } from '../config';
 export type ComponentCreateDTO = Omit<CanvasComponent, 'id' | 'ports'>;
 /** Payload for creating a link via the backend API. */
 export type LinkCreateDTO = Omit<Link, 'id'>;
+
+export interface QuickAction {
+  id: string;
+  label: string;
+  command: string;
+}
+
+export interface PlanResponse {
+  tasks: PlanTask[];
+  quick_actions?: QuickAction[];
+}
 export const api = {
   async getComponents(): Promise<CanvasComponent[]> {
     const response = await fetch(`${API_BASE_URL}/components/`);
@@ -62,6 +73,16 @@ export const api = {
       method: 'DELETE',
     });
     if (!response.ok) throw new Error('Failed to delete component');
+  },
+
+  async getPlan(command: string): Promise<PlanResponse> {
+    const res = await fetch(`${API_BASE_URL}/ai/plan`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command }),
+    });
+    if (!res.ok) throw new Error(`Plan failed: ${res.status}`);
+    return res.json();
   },
 
   async analyzeDesign(snapshot: DesignSnapshot, command: string): Promise<AiAction[]> {
