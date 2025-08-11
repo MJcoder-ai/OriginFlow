@@ -1,16 +1,24 @@
 """
-ODL graph service: persist and manage per-session graphs.
+ODL graph service: persist and manage per-session graphs and patches.
 
 This module replaces the previous in-memory `_GRAPHS` dict with a simple
 SQLite-backed store. Each session’s graph is serialized to JSON and
 persisted alongside a monotonic `version` integer for optimistic concurrency.
-Graphs are loaded, patched, and saved through the helpers below.
+Incremental patches are also stored to support diffing and undo/redo.
 
 Schema:
     CREATE TABLE IF NOT EXISTS sessions (
         session_id TEXT PRIMARY KEY,
         graph_json TEXT NOT NULL,
         version INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS patches (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT NOT NULL,
+        version INTEGER NOT NULL,
+        patch_json TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (session_id) REFERENCES sessions(session_id)
     );
 """
 
@@ -23,14 +31,14 @@ from typing import Dict, List, Optional, Tuple
 
 import networkx as nx
 
-# SQLite database file used to persist graphs.  A `data` directory under
-# backend/services will be created automatically.
+# SQLite database file used to persist graphs and patches.  A `data` directory
+# under backend/services will be created automatically.
 DB_PATH = Path(__file__).resolve().parent.parent / "data" / "odl_sessions.db"
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 
 def _init_db() -> None:
-    """Initialise the sessions table if it does not exist."""
+    """Initialise the sessions and patches tables if they do not exist."""
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute(
             """
@@ -38,6 +46,19 @@ def _init_db() -> None:
                 session_id TEXT PRIMARY KEY,
                 graph_json TEXT NOT NULL,
                 version INTEGER NOT NULL
+            )
+            """
+        )
+        # New patches table stores each incremental patch applied to a session.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS patches (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT NOT NULL,
+                version INTEGER NOT NULL,
+                patch_json TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (session_id) REFERENCES sessions(session_id)
             )
             """
         )
@@ -86,8 +107,8 @@ def create_graph(session_id: str) -> nx.DiGraph:
     return g
 
 
-def get_graph(session_id: str) -> Optional[nx.DiGraph]:
-    """Load and return the graph for `session_id`, or None if it does not exist."""
+async def get_graph(session_id: str) -> Optional[nx.DiGraph]:
+    """Load and return the graph for `session_id`, or ``None`` if it does not exist."""
     _init_db()
     with sqlite3.connect(DB_PATH) as conn:
         cur = conn.execute(
@@ -99,7 +120,7 @@ def get_graph(session_id: str) -> Optional[nx.DiGraph]:
         return _deserialize_graph(row[0])
 
 
-def save_graph(session_id: str, g: nx.DiGraph) -> None:
+async def save_graph(session_id: str, g: nx.DiGraph) -> None:
     """Persist the provided graph back to storage."""
     _init_db()
     version = g.graph.get("version", 0)
@@ -119,11 +140,22 @@ def delete_graph(session_id: str) -> None:
         conn.commit()
 
 
-def apply_patch(session_id: str, patch: Dict[str, List]) -> Tuple[bool, str]:
-    """Apply an add/remove patch to the given session’s graph."""
-    g = get_graph(session_id)
-    if not g:
+async def apply_patch(session_id: str, patch: Dict[str, List[Dict]]) -> Tuple[bool, str]:
+    """
+    Apply an add/remove patch to the given session’s graph.  This version
+    checks optimistic concurrency by comparing the incoming version (if
+    provided in the patch) against the persisted version.  After
+    modifications, the updated graph and patch are persisted.
+    """
+    g = await get_graph(session_id)
+    if g is None:
         return False, f"Session {session_id} does not exist"
+
+    # Concurrency: if the caller includes 'version' in the patch, ensure it matches.
+    incoming_version = patch.get("version")
+    current_version = g.graph.get("version", 0)
+    if incoming_version is not None and incoming_version != current_version:
+        return False, f"Version conflict: client has {incoming_version}, server has {current_version}"
 
     for node_id in patch.get("remove_nodes", []):
         if g.has_node(node_id):
@@ -145,6 +177,78 @@ def apply_patch(session_id: str, patch: Dict[str, List]) -> Tuple[bool, str]:
             return False, "Edge source and target are required"
         g.add_edge(src, dst, **edge.get("data", {}))
 
+    # bump version
     g.graph["version"] = g.graph.get("version", 0) + 1
-    save_graph(session_id, g)
+    # persist updated graph
+    await save_graph(session_id, g)
+    # persist the patch as a separate record for diff/undo
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute(
+            "INSERT INTO patches (session_id, version, patch_json) VALUES (?, ?, ?)",
+            (
+                session_id,
+                g.graph["version"],
+                json.dumps(patch),
+            ),
+        )
+        conn.commit()
     return True, ""
+
+
+def get_patch_diff(session_id: str, from_version: int, to_version: int) -> Optional[List[Dict]]:
+    """
+    Return a list of patches needed to transform the graph from `from_version`
+    to `to_version` (exclusive of from_version, inclusive of to_version).
+    If no patches exist or the versions are invalid, return None.
+    """
+    _init_db()
+    if from_version >= to_version:
+        return []
+    with sqlite3.connect(DB_PATH) as conn:
+        cur = conn.execute(
+            """
+            SELECT patch_json FROM patches
+            WHERE session_id = ? AND version > ? AND version <= ?
+            ORDER BY version ASC
+            """,
+            (session_id, from_version, to_version),
+        )
+        rows = cur.fetchall()
+        if not rows:
+            return None
+        patches = [json.loads(row[0]) for row in rows]
+        return patches
+
+
+async def revert_to_version(session_id: str, target_version: int) -> bool:
+    """
+    Revert the graph to a previous version by reapplying patches up to the
+    target version.  Returns False if the target version does not exist.
+    """
+    g = await get_graph(session_id)
+    if g is None:
+        return False
+    current_version = g.graph.get("version", 0)
+    if target_version > current_version:
+        return False
+    # reload base graph (version 0)
+    with sqlite3.connect(DB_PATH) as conn:
+        cur = conn.execute(
+            "SELECT graph_json FROM sessions WHERE session_id = ?", (session_id,)
+        )
+        base_row = cur.fetchone()
+        if not base_row:
+            return False
+        g = _deserialize_graph(base_row[0])
+    # apply patches up to target_version
+    patches = get_patch_diff(session_id, 0, target_version)
+    if patches is None:
+        return False
+    for p in patches:
+        # ignore incoming version for reapplication
+        _ = await apply_patch(
+            session_id,
+            {k: p.get(k, []) for k in ["add_nodes", "add_edges", "remove_nodes", "remove_edges"]},
+        )
+    return True
+

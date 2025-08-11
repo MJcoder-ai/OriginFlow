@@ -7,17 +7,11 @@ from uuid import uuid4
 from fastapi import APIRouter, HTTPException
 
 from backend.schemas.ai import AiCommandRequest, PlanTask
-from backend.schemas.odl import (
-    ActOnTaskRequest,
-    CreateSessionResponse,
-    GraphResponse,
-)
+from backend.schemas.odl import ActOnTaskRequest, CreateSessionResponse, GraphResponse
 from backend.agents.planner_agent import PlannerAgent
-from backend.agents.odl_domain_agents import (
-    PVDesignAgent,
-    StructuralAgent,
-    WiringAgent,
-)
+from backend.agents.odl_domain_agents import PVDesignAgent
+from backend.agents.structural_agent import StructuralAgent
+from backend.agents.wiring_agent import WiringAgent
 from backend.services import odl_graph_service
 
 router = APIRouter(prefix="/odl", tags=["odl"])
@@ -38,8 +32,18 @@ async def create_session(cmd: AiCommandRequest) -> CreateSessionResponse:
 
 @router.post("/{session_id}/plan", response_model=List[PlanTask])
 async def get_plan(session_id: str, cmd: AiCommandRequest) -> List[PlanTask]:
-    """Return a list of tasks for this session."""
-    tasks = await planner_agent.plan(session_id, cmd.command)
+    """
+    Return a dynamic list of tasks for this session.  The request may
+    include partial requirements (target power, roof area, budget) which are
+    saved on the graph.  The planner then inspects the graph and user
+    inputs to determine which tasks are needed.
+    """
+    requirements = getattr(cmd, "requirements", None)
+    if requirements:
+        graph = await odl_graph_service.get_graph(session_id)
+        graph.graph.setdefault("requirements", {}).update(requirements)
+        await odl_graph_service.save_graph(session_id, graph)
+    tasks = await planner_agent.plan(session_id, cmd.command, requirements=requirements)
     return [PlanTask(**t) for t in tasks]
 
 
@@ -47,10 +51,8 @@ async def get_plan(session_id: str, cmd: AiCommandRequest) -> List[PlanTask]:
 async def act_on_task(session_id: str, req: ActOnTaskRequest) -> GraphResponse:
     """Execute a task on the current graph."""
     task_id = req.task_id.lower().strip()
-    if task_id in {"gather_requirements", "generate_design"}:
+    if task_id in {"gather_requirements", "generate_design", "refine_validate"}:
         result = await pv_agent.execute(session_id, task_id)
-    elif task_id == "refine_validate":
-        result = await structural_agent.execute(session_id, task_id)
     elif task_id == "generate_structural":
         result = await structural_agent.execute(session_id, task_id)
     elif task_id == "generate_wiring":
@@ -66,7 +68,14 @@ async def act_on_task(session_id: str, req: ActOnTaskRequest) -> GraphResponse:
         }
     patch = result.get("patch")
     if patch:
-        success, error = odl_graph_service.apply_patch(session_id, patch)
+        graph = await odl_graph_service.get_graph(session_id)
+        patch_with_version = dict(patch)
+        patch_with_version["version"] = graph.graph.get("version", 0)
+        success, error = await odl_graph_service.apply_patch(session_id, patch_with_version)
         if not success:
-            raise HTTPException(status_code=400, detail=error)
-    return GraphResponse(card=result["card"], patch=patch, status=result.get("status", "pending"))
+            raise HTTPException(status_code=409, detail=error)
+    return GraphResponse(
+        card=result["card"],
+        patch=patch,
+        status=result.get("status", "pending"),
+    )

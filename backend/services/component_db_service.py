@@ -24,9 +24,15 @@ class ComponentDBService:
         """Return all components in the given category."""
         return [c for c in self.components if c.get("category") == category]
 
-    async def ingest(self, category: str, part_number: str, attributes: Dict[str, Any]) -> str:
-        """Store or update a component. Returns the part_number."""
-        component = {"category": category, "part_number": part_number, **attributes}
+    async def ingest(
+        self, category: str, part_number: str, attributes: Dict[str, Any]
+    ) -> str:
+        """
+        Store or update a component.  Attributes should include 'power' for panels
+        and 'capacity' for inverters to support automatic sizing.
+        """
+        component = {"category": category, "part_number": part_number}
+        component.update(attributes)
         for idx, c in enumerate(self.components):
             if c.get("part_number") == part_number:
                 self.components[idx] = component
