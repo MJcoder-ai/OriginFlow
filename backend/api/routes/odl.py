@@ -125,7 +125,14 @@ async def act_for_session(session_id: str, req: OdlActRequest) -> OdlActResponse
     action = (req.action or "").lower()
 
     # Select an agent based on task or action keywords; extend as needed
-    if task in {"generate_design", "generate_preliminary_design", "prelim_design"} or action.startswith("design"):
+    if task in {
+        "prelim",
+        "prelim_design",
+        "generate_design",
+        "generate_preliminary_design",
+        "generate preliminary design",
+        "generate design",
+    } or (action and action.startswith("design")):
         agent: BaseDomainAgent = PVDesignAgent()
     elif task.startswith("wiring") or action.startswith("wiring"):
         agent = WiringAgent()

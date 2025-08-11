@@ -77,21 +77,22 @@ class PlannerAgent:
         # should inspect the ODL graph via ``get_graph`` to derive
         # tasks appropriate for the current session.
         if "design" in cmd:
+            # Use identifiers that map directly to domain-agent actions.
             tasks = [
                 PlanTask(
-                    id="reqs",
+                    id="gather_requirements",
                     title="Gather requirements",
                     description="Compile constraints, budgets and performance targets",
                     status=PlanTaskStatus.pending,
                 ),
                 PlanTask(
-                    id="prelim",
+                    id="generate_design",
                     title="Generate preliminary design",
                     description="Select candidate components and estimate sizing",
                     status=PlanTaskStatus.pending,
                 ),
                 PlanTask(
-                    id="refine",
+                    id="refine_validate",
                     title="Refine and validate",
                     description="Optimise the design and verify against rules and standards",
                     status=PlanTaskStatus.pending,
