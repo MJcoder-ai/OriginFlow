@@ -1,158 +1,72 @@
-"""ODL Graph and Planning API routes.
-
-This FastAPI router exposes endpoints for interacting with the
-OriginFlow Design Language (ODL) graphs and for generating
-high-level plans via the ``PlannerAgent``.  Clients can create
-and manage per-session graphs, apply patches, retrieve the current
-state, and request a plan for a given natural language command.
-
-These endpoints form the backbone of the plan–act loop that
-enables sophisticated multi-domain design interactions.  They are
-stateless with respect to authentication; session identifiers must
-be provided by the client and may map to user or project IDs in
-a higher level service.
-"""
-
+"""ODL graph and planning routes."""
 from __future__ import annotations
 
-from typing import Annotated
+from typing import List
+from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, HTTPException
 
-from backend.schemas.odl import ODLGraph, GraphPatch, GraphDiff, OdlActRequest, OdlActResponse
-from backend.schemas.ai import PlanResponse, AiCommandRequest
-from backend.services.odl_graph_service import (
-    init_session,
-    get_graph,
-    serialize_graph,
-    apply_patch,
+from backend.schemas.ai import AiCommandRequest, PlanTask
+from backend.schemas.odl import (
+    ActOnTaskRequest,
+    CreateSessionResponse,
+    GraphResponse,
 )
 from backend.agents.planner_agent import PlannerAgent
 from backend.agents.odl_domain_agents import (
     PVDesignAgent,
-    WiringAgent,
     StructuralAgent,
-    NetworkAgent,
-    AssemblyAgent,
-    BaseDomainAgent,
+    WiringAgent,
 )
+from backend.services import odl_graph_service
 
-router = APIRouter()
+router = APIRouter(prefix="/odl", tags=["odl"])
 
-
-@router.post("/odl/sessions", response_model=str)
-async def create_odl_session(session_id: Annotated[str, Body(embed=True)]) -> str:
-    """Initialise a new ODL graph session.
-
-    The caller must provide a unique session ID (e.g. a UUID) to
-    identify the graph.  If a graph already exists for the session it
-    will be overwritten.
-
-    Parameters
-    ----------
-    session_id: str
-        The identifier for the session to initialise.
-
-    Returns
-    -------
-    str
-        The session ID, echoed back for convenience.
-    """
-    init_session(session_id)
-    return session_id
+planner_agent = PlannerAgent()
+pv_agent = PVDesignAgent()
+structural_agent = StructuralAgent()
+wiring_agent = WiringAgent()
 
 
-@router.get("/odl/{session_id}", response_model=ODLGraph)
-async def get_odl_graph(session_id: str) -> ODLGraph:
-    """Retrieve the entire ODL graph for a session.
-
-    Raises ``HTTPException(404)`` if the session does not exist.
-    """
-    try:
-        g = get_graph(session_id)
-    except KeyError:
-        raise HTTPException(status_code=404, detail="Session not found")
-    return serialize_graph(g)
+@router.post("/sessions", response_model=CreateSessionResponse)
+async def create_session(cmd: AiCommandRequest) -> CreateSessionResponse:
+    """Create a new design session and initialise its graph."""
+    session_id = str(uuid4())
+    odl_graph_service.create_graph(session_id)
+    return CreateSessionResponse(session_id=session_id)
 
 
-@router.patch("/odl/{session_id}", response_model=GraphDiff)
-async def patch_odl_graph(session_id: str, patch: GraphPatch) -> GraphDiff:
-    """Apply a patch to the ODL graph for a session.
-
-    Returns a ``GraphDiff`` describing the changes that were applied.
-    """
-    try:
-        diff = apply_patch(session_id, patch)
-    except KeyError:
-        raise HTTPException(status_code=404, detail="Session not found")
-    return diff
+@router.post("/{session_id}/plan", response_model=List[PlanTask])
+async def get_plan(session_id: str, cmd: AiCommandRequest) -> List[PlanTask]:
+    """Return a list of tasks for this session."""
+    tasks = await planner_agent.plan(session_id, cmd.command)
+    return [PlanTask(**t) for t in tasks]
 
 
-@router.post("/odl/{session_id}/plan", response_model=PlanResponse)
-async def plan_for_session(session_id: str, req: Annotated[AiCommandRequest, Body(embed=False)]) -> PlanResponse:
-    """Generate a plan for a session based on a natural language command.
-
-    This endpoint instantiates a ``PlannerAgent`` bound to the given
-    session and delegates plan creation to it.  The plan is returned
-    as a ``PlanResponse`` containing ordered tasks and quick actions.
-    """
-    try:
-        # Ensure the session exists by fetching the graph
-        get_graph(session_id)
-    except KeyError:
-        raise HTTPException(status_code=404, detail="Session not found")
-    planner = PlannerAgent(session_id)
-    tasks, actions = await planner.create_plan(req.command)
-    return PlanResponse(tasks=tasks, quick_actions=actions if actions else None)
-
-
-@router.post("/odl/{session_id}/act", response_model=OdlActResponse)
-async def act_for_session(session_id: str, req: OdlActRequest) -> OdlActResponse:
-    """Execute a plan task or quick action against the session's ODL graph.
-
-    The planner generates task identifiers (e.g. 'generate_design') corresponding
-    to domain-specific operations.  This endpoint dispatches to the appropriate
-    domain agent, applies the resulting patch to the session graph, and returns
-    both the patch and an optional design card.  The frontend should update its
-    canvas representation based on the returned patch.
-    """
-    try:
-        g = get_graph(session_id)
-    except KeyError:
-        raise HTTPException(status_code=404, detail="Session not found")
-
-    task = (req.task_id or "").lower()
-    action = (req.action or "").lower()
-
-    # Determine the appropriate domain agent.
-    gather_ids = {"gather", "gather requirements", "gather_requirements"}
-    design_ids = {
-        "prelim",
-        "prelim_design",
-        "generate_design",
-        "generate_preliminary_design",
-        "generate preliminary design",
-        "generate design",
-    }
-    refine_ids_prefix = {"refine", "validate"}
-    if (
-        (task and task in gather_ids)
-        or (task and task in design_ids)
-        or (action and action.startswith("design"))
-    ):
-        agent: BaseDomainAgent = PVDesignAgent(session_id)
-    elif task and task.startswith("wiring"):
-        agent = WiringAgent(session_id)
-    elif (task and any(task.startswith(p) for p in refine_ids_prefix)) or (
-        action and action.startswith("validate")
-    ):
-        agent = StructuralAgent(session_id)
+@router.post("/{session_id}/act", response_model=GraphResponse)
+async def act_on_task(session_id: str, req: ActOnTaskRequest) -> GraphResponse:
+    """Execute a task on the current graph."""
+    task_id = req.task_id.lower().strip()
+    if task_id in {"gather_requirements", "generate_design"}:
+        result = await pv_agent.execute(session_id, task_id)
+    elif task_id == "refine_validate":
+        result = await structural_agent.execute(session_id, task_id)
+    elif task_id == "generate_structural":
+        result = await structural_agent.execute(session_id, task_id)
+    elif task_id == "generate_wiring":
+        result = await wiring_agent.execute(session_id, task_id)
     else:
-        agent = PVDesignAgent(session_id)
-
-    # Serialize the current graph for the agent and execute it
-    graph_model = serialize_graph(g)
-    patch, card = await agent.execute(task_id=task or action, graph=graph_model)
-    # Apply the patch to the session graph
-    apply_patch(session_id, patch)
-    return OdlActResponse(patch=patch, card=card)
+        result = {
+            "card": {
+                "title": "Unknown task",
+                "body": f"Task {req.task_id} not supported.",
+            },
+            "patch": None,
+            "status": "error",
+        }
+    patch = result.get("patch")
+    if patch:
+        success, error = odl_graph_service.apply_patch(session_id, patch)
+        if not success:
+            raise HTTPException(status_code=400, detail=error)
+    return GraphResponse(card=result["card"], patch=patch, status=result.get("status", "pending"))

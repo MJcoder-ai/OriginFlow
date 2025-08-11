@@ -9,6 +9,7 @@ from backend.schemas.ai import (
     AiAction,
     AiCommandRequest,
     PlanResponse,
+    PlanTask,
 )
 from backend.services.ai_service import limiter
 
@@ -59,9 +60,6 @@ async def ai_plan(
     incorporate project snapshots and design rules.
     """
 
-    # Instantiate a planner for a default global session.  Since the
-    # PlannerAgent uses the session ID only for context retrieval, we
-    # supply a placeholder value when no explicit session is available.
-    planner = PlannerAgent("global")
-    tasks, actions = await planner.create_plan(req.command)
-    return PlanResponse(tasks=tasks, quick_actions=actions if actions else None)
+    planner = PlannerAgent()
+    tasks = await planner.plan("global", req.command)
+    return PlanResponse(tasks=[PlanTask(**t) for t in tasks], quick_actions=None)
