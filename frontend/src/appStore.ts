@@ -376,12 +376,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   async performPlanTask(task) {
     const sessionId = (get() as any).sessionId || 'global';
-    // Ensure a graph exists for this session
-    try {
-      await api.createOdlSession(sessionId);
-    } catch (err) {
-      console.warn('ODL session init failed', err);
-    }
+    // The ODL session should already be initialised.  Do not recreate it here.
     get().updatePlanTaskStatus(task.id, 'in_progress');
     set({ isAiProcessing: true });
     try {

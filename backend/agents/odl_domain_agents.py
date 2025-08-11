@@ -71,27 +71,35 @@ class PVDesignAgent(BaseDomainAgent):
         """
         import uuid
         tid = (task_id or "").lower()
-        if tid in {"generate_design", "generate_preliminary_design", "prelim_design"}:
-            new_id = f"pv_string_{uuid.uuid4().hex[:8]}"
-            node = ODLNode(id=new_id, type="pv_string", data={"rated_power": 5000})
-            patch = GraphPatch(
-                add_nodes=[node],
-                add_edges=[],
-                removed_nodes=[],
-                removed_edges=[],
-            )
-            card = DesignCard(
-                title="Preliminary PV array",
-                description="Added a 5 kW string to the design graph.",
-                specs=[{"label": "Rated power", "value": "5000 W"}],
-                actions=[
-                    {"label": "Accept", "command": "accept pv design"},
-                    {"label": "See alternatives", "command": "generate_design alternative"},
-                ],
-            )
-            return patch, card
-        # default: no change
-        return GraphPatch(add_nodes=[], add_edges=[], removed_nodes=[], removed_edges=[]), None
+        # Act only on preliminary or design-generation tasks.
+        if tid not in {
+            "prelim",
+            "prelim_design",
+            "generate_design",
+            "generate_preliminary_design",
+            "generate preliminary design",
+            "generate design",
+        }:
+            return await super().execute(task_id, graph)
+
+        new_id = f"pv_string_{uuid.uuid4().hex[:8]}"
+        node = ODLNode(id=new_id, type="pv_string", data={"rated_power": 5000})
+        patch = GraphPatch(
+            add_nodes=[node],
+            add_edges=[],
+            removed_nodes=[],
+            removed_edges=[],
+        )
+        card = DesignCard(
+            title="Preliminary PV array",
+            description="Added a 5 kW string to the design graph.",
+            specs=[{"label": "Rated power", "value": "5000 W"}],
+            actions=[
+                {"label": "Accept", "command": "accept pv design"},
+                {"label": "See alternatives", "command": "generate_design alternative"},
+            ],
+        )
+        return patch, card
 
 
 class WiringAgent(BaseDomainAgent):
