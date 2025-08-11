@@ -124,8 +124,13 @@ async def act_for_session(session_id: str, req: OdlActRequest) -> OdlActResponse
     task = (req.task_id or "").lower()
     action = (req.action or "").lower()
 
-    # Select an agent based on task or action keywords; extend as needed
+    # Route gather and design tasks to the PVDesignAgent.  Refinement goes to
+    # the StructuralAgent, wiring to the WiringAgent.  Unknown tasks fall back
+    # to the PVDesignAgent.
     if task in {
+        "gather",
+        "gather_requirements",
+        "gather requirements",
         "prelim",
         "prelim_design",
         "generate_design",
@@ -133,13 +138,13 @@ async def act_for_session(session_id: str, req: OdlActRequest) -> OdlActResponse
         "generate preliminary design",
         "generate design",
     } or (action and action.startswith("design")):
-        agent: BaseDomainAgent = PVDesignAgent()
-    elif task.startswith("wiring") or action.startswith("wiring"):
-        agent = WiringAgent()
-    elif task.startswith("refine") or action.startswith("validate"):
-        agent = StructuralAgent()
+        agent: BaseDomainAgent = PVDesignAgent(session_id)
+    elif task and task.startswith("wiring"):
+        agent = WiringAgent(session_id)
+    elif task and task.startswith("refine") or (action and action.startswith("validate")):
+        agent = StructuralAgent(session_id)
     else:
-        agent = PVDesignAgent()
+        agent = PVDesignAgent(session_id)
 
     # Serialize the current graph for the agent and execute it
     graph_model = serialize_graph(g)

@@ -71,7 +71,42 @@ class PVDesignAgent(BaseDomainAgent):
         """
         import uuid
         tid = (task_id or "").lower()
-        # Act only on preliminary or design-generation tasks.
+
+        # Handle the "gather requirements" step.  Check whether the graph already
+        # contains at least one panel and inverter.  If not, ask the user to
+        # upload the missing datasheets.  Otherwise, indicate that the system is
+        # ready for design generation.
+        if tid in {"gather", "gather_requirements", "gather requirements"}:
+            has_panel = any(n.type == "panel" for n in graph.nodes)
+            has_inverter = any(n.type == "inverter" for n in graph.nodes)
+            missing: list[str] = []
+            if not has_panel:
+                missing.append("panel")
+            if not has_inverter:
+                missing.append("inverter")
+            if missing:
+                message = (
+                    "Missing components: " + ", ".join(missing) + ". "
+                    "Please upload the corresponding datasheets before generating a design."
+                )
+                card = DesignCard(
+                    title="Gather requirements",
+                    description=message,
+                    specs=[],
+                    actions=[],
+                )
+                return GraphPatch(), card
+            card = DesignCard(
+                title="Requirements gathered",
+                description="All required component types are available. Proceed to generate the preliminary design.",
+                specs=[],
+                actions=[CardAction(label="Generate design", command="generate design")],
+            )
+            return GraphPatch(), card
+
+        # Accept only design generation tasks.  Recognise the identifiers
+        # emitted by the planner.  If the task does not match, fall back to
+        # the base implementation which returns no patch.
         if tid not in {
             "prelim",
             "prelim_design",
@@ -82,8 +117,26 @@ class PVDesignAgent(BaseDomainAgent):
         }:
             return await super().execute(task_id, graph)
 
+        # Prevent recreating the preliminary design if it already exists.
+        if any(n.type == "pv_string" for n in graph.nodes):
+            card = DesignCard(
+                title="Preliminary design exists",
+                description="A preliminary PV string is already present in the graph.",
+                specs=[],
+                actions=[CardAction(label="Regenerate", command="generate design alternative")],
+            )
+            return GraphPatch(), card
+
+        # Add a dummy PV string node to represent the preliminary design.
+        panel = next((n for n in graph.nodes if n.type == "panel"), None)
+        inverter = next((n for n in graph.nodes if n.type == "inverter"), None)
+        data = {"rated_power": 5000}
+        if panel:
+            data["panel_id"] = panel.id
+        if inverter:
+            data["inverter_id"] = inverter.id
         new_id = f"pv_string_{uuid.uuid4().hex[:8]}"
-        node = ODLNode(id=new_id, type="pv_string", data={"rated_power": 5000})
+        node = ODLNode(id=new_id, type="pv_string", data=data)
         patch = GraphPatch(
             add_nodes=[node],
             add_edges=[],
@@ -95,8 +148,8 @@ class PVDesignAgent(BaseDomainAgent):
             description="Added a 5 kW string to the design graph.",
             specs=[{"label": "Rated power", "value": "5000 W"}],
             actions=[
-                {"label": "Accept", "command": "accept pv design"},
-                {"label": "See alternatives", "command": "generate_design alternative"},
+                CardAction(label="Accept", command="accept pv design"),
+                CardAction(label="See alternatives", command="generate_design alternative"),
             ],
         )
         return patch, card
