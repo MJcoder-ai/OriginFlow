@@ -1,225 +1,168 @@
-"""Domain agents for OriginFlow Design Language (ODL) graphs.
-
-This module defines a collection of lightweight domain agents that
-operate over ODL graphs.  Each agent encapsulates a particular
-engineering domain (e.g. PV design, wiring, structural analysis,
-communications, assemblies) and exposes a unified ``execute`` method
-which accepts a task identifier and the current graph snapshot.  The
-method returns a patch describing changes to apply to the graph and an
-optional ``DesignCard`` summarising the suggestion for the user.
-
-These classes provide scaffolding for future implementations.  They
-contain only stub logic at present, returning empty patches and no
-cards.  In a production environment each agent would perform
-detailed calculations, consult domain rules and standards, and
-populate rich cards with images, specifications and actionable
-commands.
-"""
-
+"""Domain agents operating on the ODL graph."""
 from __future__ import annotations
 
-from typing import Tuple, Optional
+from typing import Dict
+from uuid import uuid4
 
-from backend.schemas.odl import ODLGraph, GraphPatch, ODLNode
-from backend.schemas.ai import DesignCard, CardSpecItem, CardAction
-
-
-class BaseDomainAgent:
-    """Abstract base class for domain agents."""
-
-    def __init__(self, session_id: str | None = None) -> None:
-        self.session_id = session_id
-
-    async def execute(self, task_id: str, graph: ODLGraph) -> Tuple[GraphPatch, Optional[DesignCard]]:
-        """Execute a task on the given graph.
-
-        Subclasses must override this method.  It should analyse
-        ``task_id`` and the ``graph`` to determine what changes are
-        needed, then return a ``GraphPatch`` describing those changes
-        along with an optional ``DesignCard`` providing a summary of
-        the recommendation.
-
-        Parameters
-        ----------
-        task_id: str
-            Identifier of the task produced by the planner (e.g. "prelim").
-        graph: ODLGraph
-            The current state of the ODL graph for this session.
-
-        Returns
-        -------
-        Tuple[GraphPatch, Optional[DesignCard]]
-            A patch to apply to the graph and, if applicable, a card
-            summarising the change for the user.  The default
-            implementation returns an empty patch and ``None``.
-        """
-        # Default: no changes
-        empty_patch = GraphPatch()
-        return empty_patch, None
+from backend.services.component_db_service import ComponentDBService
+from backend.services import odl_graph_service
 
 
-class PVDesignAgent(BaseDomainAgent):
-    """Agent responsible for selecting PV components and sizing arrays."""
+class PVDesignAgent:
+    """Agent responsible for photovoltaic system design."""
 
-    async def execute(self, task_id: str, graph: ODLGraph) -> Tuple[GraphPatch, Optional[DesignCard]]:
-        """Simple PV design agent implementation.
+    def __init__(self) -> None:
+        self.component_db_service = ComponentDBService()
+        self.odl_graph_service = odl_graph_service
 
-        When the task_id indicates a design operation (e.g. 'generate_design'),
-        this agent adds a dummy PV string node to the ODL graph and returns
-        a design card summarising the change.  Replace this stub with real
-        sizing and component selection logic as you build out the domain agent.
-        """
-        import uuid
-        tid = (task_id or "").lower().strip()
+    async def execute(self, session_id: str, tid: str, **kwargs) -> Dict:
+        task = tid.lower().strip()
+        if task == "gather_requirements":
+            return await self._gather(session_id, **kwargs)
+        if task == "generate_design":
+            return await self._generate_design(session_id, **kwargs)
+        if task == "refine_validate":
+            return await self._refine_validate(session_id, **kwargs)
+        return {
+            "card": {"title": "Unknown task", "body": f"Task '{tid}' not supported"},
+            "patch": None,
+        }
 
-        # Gather requirements: check for available panel & inverter, prompt for uploads if missing
-        if tid in {"gather", "gather requirements", "gather_requirements"}:
-            has_panel = any(n.type == "panel" for n in graph.nodes)
-            has_inverter = any(n.type == "inverter" for n in graph.nodes)
-            if has_panel and has_inverter:
-                card = DesignCard(
-                    title="Requirements gathered",
-                    description="A preliminary design already exists. You can refine or validate it.",
-                    specs=[],
-                    actions=[
-                        CardAction(label="Refine", command="refine my design"),
-                        CardAction(label="Validate", command="validate my design"),
-                    ],
-                )
-                return GraphPatch(), card
-            from backend.services.component_db_service import get_component_db_service
-            missing: list[str] = []
-            try:
-                async for svc in get_component_db_service():
-                    comp_service = svc
-                    break
-                panels = await comp_service.search(category="panel")
-                inverters = await comp_service.search(category="inverter")
-                if not panels:
-                    missing.append("panel")
-                if not inverters:
-                    missing.append("inverter")
-            except Exception:
-                missing = ["panel", "inverter"]
-            if missing:
-                msg = (
-                    "Missing components: "
-                    + ", ".join(missing)
-                    + ". Please upload the corresponding datasheets before generating a design."
-                )
-                card = DesignCard(
-                    title="Gather requirements",
-                    description=msg,
-                    specs=[],
-                    actions=[],
-                )
-                return GraphPatch(), card
-            card = DesignCard(
-                title="Requirements gathered",
-                description="All required component types are available. Proceed to generate the preliminary design.",
-                specs=[],
-                actions=[CardAction(label="Generate design", command="generate design")],
-            )
-            return GraphPatch(), card
+    async def _gather(self, session_id: str, **kwargs) -> Dict:
+        panel_exists = await self.component_db_service.exists(category="panel")
+        inverter_exists = await self.component_db_service.exists(category="inverter")
+        if not panel_exists or not inverter_exists:
+            missing = []
+            if not panel_exists:
+                missing.append("panel datasheet")
+            if not inverter_exists:
+                missing.append("inverter datasheet")
+            return {
+                "card": {
+                    "title": "Gather requirements",
+                    "body": f"Missing {', '.join(missing)}. Please upload the missing datasheets.",
+                    "actions": [{"label": "Upload datasheet", "command": "upload_datasheet"}],
+                },
+                "patch": None,
+                "status": "blocked",
+            }
+        return {
+            "card": {
+                "title": "Gather requirements",
+                "body": "All required components exist. You may generate a preliminary design.",
+            },
+            "patch": None,
+            "status": "complete",
+        }
 
-        # Accept only design generation tasks.  Recognise the identifiers
-        # emitted by the planner.  If the task does not match, fall back to
-        # the base implementation which returns no patch.
-        if tid not in {
-            "prelim",
-            "prelim_design",
-            "generate_design",
-            "generate_preliminary_design",
-            "generate preliminary design",
-            "generate design",
-        }:
-            return await super().execute(task_id, graph)
+    async def _generate_design(self, session_id: str, **kwargs) -> Dict:
+        g = self.odl_graph_service.get_graph(session_id)
+        if g is None:
+            g = self.odl_graph_service.create_graph(session_id)
+        has_panel = any(data.get("type") == "panel" for _, data in g.nodes(data=True))
+        has_inverter = any(data.get("type") == "inverter" for _, data in g.nodes(data=True))
+        if has_panel and has_inverter:
+            return {
+                "card": {
+                    "title": "Generate design",
+                    "body": "A preliminary design is already present. Try refinement or validation.",
+                },
+                "patch": None,
+                "status": "complete",
+            }
+        panels = await self.component_db_service.search(category="panel")
+        inverters = await self.component_db_service.search(category="inverter")
+        if not panels or not inverters:
+            return {
+                "card": {
+                    "title": "Generate design",
+                    "body": "No panels or inverters found. Please upload components first.",
+                },
+                "patch": None,
+                "status": "blocked",
+            }
+        selected_panel = sorted(
+            panels, key=lambda p: (p.get("power", 0) / max(p.get("price", 0.01), 0.01)), reverse=True
+        )[0]
+        selected_inverter = sorted(
+            inverters,
+            key=lambda inv: (inv.get("capacity", 0) / max(inv.get("price", 0.01), 0.01)),
+            reverse=True,
+        )[0]
+        panel_id = f"panel_{selected_panel['part_number']}"
+        inverter_id = f"inverter_{selected_inverter['part_number']}"
+        nodes = [
+            {
+                "id": panel_id,
+                "data": {
+                    "type": "panel",
+                    "part_number": selected_panel["part_number"],
+                    "power": selected_panel.get("power"),
+                    "layer": "single_line",
+                },
+            },
+            {
+                "id": inverter_id,
+                "data": {
+                    "type": "inverter",
+                    "part_number": selected_inverter["part_number"],
+                    "capacity": selected_inverter.get("capacity"),
+                    "layer": "single_line",
+                },
+            },
+        ]
+        edge = {
+            "source": panel_id,
+            "target": inverter_id,
+            "data": {"type": "electrical"},
+        }
+        patch = {"add_nodes": nodes, "add_edges": [edge]}
+        return {
+            "card": {
+                "title": "Generate design",
+                "body": (
+                    f"Selected panel {selected_panel['part_number']} ({selected_panel.get('power')} W) and inverter "
+                    f"{selected_inverter['part_number']} ({selected_inverter.get('capacity')} W)."
+                ),
+            },
+            "patch": patch,
+            "status": "complete",
+        }
 
-        # Prevent recreating the preliminary design if it already exists.
-        if any(n.type == "pv_string" for n in graph.nodes):
-            card = DesignCard(
-                title="Preliminary design exists",
-                description="A preliminary PV string is already present in the graph.",
-                specs=[],
-                actions=[CardAction(label="Regenerate", command="generate design alternative")],
-            )
-            return GraphPatch(), card
-
-        # Add a dummy PV string node to represent the preliminary design.
-        panel = next((n for n in graph.nodes if n.type == "panel"), None)
-        inverter = next((n for n in graph.nodes if n.type == "inverter"), None)
-        data = {"rated_power": 5000}
-        if panel:
-            data["panel_id"] = panel.id
-        if inverter:
-            data["inverter_id"] = inverter.id
-        new_id = f"pv_string_{uuid.uuid4().hex[:8]}"
-        node = ODLNode(id=new_id, type="pv_string", data=data)
-        patch = GraphPatch(
-            add_nodes=[node],
-            add_edges=[],
-            removed_nodes=[],
-            removed_edges=[],
-        )
-        card = DesignCard(
-            title="Preliminary PV array",
-            description="Added a 5 kW string to the design graph.",
-            specs=[{"label": "Rated power", "value": "5000 W"}],
-            actions=[
-                CardAction(label="Accept", command="accept pv design"),
-                CardAction(label="See alternatives", command="generate_design alternative"),
-            ],
-        )
-        return patch, card
-
-
-class WiringAgent(BaseDomainAgent):
-    """Agent responsible for wire sizing and electrical connections.
-
-    This stub agent simply calls the base implementation.  A full
-    version would calculate wire gauge, voltage drop and protective
-    devices, then update the graph accordingly.
-    """
-
-    async def execute(self, task_id: str, graph: ODLGraph) -> Tuple[GraphPatch, Optional[DesignCard]]:
-        # TODO: Implement wire sizing and connection logic
-        return await super().execute(task_id, graph)
-
-
-class StructuralAgent(BaseDomainAgent):
-    """Agent responsible for structural and civil calculations.
-
-    In a production system this agent would validate mounting points,
-    structural loads and clearances.  It would interact with the
-    structural layer of the graph to add or modify support elements.
-    """
-
-    async def execute(self, task_id: str, graph: ODLGraph) -> Tuple[GraphPatch, Optional[DesignCard]]:
-        # TODO: Implement structural design logic
-        return await super().execute(task_id, graph)
+    async def _refine_validate(self, session_id: str, **kwargs) -> Dict:
+        return {
+            "card": {
+                "title": "Refine/Validate",
+                "body": "Refinement and validation logic is not yet implemented.",
+            },
+            "patch": None,
+            "status": "pending",
+        }
 
 
-class NetworkAgent(BaseDomainAgent):
-    """Agent responsible for network and monitoring design.
+class StructuralAgent:
+    """Placeholder structural agent."""
 
-    This agent will eventually specify monitoring devices and
-    communications links in the graph.  For now it returns no
-    changes.
-    """
+    async def execute(self, session_id: str, tid: str, **kwargs) -> Dict:
+        return {
+            "card": {
+                "title": "Structural design",
+                "body": "Structural sizing not yet implemented.",
+            },
+            "patch": None,
+            "status": "pending",
+        }
 
-    async def execute(self, task_id: str, graph: ODLGraph) -> Tuple[GraphPatch, Optional[DesignCard]]:
-        # TODO: Implement network/monitoring design logic
-        return await super().execute(task_id, graph)
 
+class WiringAgent:
+    """Placeholder wiring agent."""
 
-class AssemblyAgent(BaseDomainAgent):
-    """Agent responsible for grouping components into assemblies.
-
-    Assemblies encapsulate subgraphs representing modules or kits.
-    A complete implementation would identify logical groupings in the
-    graph and update both the BOM and layout layers accordingly.
-    """
-
-    async def execute(self, task_id: str, graph: ODLGraph) -> Tuple[GraphPatch, Optional[DesignCard]]:
-        # TODO: Implement assembly management logic
-        return await super().execute(task_id, graph)
+    async def execute(self, session_id: str, tid: str, **kwargs) -> Dict:
+        return {
+            "card": {
+                "title": "Wiring design",
+                "body": "Wiring sizing not yet implemented.",
+            },
+            "patch": None,
+            "status": "pending",
+        }

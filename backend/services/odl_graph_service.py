@@ -1,131 +1,150 @@
-"""In-memory ODL graph service.
-
-This module provides a simple in-memory store for OriginFlow
-Design Language (ODL) graphs and helper functions to operate on
-these graphs. It uses networkx to maintain the graph structure
-and keeps a per-session mapping of graphs so that multiple users
-can work independently. In a production environment this
-service should be replaced with a database-backed implementation
-to ensure persistence and concurrent access.
-
-The main responsibilities of this service are:
-
-* Creating and retrieving graphs for a given session ID.
-* Converting between the internal networkx representation and
-  Pydantic models defined in ``backend/schemas/odl.py``.
-* Applying patches to graphs and computing diffs.
-
-This service does not contain any domain logic; domain agents
-should use these functions to read and write graphs. See
-``backend/agents/odl_domain_agents.py`` for agent examples.
 """
+ODL graph service: persist and manage per-session graphs.
+
+This module replaces the previous in-memory `_GRAPHS` dict with a simple
+SQLite-backed store. Each session’s graph is serialized to JSON and
+persisted alongside a monotonic `version` integer for optimistic concurrency.
+Graphs are loaded, patched, and saved through the helpers below.
+
+Schema:
+    CREATE TABLE IF NOT EXISTS sessions (
+        session_id TEXT PRIMARY KEY,
+        graph_json TEXT NOT NULL,
+        version INTEGER NOT NULL
+    );
+"""
+
 from __future__ import annotations
-from typing import Dict
+
+import json
+import sqlite3
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+
 import networkx as nx
-from backend.schemas.odl import (
-    ODLNode,
-    ODLEdge,
-    ODLGraph,
-    GraphPatch,
-    GraphDiff,
-)
 
-_GRAPHS: Dict[str, nx.DiGraph] = {}
+# SQLite database file used to persist graphs.  A `data` directory under
+# backend/services will be created automatically.
+DB_PATH = Path(__file__).resolve().parent.parent / "data" / "odl_sessions.db"
+DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-def create_graph(session_id):
-    """Create a new empty graph for the given session.
-    If a graph already exists for the session it will be
-    overwritten.
-    """
-    _GRAPHS[session_id] = nx.DiGraph()
 
-def get_graph(session_id):
-    """Retrieve the networkx graph for a session."""
-    return _GRAPHS[session_id]
+def _init_db() -> None:
+    """Initialise the sessions table if it does not exist."""
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS sessions (
+                session_id TEXT PRIMARY KEY,
+                graph_json TEXT NOT NULL,
+                version INTEGER NOT NULL
+            )
+            """
+        )
+        conn.commit()
 
-def serialize_graph(graph):
-    """Convert a networkx graph into an ODLGraph model."""
-    nodes = []
-    for node_id in graph.nodes:
-        n_type = graph.nodes[node_id].get("type", "unknown")
-        n_data = dict(graph.nodes[node_id].get("data", {}))
-        nodes.append(ODLNode(id=node_id, type=n_type, data=n_data))
-    edges = []
-    for (src, tgt) in graph.edges:
-        e_type = graph[src][tgt].get("type", "related")
-        e_data = dict(graph[src][tgt].get("data", {}))
-        edges.append(ODLEdge(source=src, target=tgt, type=e_type, data=e_data))
-    return ODLGraph(nodes=nodes, edges=edges)
 
-def apply_patch(session_id, patch):
-    """Apply a graph patch to the graph of a session and return a diff."""
+def _serialize_graph(g: nx.DiGraph) -> str:
+    """Return a JSON representation of the given graph."""
+    payload = {
+        "graph": dict(g.graph),
+        "nodes": [{"id": n, "data": dict(g.nodes[n])} for n in g.nodes],
+        "edges": [
+            {"source": u, "target": v, "data": dict(g.edges[u, v])}
+            for u, v in g.edges
+        ],
+    }
+    return json.dumps(payload)
+
+
+def _deserialize_graph(data: str) -> nx.DiGraph:
+    """Construct a NetworkX graph from its JSON representation."""
+    payload = json.loads(data)
+    g = nx.DiGraph()
+    g.graph.update(payload.get("graph", {}))
+    for node in payload.get("nodes", []):
+        g.add_node(node["id"], **node.get("data", {}))
+    for edge in payload.get("edges", []):
+        g.add_edge(edge["source"], edge["target"], **edge.get("data", {}))
+    return g
+
+
+def create_graph(session_id: str) -> nx.DiGraph:
+    """Create a new graph for `session_id` if none exists."""
+    _init_db()
     g = get_graph(session_id)
-    added_nodes = []
-    removed_nodes = []
-    added_edges = []
-    removed_edges = []
-    if patch.add_nodes:
-        for node in patch.add_nodes:
-            if node.id not in g:
-                g.add_node(node.id, type=node.type, data=node.data)
-                added_nodes.append(node.id)
-    if patch.removed_nodes:
-        for node_id in patch.removed_nodes:
-            if g.has_node(node_id):
-                g.remove_node(node_id)
-                removed_nodes.append(node_id)
-    if patch.add_edges:
-        for edge in patch.add_edges:
-            if not g.has_edge(edge.source, edge.target):
-                if not g.has_node(edge.source):
-                    g.add_node(edge.source, type="unknown", data={})
-                if not g.has_node(edge.target):
-                    g.add_node(edge.target, type="unknown", data={})
-                g.add_edge(edge.source, edge.target, type=edge.type, data=edge.data)
-                added_edges.append({"source": edge.source, "target": edge.target})
-    if patch.removed_edges:
-        for edge_spec in patch.removed_edges:
-            src = edge_spec.get("source")
-            tgt = edge_spec.get("target")
-            if src is not None and tgt is not None and g.has_edge(src, tgt):
-                g.remove_edge(src, tgt)
-                removed_edges.append({"source": src, "target": tgt})
-    return GraphDiff(
-        added_nodes=added_nodes,
-        removed_nodes=removed_nodes,
-        added_edges=added_edges,
-        removed_edges=removed_edges,
-    )
+    if g:
+        return g
+    g = nx.DiGraph()
+    g.graph["version"] = 0
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO sessions (session_id, graph_json, version) VALUES (?, ?, ?)",
+            (session_id, _serialize_graph(g), 0),
+        )
+        conn.commit()
+    return g
 
-def init_session(session_id, base_graph=None):
-    """Initialise a session with an optional base graph."""
-    create_graph(session_id)
-    if base_graph:
-        g = get_graph(session_id)
-        for node in base_graph.nodes:
-            g.add_node(node.id, type=node.type, data=node.data)
-        for edge in base_graph.edges:
-            g.add_edge(edge.source, edge.target, type=edge.type, data=edge.data)
 
-def diff_graphs(g_old, g_new):
-    """Compute a diff between two ODLGraph snapshots."""
-    old_nodes = {n.id for n in g_old.nodes}
-    new_nodes = {n.id for n in g_new.nodes}
-    old_edges = {(e.source, e.target) for e in g_old.edges}
-    new_edges = {(e.source, e.target) for e in g_new.edges}
-    added_nodes = list(new_nodes - old_nodes)
-    removed_nodes = list(old_nodes - new_nodes)
-    added_edges = [
-        {"source": src, "target": tgt}
-        for (src, tgt) in new_edges - old_edges
-    ]
-    removed_edges = [
-        {"source": src, "target": tgt}
-        for (src, tgt) in old_edges - new_edges
-    ]
-    return GraphDiff(
-        added_nodes=added_nodes,
-        removed_nodes=removed_nodes,
-        added_edges=added_edges,
-        removed_edges=removed_edges,
-    )
+def get_graph(session_id: str) -> Optional[nx.DiGraph]:
+    """Load and return the graph for `session_id`, or None if it does not exist."""
+    _init_db()
+    with sqlite3.connect(DB_PATH) as conn:
+        cur = conn.execute(
+            "SELECT graph_json FROM sessions WHERE session_id = ?", (session_id,)
+        )
+        row = cur.fetchone()
+        if not row:
+            return None
+        return _deserialize_graph(row[0])
+
+
+def save_graph(session_id: str, g: nx.DiGraph) -> None:
+    """Persist the provided graph back to storage."""
+    _init_db()
+    version = g.graph.get("version", 0)
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute(
+            "UPDATE sessions SET graph_json = ?, version = ? WHERE session_id = ?",
+            (_serialize_graph(g), version, session_id),
+        )
+        conn.commit()
+
+
+def delete_graph(session_id: str) -> None:
+    """Remove a session from persistence."""
+    _init_db()
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
+        conn.commit()
+
+
+def apply_patch(session_id: str, patch: Dict[str, List]) -> Tuple[bool, str]:
+    """Apply an add/remove patch to the given session’s graph."""
+    g = get_graph(session_id)
+    if not g:
+        return False, f"Session {session_id} does not exist"
+
+    for node_id in patch.get("remove_nodes", []):
+        if g.has_node(node_id):
+            g.remove_node(node_id)
+    for edge in patch.get("remove_edges", []):
+        u = edge.get("source")
+        v = edge.get("target")
+        if u is not None and v is not None and g.has_edge(u, v):
+            g.remove_edge(u, v)
+    for node in patch.get("add_nodes", []):
+        node_id = node.get("id")
+        if node_id is None:
+            return False, "Node id is required"
+        g.add_node(node_id, **node.get("data", {}))
+    for edge in patch.get("add_edges", []):
+        src = edge.get("source")
+        dst = edge.get("target")
+        if src is None or dst is None:
+            return False, "Edge source and target are required"
+        g.add_edge(src, dst, **edge.get("data", {}))
+
+    g.graph["version"] = g.graph.get("version", 0) + 1
+    save_graph(session_id, g)
+    return True, ""
