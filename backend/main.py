@@ -88,6 +88,7 @@ from backend.api.routes import (
     odl,
     requirements,
     versioning,
+    agents,
 )
 
 
@@ -132,6 +133,7 @@ app.include_router(me.router, prefix=settings.api_prefix)
 app.include_router(odl.router, prefix=settings.api_prefix)
 app.include_router(requirements.router, prefix=settings.api_prefix)
 app.include_router(versioning.router, prefix=settings.api_prefix)
+app.include_router(agents.router, prefix=settings.api_prefix)
 include_component_attributes_routes(app)
 
 

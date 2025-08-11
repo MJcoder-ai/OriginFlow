@@ -8,6 +8,12 @@
 
 OriginFlow is a browser-based, AI-powered design environment that converts rough engineering sketches and customer inputs into standards-compliant schematics and bills-of-materials. It supports both engineers and non-technical users, offering features like drag-and-drop datasheets, AI auto-completion, and real-time compliance checks.
 
+Recent updates introduce:
+  - A persistent graph service with patch/version history and undo/redo support.
+  - A dynamic planner that emits tasks based on session state and skips completed design steps.
+  - Separate structural and wiring tasks dispatched through a new agent registry.
+  - API routes to update requirements, list available tasks and versions, and revert changes. Clients must include the current graph version when applying patches to avoid conflicts.
+
 ### 🚀 **Current Status: Phase 1 MVP**
 - ✅ **Core Design Platform**: Fully functional canvas, components, AI chat interface
 - ✅ **18 AI Agents**: Basic design, wiring, performance, financial, and support agents  

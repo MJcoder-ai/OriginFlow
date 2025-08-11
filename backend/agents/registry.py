@@ -64,3 +64,35 @@ def get_spec(name: str) -> AgentSpec:
     """Return the registered specification for ``name``."""
 
     return _SPECS[name]
+
+
+# ---------------------------------------------------------------------------
+# Task/agent registry for ODL operations
+# ---------------------------------------------------------------------------
+from backend.agents.odl_domain_agents import PVDesignAgent  # noqa: E402
+from backend.agents.structural_agent import StructuralAgent  # noqa: E402
+from backend.agents.wiring_agent import WiringAgent  # noqa: E402
+
+
+class AgentRegistry:
+    """Singleton registry mapping task IDs to agent instances."""
+
+    def __init__(self) -> None:
+        self._agents: Dict[str, object] = {
+            "gather_requirements": PVDesignAgent(),
+            "generate_design": PVDesignAgent(),
+            "refine_validate": PVDesignAgent(),
+            "generate_structural": StructuralAgent(),
+            "generate_wiring": WiringAgent(),
+        }
+
+    def get_agent(self, task_id: str):
+        """Return the agent responsible for the given task ID."""
+        return self._agents.get(task_id)
+
+    def available_tasks(self) -> List[str]:
+        """Return a list of registered task IDs."""
+        return list(self._agents.keys())
+
+
+registry = AgentRegistry()

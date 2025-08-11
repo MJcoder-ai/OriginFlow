@@ -181,14 +181,20 @@ async def apply_patch(session_id: str, patch: Dict[str, List[Dict]]) -> Tuple[bo
     g.graph["version"] = g.graph.get("version", 0) + 1
     # persist updated graph
     await save_graph(session_id, g)
-    # persist the patch as a separate record for diff/undo
+    # persist the patch as a separate record for diff/undo, but exclude the
+    # version key from the stored patch to avoid confusion on replay
+    stored_patch = {
+        key: val
+        for key, val in patch.items()
+        if key in {"add_nodes", "add_edges", "remove_nodes", "remove_edges"}
+    }
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute(
             "INSERT INTO patches (session_id, version, patch_json) VALUES (?, ?, ?)",
             (
                 session_id,
                 g.graph["version"],
-                json.dumps(patch),
+                json.dumps(stored_patch),
             ),
         )
         conn.commit()
