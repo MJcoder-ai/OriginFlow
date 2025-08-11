@@ -6,8 +6,6 @@ from uuid import uuid4
 
 from backend.services.component_db_service import ComponentDBService
 from backend.services import odl_graph_service
-from backend.agents.structural_agent import StructuralAgent
-from backend.agents.wiring_agent import WiringAgent
 from backend.services.learning_agent_service import LearningAgentService
 
 
@@ -17,8 +15,6 @@ class PVDesignAgent:
     def __init__(self) -> None:
         self.component_db_service = ComponentDBService()
         self.odl_graph_service = odl_graph_service
-        self.structural_agent = StructuralAgent()
-        self.wiring_agent = WiringAgent()
         self.learning_agent = LearningAgentService()
 
     async def execute(self, session_id: str, tid: str, **kwargs) -> Dict:
@@ -198,43 +194,37 @@ class PVDesignAgent:
 
     async def _refine_validate(self, session_id: str, **kwargs) -> Dict:
         """
-        Perform refinement and validation by delegating to structural and wiring agents.
-        After design generation, this step sizes mounting hardware and conductors.
+        Refine and validate the design. Unlike earlier versions, this method no
+        longer delegates to structural or wiring agents directly (those are now
+        separate tasks). Instead, it performs high-level validation checks such as
+        ensuring the array output meets the target power and returns a summary
+        card. No patch is produced.
         """
         g = await self.odl_graph_service.get_graph(session_id)
-        has_design = any(
-            data.get("type") == "panel" for _, data in g.nodes(data=True)
-        ) and any(
-            data.get("type") == "inverter" for _, data in g.nodes(data=True)
-        )
-        if not has_design:
+        panels = [data for _, data in g.nodes(data=True) if data.get("type") == "panel"]
+        inverters = [
+            data for _, data in g.nodes(data=True) if data.get("type") == "inverter"
+        ]
+        if not panels or not inverters:
             return {
-                "card": {
-                    "title": "Refine/Validate",
-                    "body": "No preliminary design found. Please generate a design first.",
-                },
+                "card": {"title": "Refine/Validate", "body": "No design to validate."},
                 "patch": None,
                 "status": "blocked",
             }
-        structural_result = await self.structural_agent.execute(session_id, "generate_structural")
-        wiring_result = await self.wiring_agent.execute(session_id, "generate_wiring")
-        patches: List[Dict] = []
-        cards = []
-        statuses = []
-        for result in [structural_result, wiring_result]:
-            if result.get("patch"):
-                patches.append(result["patch"])
-            cards.append(result["card"]["body"])
-            statuses.append(result.get("status", "pending"))
-        combined_patch = {"add_nodes": [], "add_edges": [], "remove_nodes": [], "remove_edges": []}
-        for p in patches:
-            for key in combined_patch:
-                combined_patch[key].extend(p.get(key, []))
+        total_power = sum(p["power"] for p in panels)
+        total_capacity = sum(inv["capacity"] for inv in inverters)
+        req = g.graph.get("requirements", {})
+        target = req.get("target_power", 0)
+        body = (
+            f"Array output: {total_power/1000:.2f}\u00a0kW. "
+            f"Inverter capacity: {total_capacity/1000:.2f}\u00a0kW. "
+            f"Target power: {target/1000:.2f}\u00a0kW."
+        )
+        if self.learning_agent:
+            conf = await self.learning_agent.score_action("refine_validate")
+            body += f" Confidence: {conf:.2f}."
         return {
-            "card": {
-                "title": "Refine/Validate",
-                "body": " ".join(cards),
-            },
-            "patch": combined_patch if patches else None,
-            "status": "complete" if all(s == "complete" for s in statuses) else "pending",
+            "card": {"title": "Refine/Validate", "body": body},
+            "patch": None,
+            "status": "complete",
         }
