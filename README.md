@@ -12,7 +12,7 @@ Recent updates introduce:
   - A persistent graph service with patch/version history and undo/redo support.
   - A dynamic planner that emits tasks based on session state and skips completed design steps.
   - Separate structural and wiring tasks dispatched through a new agent registry.
-  - API routes to update requirements, list available tasks and versions, and revert changes. Clients must include the current graph version when applying patches to avoid conflicts.
+  - API routes to update requirements, list available tasks and versions, and revert changes. Clients should include the current graph version in act calls to avoid conflicts.
 
 ### 🚀 **Current Status: Phase 1 MVP**
 - ✅ **Core Design Platform**: Fully functional canvas, components, AI chat interface
@@ -32,7 +32,7 @@ The platform is architected for enterprise scale but currently implements core e
 ## 2. Key Features
 - **Engineering Canvas**: A drag-and-drop interface for creating and editing schematics with AI-driven auto-completion, industry-standard naming, WebGL rendering, CRDT-based offline sync, and port-based connections between components. Links are created by dragging from an output port to an input port, with ports highlighting during the drag. Component dragging is separate from linking, so accidental moves are avoided. Connection lines now align precisely with each port for clearer diagrams.
 - **Multi-Layer Canvas**: Switch between named layers (e.g., single-line, high-level) so complex designs stay organized. Each layer stores its own component positions.
- - **ODL Graph & Plan–Act Loop (New)**: Designs are now backed by the OriginFlow Design Language (ODL), a network‑graph representation of all components, connections and annotations. Each node corresponds to a physical or logical entity (panel, inverter, roof, sensor) and each edge captures a relation (electrical, mechanical, data). A new PlannerAgent decomposes your natural language commands into a sequence of high‑level tasks, which are displayed in the Plan Timeline and executed by specialised domain agents (PV design, wiring, structural, network and assemblies). These agents operate on the ODL graph via patches and return rich Design Cards summarising their suggestions. Session graphs are persisted so work survives restarts. The `/api/v1/odl/sessions` endpoint creates a new session and `/api/v1/odl/{session_id}/act` applies patches automatically, completing the loop. This plan–act loop allows OriginFlow to evolve a design across layers and disciplines while giving you full visibility and control. The planner now emits stable task identifiers—`gather_requirements`, `generate_design`, `refine_validate`—and the PVDesignAgent performs a dedicated gather step that checks the component database for panels and inverters, prompting for missing datasheets or confirming readiness. The frontend preserves task status across messages so completed steps aren’t repeated. New endpoints let you update requirements mid‑session, undo or redo changes via versioned patches, and the PV agent sizes arrays and delegates structural and wiring refinements with confidence scoring.
+  - **ODL Graph & Plan–Act Loop (New)**: Designs are now backed by the OriginFlow Design Language (ODL), a network‑graph representation of all components, connections and annotations. Each node corresponds to a physical or logical entity (panel, inverter, roof, sensor) and each edge captures a relation (electrical, mechanical, data). A new PlannerAgent decomposes your natural language commands into a sequence of high‑level tasks, which are displayed in the Plan Timeline and executed by specialised domain agents (PV design, wiring, structural, network and assemblies). These agents operate on the ODL graph via patches and return rich Design Cards summarising their suggestions. Session graphs are persisted so work survives restarts. The `/api/v1/odl/sessions` endpoint creates a new session (accepts optional client `session_id`) and `/api/v1/odl/{session_id}/act` applies patches, returning the updated `version`. This plan–act loop allows OriginFlow to evolve a design across layers and disciplines while giving you full visibility and control. The planner now emits stable task identifiers—`gather_requirements`, `generate_design`, `refine_validate`—and the PVDesignAgent performs a dedicated gather step that checks the component database for panels and inverters, prompting for missing datasheets or confirming readiness. The frontend preserves task status across messages so completed steps aren’t repeated. New endpoints let you update requirements mid‑session, undo or redo changes via versioned patches, and the PV agent sizes arrays and delegates structural and wiring refinements with confidence scoring.
 - **Interactive Layer Selector**: Use the layer selector in the toolbar to create and switch between named layers (e.g. Single‑Line, High‑Level, Electrical, Structural, Networking). New components automatically inherit the current layer, and their layer assignment is persisted. Layers allow different stakeholders to focus on the view relevant to them while sharing a single underlying model.
 
     - **Sub‑Assembly Generation**: Once a component is placed, you can expand it into its required sub‑assemblies. Select a component and click **Generate Sub‑Assembly** to populate the appropriate detail layer (electrical or structural) with brackets, rails, combiner boxes or other accessories based on **both dependency rules and nested sub‑elements** defined in the component library. The **DesignAssemblyAgent** looks up the component in the master database and returns the necessary ``addComponent`` actions for every required item and sub‑element, applying them automatically.
@@ -531,6 +531,49 @@ If running the frontend on a different host or port, update the `origins` list i
 3. **User**: "remove battery" → component disappears
 4. **User**: "optimise the layout" → nodes rearranged
 5. **User**: "what is the bill of materials" → BoM table appears
+
+### 6.11 ODL Plan–Act and Versioning
+
+- Create a session (optionally provide your own `session_id`):
+
+```bash
+curl -X POST http://localhost:8000/api/v1/odl/sessions \
+     -H "Content-Type: application/json" \
+     -d '{"session_id":"my-session-123"}'
+```
+
+- Get a plan for a command and current session state:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/odl/my-session-123/plan \
+     -H "Content-Type: application/json" \
+     -d '{"command":"design 5 kW pv system"}'
+```
+
+- Execute a task. Include your last known `graph_version` to avoid conflicts. On success the response includes the updated `version`:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/odl/my-session-123/act \
+     -H "Content-Type: application/json" \
+     -d '{"task_id":"generate_design","graph_version":2}'
+```
+
+- Update requirements mid-session to unblock `generate_design`:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/requirements/my-session-123 \
+     -H "Content-Type: application/json" \
+     -d '{"target_power":5,"roof_area":30,"budget":10000,"brand":"Any"}'
+```
+
+- Inspect patch history and revert:
+
+```bash
+curl "http://localhost:8000/api/v1/versions/my-session-123/diff?from_version=0&to_version=5"
+curl -X POST http://localhost:8000/api/v1/versions/my-session-123/revert \
+     -H "Content-Type: application/json" \
+     -d '{"target_version":3}'
+```
 
 ### 6.10 Adding Components via Datasheets
 

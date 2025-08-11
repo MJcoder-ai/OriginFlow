@@ -7,7 +7,7 @@ from uuid import uuid4
 from fastapi import APIRouter, HTTPException
 
 from backend.schemas.ai import AiCommandRequest, PlanTask
-from backend.schemas.odl import ActOnTaskRequest, CreateSessionResponse, GraphResponse
+from backend.schemas.odl import ActOnTaskRequest, CreateSessionResponse, CreateSessionRequest, GraphResponse
 from backend.agents.planner_agent import PlannerAgent
 from backend.agents.registry import registry
 from backend.services import odl_graph_service
@@ -18,9 +18,16 @@ planner_agent = PlannerAgent()
 
 
 @router.post("/sessions", response_model=CreateSessionResponse)
-async def create_session(cmd: AiCommandRequest) -> CreateSessionResponse:
-    """Create a new design session and initialise its graph."""
-    session_id = str(uuid4())
+async def create_session(cmd: CreateSessionRequest | None = None) -> CreateSessionResponse:
+    """Create a new design session and initialise its graph.
+
+    Accepts an optional body; when a `session_id` is provided by the
+    frontend, reuse it to allow stable sessions across refreshes.
+    """
+    # Prefer client-provided id when present
+    provided_session_id = None
+    provided_session_id = getattr(cmd, "session_id", None) if cmd else None
+    session_id = provided_session_id or str(uuid4())
     odl_graph_service.create_graph(session_id)
     return CreateSessionResponse(session_id=session_id)
 
@@ -59,12 +66,23 @@ async def act_on_task(session_id: str, req: ActOnTaskRequest) -> GraphResponse:
     if patch:
         graph = await odl_graph_service.get_graph(session_id)
         patch_with_version = dict(patch)
-        patch_with_version["version"] = graph.graph.get("version", 0)
+        # Prefer client-observed version for optimistic concurrency if provided
+        client_version = req.graph_version
+        patch_with_version["version"] = (
+            client_version if client_version is not None else graph.graph.get("version", 0)
+        )
         success, error = await odl_graph_service.apply_patch(session_id, patch_with_version)
         if not success:
             raise HTTPException(status_code=409, detail=error)
+        # Load updated version to return
+        graph = await odl_graph_service.get_graph(session_id)
+        current_version = graph.graph.get("version", None)
+    else:
+        graph = await odl_graph_service.get_graph(session_id)
+        current_version = graph.graph.get("version", None)
     return GraphResponse(
         card=result["card"],
         patch=patch,
         status=result.get("status", "pending"),
+        version=current_version,
     )

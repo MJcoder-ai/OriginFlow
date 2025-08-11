@@ -28,13 +28,22 @@ class GraphPatch(BaseModel):
 
 class ActOnTaskRequest(BaseModel):
     task_id: str
+    # Optional action variant for tasks that expose sub-operations
+    action: str | None = None
+    # Client-observed graph version for optimistic concurrency control
+    graph_version: int | None = None
 
 
 class CreateSessionResponse(BaseModel):
     session_id: str
 
 
+class CreateSessionRequest(BaseModel):
+    session_id: str | None = None
+
+
 class GraphResponse(BaseModel):
     card: Dict[str, Any]
     patch: Dict[str, Any] | None = None
     status: str
+    version: int | None = None

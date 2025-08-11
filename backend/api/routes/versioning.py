@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 from backend.services.odl_graph_service import (
     get_patch_diff,
@@ -11,6 +12,9 @@ from backend.services.odl_graph_service import (
 
 router = APIRouter(prefix="/versions", tags=["versions"])
 
+
+class RevertRequest(BaseModel):
+    target_version: int
 
 @router.get("/{session_id}/diff")
 async def get_diff(session_id: str, from_version: int, to_version: int):
@@ -24,12 +28,12 @@ async def get_diff(session_id: str, from_version: int, to_version: int):
 
 
 @router.post("/{session_id}/revert")
-async def revert(session_id: str, target_version: int):
+async def revert(session_id: str, req: RevertRequest):
     """
     Revert a session graph to the specified version.
     """
-    success = await revert_to_version(session_id, target_version)
+    success = await revert_to_version(session_id, req.target_version)
     if not success:
         raise HTTPException(status_code=400, detail="Unable to revert to requested version")
     graph = await get_graph(session_id)
-    return {"detail": f"Session reverted to version {target_version}", "version": graph.graph.get("version")}
+    return {"detail": f"Session reverted to version {req.target_version}", "version": graph.graph.get("version")}

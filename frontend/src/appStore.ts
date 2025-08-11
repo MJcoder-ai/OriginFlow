@@ -166,8 +166,13 @@ interface AppState {
   /** Clear all plan tasks. */
   clearPlanTasks: () => void;
 
-  /** Unique design session identifier (default 'global' for legacy behaviour). */
+  /** Unique design session identifier (default persists across reloads). */
   sessionId: string;
+  setSessionId: (id: string) => void;
+
+  /** Monotonic graph version for optimistic concurrency. */
+  graphVersion: number;
+  setGraphVersion: (version: number) => void;
 
   /**
    * Execute a plan task via the backend.  Sends the task to the
@@ -175,6 +180,10 @@ interface AppState {
    * shows any design card in the chat, and updates the task status.
    */
   performPlanTask: (task: PlanTask) => Promise<void>;
+  /** User-provided requirements for gather phase. */
+  requirements: { target_power?: number; roof_area?: number; budget?: number; brand?: string };
+  updateRequirements: (patch: Partial<{ target_power: number; roof_area: number; budget: number; brand: string }>) => Promise<void>;
+
 
   /**
    * Suggested quick actions displayed beneath the chat input.  Each
@@ -360,8 +369,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   bomItems: null,
   selectedComponentId: null,
   messages: [],
-  // Current ODL session (default 'global').  Override when creating per-user sessions.
-  sessionId: 'global',
+  // Current ODL session (persisted).
+  sessionId: (typeof window !== 'undefined' && localStorage.getItem('of_session_id')) || 'global',
+  setSessionId: (id: string) => {
+    try {
+      if (typeof window !== 'undefined') localStorage.setItem('of_session_id', id);
+    } catch {}
+    set({ sessionId: id });
+  },
+  graphVersion: 0,
+  setGraphVersion: (version: number) => set({ graphVersion: version }),
   // High‑level plan defaults to empty.  When the orchestrator
   // generates a plan it will replace this array.
   planTasks: [],
@@ -380,7 +397,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     get().updatePlanTaskStatus(task.id, 'in_progress');
     set({ isAiProcessing: true });
     try {
-      const { patch, card } = await api.act(sessionId, task.id);
+      const { patch, card, version } = await api.act(sessionId, task.id, undefined, get().graphVersion);
+      if (typeof version === 'number') set({ graphVersion: version });
       // Apply added nodes to canvas
       if (patch.add_nodes) {
         set((s) => ({
@@ -431,12 +449,37 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
       // Mark the task complete
       get().updatePlanTaskStatus(task.id, 'complete');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to perform plan task', err);
-      get().updatePlanTaskStatus(task.id, 'blocked');
-      get().addStatusMessage('Failed to perform task', 'error');
+      const msg = String(err ?? '');
+      if (msg.includes('409')) {
+        get().addStatusMessage('The design has changed—refreshing…', 'warning');
+        try {
+          const plan = await api.getPlanForSession(sessionId, get().lastPrompt || 'design');
+          if ((plan as any).tasks && Array.isArray((plan as any).tasks)) set({ planTasks: (plan as any).tasks as any });
+        } catch (_e) {}
+      } else {
+        get().updatePlanTaskStatus(task.id, 'blocked');
+        get().addStatusMessage('Failed to perform task', 'error');
+      }
     } finally {
       set({ isAiProcessing: false });
+    }
+  },
+  // Requirements sync
+  requirements: {},
+  async updateRequirements(patch) {
+    const next = { ...get().requirements, ...patch } as any;
+    set({ requirements: next });
+    try {
+      const sessionId = get().sessionId;
+      if (sessionId) await api.postRequirements(sessionId, next);
+      if (sessionId) {
+        const plan = await api.getPlanForSession(sessionId, get().lastPrompt || 'design');
+        if ((plan as any).tasks && Array.isArray((plan as any).tasks)) set({ planTasks: (plan as any).tasks as any });
+      }
+    } catch (e) {
+      console.error('Failed to update requirements', e);
     }
   },
 
@@ -801,12 +844,13 @@ export const useAppStore = create<AppState>((set, get) => ({
         const sessionId = (get() as any).sessionId || 'global';
         // Ensure session exists
         try {
-          await api.createOdlSession(sessionId);
+          const created = await api.createOdlSession(sessionId !== 'global' ? sessionId : undefined);
+          if (created?.session_id) get().setSessionId(created.session_id);
         } catch (err) {
           console.warn('ODL session init failed', err);
         }
         // Request a plan for this session
-        const plan = await api.getPlanForSession(sessionId, command);
+        const plan = await api.getPlanForSession(get().sessionId, command);
         if (plan.tasks && Array.isArray(plan.tasks)) {
           // Merge new tasks with existing ones, preserving their statuses
           const existingTasks = get().planTasks;

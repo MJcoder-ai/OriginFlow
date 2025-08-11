@@ -7,6 +7,7 @@
  */
 import React from 'react';
 import { useAppStore, PlanTask } from '../appStore';
+import RequirementsForm from './RequirementsForm';
 import { CheckCircle, Circle, Loader2, AlertTriangle } from 'lucide-react';
 
 /** Mapping of task status to icon component. */
@@ -77,6 +78,10 @@ const PlanTimeline: React.FC = () => {
           );
         })}
       </ol>
+      {/* Show requirements form when gather_requirements is present and pending/blocked */}
+      {tasks.some((t) => t.id === 'gather_requirements' && (t.status === 'pending' || t.status === 'blocked')) && (
+        <RequirementsForm />
+      )}
     </div>
   );
 };
