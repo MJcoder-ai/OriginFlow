@@ -152,9 +152,10 @@ class PlanResponse(BaseModel):
 
 # --- NEW ---------------------------------------------------------
 class AiCommandRequest(BaseModel):
-    """Request body for /api/v1/ai/command."""
+    """Request body for AI command endpoints."""
 
     command: str
+    requirements: dict | None = None
 
 
 class AnalyzeCommandRequest(BaseModel):

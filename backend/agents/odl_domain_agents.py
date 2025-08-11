@@ -1,11 +1,14 @@
 """Domain agents operating on the ODL graph."""
 from __future__ import annotations
 
-from typing import Dict
+from typing import Dict, List
 from uuid import uuid4
 
 from backend.services.component_db_service import ComponentDBService
 from backend.services import odl_graph_service
+from backend.agents.structural_agent import StructuralAgent
+from backend.agents.wiring_agent import WiringAgent
+from backend.services.learning_agent_service import LearningAgentService
 
 
 class PVDesignAgent:
@@ -14,6 +17,9 @@ class PVDesignAgent:
     def __init__(self) -> None:
         self.component_db_service = ComponentDBService()
         self.odl_graph_service = odl_graph_service
+        self.structural_agent = StructuralAgent()
+        self.wiring_agent = WiringAgent()
+        self.learning_agent = LearningAgentService()
 
     async def execute(self, session_id: str, tid: str, **kwargs) -> Dict:
         task = tid.lower().strip()
@@ -29,19 +35,42 @@ class PVDesignAgent:
         }
 
     async def _gather(self, session_id: str, **kwargs) -> Dict:
+        """
+        Gather requirements.  This step ensures both that the component library
+        contains at least one panel and inverter and that the user has provided
+        necessary inputs (target_power, roof_area, budget).  Missing items are
+        indicated in the returned card.  If all are present, the task completes.
+        """
+        g = await self.odl_graph_service.get_graph(session_id)
+        requirements = g.graph.get("requirements", {})
+        missing_reqs = [k for k in ["target_power", "roof_area", "budget"] if k not in requirements]
         panel_exists = await self.component_db_service.exists(category="panel")
         inverter_exists = await self.component_db_service.exists(category="inverter")
-        if not panel_exists or not inverter_exists:
-            missing = []
-            if not panel_exists:
-                missing.append("panel datasheet")
-            if not inverter_exists:
-                missing.append("inverter datasheet")
+        missing_components: List[str] = []
+        if not panel_exists:
+            missing_components.append("panel datasheet")
+        if not inverter_exists:
+            missing_components.append("inverter datasheet")
+        if missing_reqs or missing_components:
+            body_lines: List[str] = []
+            if missing_reqs:
+                body_lines.append(
+                    "Missing inputs: " + ", ".join(missing_reqs) + ". Please provide these values."
+                )
+            if missing_components:
+                body_lines.append(
+                    "Missing components: " + ", ".join(missing_components) + ". Please upload the missing datasheets."
+                )
+            actions = []
+            if missing_components:
+                actions.append({"label": "Upload datasheet", "command": "upload_datasheet"})
+            if missing_reqs:
+                actions.append({"label": "Enter requirements", "command": "enter_requirements"})
             return {
                 "card": {
                     "title": "Gather requirements",
-                    "body": f"Missing {', '.join(missing)}. Please upload the missing datasheets.",
-                    "actions": [{"label": "Upload datasheet", "command": "upload_datasheet"}],
+                    "body": " ".join(body_lines),
+                    "actions": actions,
                 },
                 "patch": None,
                 "status": "blocked",
@@ -49,26 +78,42 @@ class PVDesignAgent:
         return {
             "card": {
                 "title": "Gather requirements",
-                "body": "All required components exist. You may generate a preliminary design.",
+                "body": "All requirements and components are present. Ready to generate a design.",
             },
             "patch": None,
             "status": "complete",
         }
 
     async def _generate_design(self, session_id: str, **kwargs) -> Dict:
-        g = self.odl_graph_service.get_graph(session_id)
-        if g is None:
-            g = self.odl_graph_service.create_graph(session_id)
+        """
+        Create a preliminary design sized to the user’s target power.
+        - Select a panel model and compute the number of panels required.
+        - Select one or more inverters to meet or exceed total array power.
+        - Insert all panel and inverter nodes and connect them electrically.
+        - Annotate the patch with a confidence score from the learning agent.
+        """
+        g = await self.odl_graph_service.get_graph(session_id)
         has_panel = any(data.get("type") == "panel" for _, data in g.nodes(data=True))
         has_inverter = any(data.get("type") == "inverter" for _, data in g.nodes(data=True))
         if has_panel and has_inverter:
             return {
                 "card": {
                     "title": "Generate design",
-                    "body": "A preliminary design is already present. Try refinement or validation.",
+                    "body": "A preliminary design already exists.  Proceed to refinement.",
                 },
                 "patch": None,
                 "status": "complete",
+            }
+        req = g.graph.get("requirements", {})
+        target_power = req.get("target_power")
+        if not target_power:
+            return {
+                "card": {
+                    "title": "Generate design",
+                    "body": "No target power specified.  Please enter requirements first.",
+                },
+                "patch": None,
+                "status": "blocked",
             }
         panels = await self.component_db_service.search(category="panel")
         inverters = await self.component_db_service.search(category="inverter")
@@ -76,93 +121,120 @@ class PVDesignAgent:
             return {
                 "card": {
                     "title": "Generate design",
-                    "body": "No panels or inverters found. Please upload components first.",
+                    "body": "No components available. Please upload panel and inverter datasheets.",
                 },
                 "patch": None,
                 "status": "blocked",
             }
-        selected_panel = sorted(
-            panels, key=lambda p: (p.get("power", 0) / max(p.get("price", 0.01), 0.01)), reverse=True
-        )[0]
-        selected_inverter = sorted(
-            inverters,
-            key=lambda inv: (inv.get("capacity", 0) / max(inv.get("price", 0.01), 0.01)),
-            reverse=True,
-        )[0]
-        panel_id = f"panel_{selected_panel['part_number']}"
-        inverter_id = f"inverter_{selected_inverter['part_number']}"
-        nodes = [
-            {
-                "id": panel_id,
-                "data": {
-                    "type": "panel",
-                    "part_number": selected_panel["part_number"],
-                    "power": selected_panel.get("power"),
-                    "layer": "single_line",
-                },
-            },
-            {
-                "id": inverter_id,
-                "data": {
-                    "type": "inverter",
-                    "part_number": selected_inverter["part_number"],
-                    "capacity": selected_inverter.get("capacity"),
-                    "layer": "single_line",
-                },
-            },
-        ]
-        edge = {
-            "source": panel_id,
-            "target": inverter_id,
-            "data": {"type": "electrical"},
-        }
-        patch = {"add_nodes": nodes, "add_edges": [edge]}
+        chosen_panel = max(
+            panels, key=lambda p: (p["power"] / max(p.get("price", 1.0), 0.01))
+        )
+        import math
+
+        panel_power = chosen_panel["power"]
+        num_panels = math.ceil(target_power / panel_power)
+        total_panel_power = num_panels * panel_power
+        sorted_inverters = sorted(inverters, key=lambda inv: inv["capacity"])
+        remaining_power = total_panel_power
+        chosen_inverters = []
+        for inv in sorted_inverters:
+            if remaining_power <= 0:
+                break
+            chosen_inverters.append(inv)
+            remaining_power -= inv["capacity"]
+        nodes: List[Dict] = []
+        edges: List[Dict] = []
+        for i in range(num_panels):
+            node_id = f"{chosen_panel['part_number']}_{i}"
+            nodes.append(
+                {
+                    "id": node_id,
+                    "data": {
+                        "type": "panel",
+                        "part_number": chosen_panel["part_number"],
+                        "power": chosen_panel["power"],
+                        "layer": "single_line",
+                    },
+                }
+            )
+        from uuid import uuid4 as _uuid4
+        for inv in chosen_inverters:
+            inv_id = f"{inv['part_number']}_{_uuid4().hex[:4]}"
+            nodes.append(
+                {
+                    "id": inv_id,
+                    "data": {
+                        "type": "inverter",
+                        "part_number": inv["part_number"],
+                        "capacity": inv["capacity"],
+                        "layer": "single_line",
+                    },
+                }
+            )
+            for panel_node in nodes:
+                if panel_node["data"]["type"] == "panel":
+                    edges.append(
+                        {
+                            "source": panel_node["id"],
+                            "target": inv_id,
+                            "data": {"type": "electrical"},
+                        }
+                    )
+        patch = {"add_nodes": nodes, "add_edges": edges}
+        if self.learning_agent:
+            description = f"Generated design with {num_panels} panels and {len(chosen_inverters)} inverter(s)"
+            confidence = await self.learning_agent.score_action(description)
+        else:
+            confidence = 0.5
+        body = (
+            f"Added {num_panels} × {chosen_panel['part_number']} panels and {len(chosen_inverters)} inverter(s). "
+            f"Estimated array size: {total_panel_power/1000:.1f} kW. Confidence: {confidence:.2f}"
+        )
         return {
-            "card": {
-                "title": "Generate design",
-                "body": (
-                    f"Selected panel {selected_panel['part_number']} ({selected_panel.get('power')} W) and inverter "
-                    f"{selected_inverter['part_number']} ({selected_inverter.get('capacity')} W)."
-                ),
-            },
+            "card": {"title": "Generate design", "body": body},
             "patch": patch,
             "status": "complete",
         }
 
     async def _refine_validate(self, session_id: str, **kwargs) -> Dict:
+        """
+        Perform refinement and validation by delegating to structural and wiring agents.
+        After design generation, this step sizes mounting hardware and conductors.
+        """
+        g = await self.odl_graph_service.get_graph(session_id)
+        has_design = any(
+            data.get("type") == "panel" for _, data in g.nodes(data=True)
+        ) and any(
+            data.get("type") == "inverter" for _, data in g.nodes(data=True)
+        )
+        if not has_design:
+            return {
+                "card": {
+                    "title": "Refine/Validate",
+                    "body": "No preliminary design found. Please generate a design first.",
+                },
+                "patch": None,
+                "status": "blocked",
+            }
+        structural_result = await self.structural_agent.execute(session_id, "generate_structural")
+        wiring_result = await self.wiring_agent.execute(session_id, "generate_wiring")
+        patches: List[Dict] = []
+        cards = []
+        statuses = []
+        for result in [structural_result, wiring_result]:
+            if result.get("patch"):
+                patches.append(result["patch"])
+            cards.append(result["card"]["body"])
+            statuses.append(result.get("status", "pending"))
+        combined_patch = {"add_nodes": [], "add_edges": [], "remove_nodes": [], "remove_edges": []}
+        for p in patches:
+            for key in combined_patch:
+                combined_patch[key].extend(p.get(key, []))
         return {
             "card": {
                 "title": "Refine/Validate",
-                "body": "Refinement and validation logic is not yet implemented.",
+                "body": " ".join(cards),
             },
-            "patch": None,
-            "status": "pending",
-        }
-
-
-class StructuralAgent:
-    """Placeholder structural agent."""
-
-    async def execute(self, session_id: str, tid: str, **kwargs) -> Dict:
-        return {
-            "card": {
-                "title": "Structural design",
-                "body": "Structural sizing not yet implemented.",
-            },
-            "patch": None,
-            "status": "pending",
-        }
-
-
-class WiringAgent:
-    """Placeholder wiring agent."""
-
-    async def execute(self, session_id: str, tid: str, **kwargs) -> Dict:
-        return {
-            "card": {
-                "title": "Wiring design",
-                "body": "Wiring sizing not yet implemented.",
-            },
-            "patch": None,
-            "status": "pending",
+            "patch": combined_patch if patches else None,
+            "status": "complete" if all(s == "complete" for s in statuses) else "pending",
         }
