@@ -77,7 +77,9 @@ class PlannerAgent:
         # should inspect the ODL graph via ``get_graph`` to derive
         # tasks appropriate for the current session.
         if "design" in cmd:
-            # Use identifiers that map directly to domain-agent actions.
+            # Produce a three-step plan: gather requirements, generate the
+            # preliminary design, then refine and validate.  The identifiers
+            # map directly onto tasks recognised by the domain agents.
             tasks = [
                 PlanTask(
                     id="gather_requirements",

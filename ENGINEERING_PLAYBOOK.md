@@ -347,6 +347,8 @@ The `PlannerAgent` acts as the conductor of the multi‑agent orchestra. It brea
 
 **Dispatch to Domain Agents**: The orchestrator takes the plan and, for each task, invokes the appropriate domain agent’s `execute` method. After applying the returned patch to the graph, it moves to the next task. Between tasks the orchestrator may call the planner again if the graph has changed significantly.
 
+**Reuse Existing Components**: Domain agents should leverage nodes already present in the graph instead of recreating work. For instance, the `PVDesignAgent` begins with a `gather_requirements` task that checks for panel and inverter datasheets. If any are missing it returns a card prompting the user to upload them. The subsequent `generate_design` task uses those components and skips generation when a preliminary PV string already exists.
+
 **Stream Progress to the Frontend**: Use WebSockets or Server‑Sent Events to push updates about task status and graph diffs to the UI in real time. The chat sidebar’s timeline uses these events to visualise progress.
 
 By adopting an ODL‑centric, plan–act architecture, OriginFlow can support complex, multi‑layer engineering projects with the same sophistication that Cursor brings to code editing. This model lays the groundwork for autonomous optimisation across electrical, structural, communications and business domains, while keeping the human firmly in the loop.
