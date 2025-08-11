@@ -70,28 +70,46 @@ class PVDesignAgent(BaseDomainAgent):
         sizing and component selection logic as you build out the domain agent.
         """
         import uuid
-        tid = (task_id or "").lower()
+        tid = (task_id or "").lower().strip()
 
-        # Handle the "gather requirements" step.  Check whether the graph already
-        # contains at least one panel and inverter.  If not, ask the user to
-        # upload the missing datasheets.  Otherwise, indicate that the system is
-        # ready for design generation.
-        if tid in {"gather", "gather_requirements", "gather requirements"}:
+        # Gather requirements: check for available panel & inverter, prompt for uploads if missing
+        if tid in {"gather", "gather requirements", "gather_requirements"}:
             has_panel = any(n.type == "panel" for n in graph.nodes)
             has_inverter = any(n.type == "inverter" for n in graph.nodes)
+            if has_panel and has_inverter:
+                card = DesignCard(
+                    title="Requirements gathered",
+                    description="A preliminary design already exists. You can refine or validate it.",
+                    specs=[],
+                    actions=[
+                        CardAction(label="Refine", command="refine my design"),
+                        CardAction(label="Validate", command="validate my design"),
+                    ],
+                )
+                return GraphPatch(), card
+            from backend.services.component_db_service import get_component_db_service
             missing: list[str] = []
-            if not has_panel:
-                missing.append("panel")
-            if not has_inverter:
-                missing.append("inverter")
+            try:
+                async for svc in get_component_db_service():
+                    comp_service = svc
+                    break
+                panels = await comp_service.search(category="panel")
+                inverters = await comp_service.search(category="inverter")
+                if not panels:
+                    missing.append("panel")
+                if not inverters:
+                    missing.append("inverter")
+            except Exception:
+                missing = ["panel", "inverter"]
             if missing:
-                message = (
-                    "Missing components: " + ", ".join(missing) + ". "
-                    "Please upload the corresponding datasheets before generating a design."
+                msg = (
+                    "Missing components: "
+                    + ", ".join(missing)
+                    + ". Please upload the corresponding datasheets before generating a design."
                 )
                 card = DesignCard(
                     title="Gather requirements",
-                    description=message,
+                    description=msg,
                     specs=[],
                     actions=[],
                 )
