@@ -124,24 +124,28 @@ async def act_for_session(session_id: str, req: OdlActRequest) -> OdlActResponse
     task = (req.task_id or "").lower()
     action = (req.action or "").lower()
 
-    # Route gather and design tasks to the PVDesignAgent.  Refinement goes to
-    # the StructuralAgent, wiring to the WiringAgent.  Unknown tasks fall back
-    # to the PVDesignAgent.
-    if task in {
-        "gather",
-        "gather_requirements",
-        "gather requirements",
+    # Determine the appropriate domain agent.
+    gather_ids = {"gather", "gather requirements", "gather_requirements"}
+    design_ids = {
         "prelim",
         "prelim_design",
         "generate_design",
         "generate_preliminary_design",
         "generate preliminary design",
         "generate design",
-    } or (action and action.startswith("design")):
+    }
+    refine_ids_prefix = {"refine", "validate"}
+    if (
+        (task and task in gather_ids)
+        or (task and task in design_ids)
+        or (action and action.startswith("design"))
+    ):
         agent: BaseDomainAgent = PVDesignAgent(session_id)
     elif task and task.startswith("wiring"):
         agent = WiringAgent(session_id)
-    elif task and task.startswith("refine") or (action and action.startswith("validate")):
+    elif (task and any(task.startswith(p) for p in refine_ids_prefix)) or (
+        action and action.startswith("validate")
+    ):
         agent = StructuralAgent(session_id)
     else:
         agent = PVDesignAgent(session_id)

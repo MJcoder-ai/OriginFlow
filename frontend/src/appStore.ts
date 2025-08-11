@@ -808,14 +808,18 @@ export const useAppStore = create<AppState>((set, get) => ({
         // Request a plan for this session
         const plan = await api.getPlanForSession(sessionId, command);
         if (plan.tasks && Array.isArray(plan.tasks)) {
-          setPlanTasks(
-            plan.tasks.map((t: any) => ({
+          // Merge new tasks with existing ones, preserving their statuses
+          const existingTasks = get().planTasks;
+          const merged: PlanTask[] = plan.tasks.map((t: any) => {
+            const existing = existingTasks.find((et) => et.id === t.id);
+            return {
               id: t.id,
               title: t.title,
               description: t.description,
-              status: (t.status ?? 'pending') as any,
-            }))
-          );
+              status: existing ? existing.status : ((t.status ?? 'pending') as any),
+            };
+          });
+          setPlanTasks(merged);
         }
         if (plan.quick_actions && Array.isArray(plan.quick_actions)) {
           setQuickActions(
