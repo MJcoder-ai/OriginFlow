@@ -165,6 +165,10 @@ app.include_router(requirements.router, prefix=settings.api_prefix)
 app.include_router(versioning.router, prefix=settings.api_prefix)
 app.include_router(agents.router, prefix=settings.api_prefix)
 
+# Include new enhanced feedback routes
+from backend.api.routes import feedback as enhanced_feedback
+app.include_router(enhanced_feedback.router, prefix=settings.api_prefix)
+
 # Include authentication routes
 app.include_router(
     fastapi_users.get_auth_router(auth_backend), 

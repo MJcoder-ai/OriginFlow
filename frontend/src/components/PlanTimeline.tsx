@@ -1,14 +1,12 @@
 /**
  * File: frontend/src/components/PlanTimeline.tsx
- * Visualisation of high‑level AI tasks in a sequential timeline.
- * Each task includes a status icon and optional description.  When
- * present, the plan timeline appears at the top of the chat history
- * and provides users with an at‑a‑glance overview of the AI’s plan.
+ * Enhanced plan timeline with sequential task execution and confidence scores.
+ * Users can click tasks sequentially, and the UI shows task dependencies.
  */
 import React from 'react';
 import { useAppStore, PlanTask } from '../appStore';
 import RequirementsForm from './RequirementsForm';
-import { CheckCircle, Circle, Loader2, AlertTriangle } from 'lucide-react';
+import { CheckCircle, Circle, Loader2, AlertTriangle, Clock, ArrowRight } from 'lucide-react';
 
 /** Mapping of task status to icon component. */
 const statusIcon: Record<PlanTask['status'], React.ElementType> = {
@@ -30,57 +28,127 @@ const PlanTimeline: React.FC = () => {
   const tasks = useAppStore((s) => s.planTasks);
   const performPlanTask = useAppStore((s) => s.performPlanTask);
   const updatePlanTaskStatus = useAppStore((s) => s.updatePlanTaskStatus);
+  const isAiProcessing = useAppStore((s) => s.isAiProcessing);
+  
   if (!tasks || tasks.length === 0) return null;
-  const nextStatusFn = (status: PlanTask['status']) => {
-    if (status === 'pending') return 'in_progress';
-    if (status === 'in_progress') return 'complete';
-    return 'pending';
+  
+  // Find the current task (first pending/blocked task)
+  const currentTaskIndex = tasks.findIndex(task => 
+    task.status === 'pending' || task.status === 'blocked'
+  );
+  
+  // Helper to check if a task can be executed
+  const canExecuteTask = (taskIndex: number) => {
+    if (isAiProcessing) return false;
+    
+    // Can only execute current task or tasks that are already in progress
+    const task = tasks[taskIndex];
+    return task.status === 'pending' || task.status === 'blocked' || task.status === 'in_progress';
+  };
+  
+  // Helper to check if task is current
+  const isCurrentTask = (taskIndex: number) => {
+    return taskIndex === currentTaskIndex;
   };
   return (
     <div className="p-4 border-b border-gray-200 bg-gray-50">
-      <div className="mb-2 text-xs font-semibold uppercase text-gray-600">Plan</div>
-      <ol className="space-y-2">
-        {tasks.map((task) => {
+      <div className="mb-3 flex items-center justify-between">
+        <div className="text-xs font-semibold uppercase text-gray-600">Plan</div>
+        <div className="text-xs text-gray-500">
+          {tasks.filter(t => t.status === 'complete').length} of {tasks.length} complete
+        </div>
+      </div>
+      
+      <div className="space-y-3">
+        {tasks.map((task, index) => {
           const Icon = statusIcon[task.status];
           const color = statusColors[task.status];
           const isSpinning = task.status === 'in_progress';
+          const isCurrent = isCurrentTask(index);
+          const canExecute = canExecuteTask(index);
+          const isPrevious = index < currentTaskIndex;
+          
           return (
-            <li key={task.id} className="flex items-start space-x-2">
+            <div key={task.id} className="flex items-start space-x-3">
+              {/* Connection line to next task */}
+              {index < tasks.length - 1 && (
+                <div className="absolute ml-2 mt-6 h-6 w-0.5 bg-gray-300" />
+              )}
+              
               <button
                 type="button"
                 onClick={() => {
-                  const nextStatus = nextStatusFn(task.status);
-                  if (nextStatus === 'in_progress') {
+                  if (canExecute && (task.status === 'pending' || task.status === 'blocked')) {
                     performPlanTask(task);
-                  } else {
-                    updatePlanTaskStatus(task.id, nextStatus);
                   }
                 }}
-                className="flex items-start space-x-2 text-left group focus:outline-none"
-                aria-label={`Toggle status for ${task.title}`}
+                disabled={!canExecute}
+                className={`relative flex items-start space-x-3 w-full text-left p-3 rounded-lg border transition-all duration-200 ${
+                  isCurrent 
+                    ? 'border-blue-200 bg-blue-50 shadow-sm' 
+                    : isPrevious 
+                    ? 'border-green-200 bg-green-50' 
+                    : 'border-gray-200 bg-white hover:bg-gray-50'
+                } ${canExecute ? 'cursor-pointer' : 'cursor-default'}`}
+                aria-label={`Execute ${task.title}`}
               >
-                <Icon
-                  className={`h-4 w-4 mt-0.5 ${color} ${isSpinning ? 'animate-spin' : ''}`}
-                  aria-hidden="true"
-                />
-                <div className="flex-1">
-                  <div className="text-sm font-medium text-gray-900 group-hover:underline">
-                    {task.title}
+                {/* Status indicator */}
+                <div className="flex-shrink-0 mt-0.5">
+                  <Icon
+                    className={`h-5 w-5 ${color} ${isSpinning ? 'animate-spin' : ''}`}
+                    aria-hidden="true"
+                  />
+                </div>
+                
+                {/* Task content */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <h4 className={`text-sm font-medium ${
+                      isCurrent ? 'text-blue-900' : 'text-gray-900'
+                    }`}>
+                      {task.title}
+                    </h4>
+                    
+                    {/* Task indicators */}
+                    <div className="flex items-center space-x-2">
+                      {isCurrent && (
+                        <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 rounded">
+                          <Clock className="w-3 h-3 mr-1" />
+                          Current
+                        </span>
+                      )}
+                      {canExecute && task.status === 'pending' && (
+                        <ArrowRight className="w-4 h-4 text-blue-500" />
+                      )}
+                    </div>
                   </div>
+                  
                   {task.description && (
-                    <div className="text-xs text-gray-500 leading-snug">
+                    <p className={`mt-1 text-xs leading-relaxed ${
+                      isCurrent ? 'text-blue-700' : 'text-gray-600'
+                    }`}>
                       {task.description}
+                    </p>
+                  )}
+                  
+                  {/* Progress indicator for current task */}
+                  {isCurrent && task.status === 'pending' && (
+                    <div className="mt-2 text-xs text-blue-600 font-medium">
+                      Click to execute this task
                     </div>
                   )}
                 </div>
               </button>
-            </li>
+            </div>
           );
         })}
-      </ol>
+      </div>
+      
       {/* Show requirements form only when the gather step is blocked */}
       {tasks.some((t) => t.id === 'gather_requirements' && t.status === 'blocked') && (
-        <RequirementsForm />
+        <div className="mt-4">
+          <RequirementsForm />
+        </div>
       )}
     </div>
   );

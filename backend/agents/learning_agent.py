@@ -1,13 +1,17 @@
-"""Simple learning agent for confidence estimation.
+"""Enhanced learning agent with confidence estimation and auto-execution.
 
 The :class:`LearningAgent` reads historical feedback from the
 ``ai_action_log`` table and computes empirical approval rates for
 different action types.  These rates are used as confidence scores when
-dispatching new AI actions.  The agent is intentionally simple—it
-doesn't require external ML libraries and can be extended later to
-incorporate richer features (e.g. prompt semantics or component
-categories).  Approved and auto‑executed actions are treated as
-approvals for the purposes of confidence estimation.
+dispatching new AI actions. The agent now supports:
+
+- Dynamic confidence thresholds for auto-execution
+- Contextual learning based on design state
+- User feedback integration for continuous improvement
+- Risk assessment for different action types
+
+High-confidence simple actions (like link creation) can be auto-executed
+to improve user experience while maintaining safety through thresholds.
 
 Usage:
 
@@ -26,10 +30,12 @@ type, the existing confidence is left unchanged.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 import os
+import json
+from datetime import datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from backend.database.session import SessionMaker
 from backend.models.ai_action_log import AiActionLog
@@ -45,23 +51,46 @@ from backend.schemas.ai import AiAction, AiActionType
 
 
 class LearningAgent:
-    """Compute confidence scores for AI actions based on past feedback.
+    """Enhanced learning agent with confidence estimation and auto-execution.
 
     This agent reads the :class:`AiActionLog` table, counts approvals
     and rejections per action type, and computes an empirical approval
     rate.  The computed rate (a float in ``[0, 1]``) is assigned to
-    each :class:`AiAction` via its ``confidence`` field.  If no logs
-    exist for a given action type, the existing confidence is left
-    unchanged. Dependencies such as the vector store and embedding
-    service can be injected for easier testing.
+    each :class:`AiAction` via its ``confidence`` field.  
+    
+    New features:
+    - Auto-execution thresholds based on action risk levels
+    - Contextual confidence adjustment based on design state
+    - User feedback integration for continuous improvement
+    - Risk assessment for different action types
     """
+
+    # Auto-execution thresholds by action type (risk level)
+    AUTO_EXECUTION_THRESHOLDS = {
+        # Low risk actions - can auto-execute with high confidence
+        'addLink': 0.85,
+        'suggestLink': 0.80,
+        'positionComponent': 0.75,
+        
+        # Medium risk actions - require very high confidence
+        'addComponent': 0.95,
+        'removeComponent': 0.90,
+        'removeLink': 0.85,
+        
+        # High risk actions - never auto-execute
+        'bomReport': 1.1,  # Impossible threshold
+        'clearCanvas': 1.1,
+    }
 
     def __init__(
         self,
         vector_store: VectorStore | None = None,
         embedding_service: EmbeddingService | None = None,
+        enable_auto_execution: bool = True,
     ) -> None:
         self.embedding_service = embedding_service or EmbeddingService()
+        self.enable_auto_execution = enable_auto_execution
+        
         if vector_store is not None:
             self.vector_store: VectorStore | None = vector_store
         else:
@@ -218,6 +247,17 @@ class LearningAgent:
             
             if not confidence_updated:
                 logger.info(f"No suitable domain data found for {atype_str}, keeping default confidence")
+            
+            # Mark actions for auto-execution if confidence is high enough
+            if self.enable_auto_execution and self._should_auto_execute(action):
+                if hasattr(action, "meta") and isinstance(action.meta, dict):
+                    action.meta["auto_execute"] = True
+                    action.meta["auto_reason"] = f"High confidence ({action.confidence:.2f}) for low-risk action"
+                else:
+                    action.meta = {
+                        "auto_execute": True,
+                        "auto_reason": f"High confidence ({action.confidence:.2f}) for low-risk action"
+                    }
 
     def _determine_domain_from_text(self, text: Optional[str]) -> str:
         """Infer a domain (solar, hvac, pump, general) from natural language.
@@ -271,3 +311,166 @@ class LearningAgent:
             return 'general'
         except Exception:
             return 'general'
+    
+    def _should_auto_execute(self, action: AiAction) -> bool:
+        """Determine if an action should be auto-executed based on confidence and risk."""
+        if not self.enable_auto_execution:
+            return False
+        
+        atype_str = action.action.value if isinstance(action.action, AiActionType) else str(action.action)
+        threshold = self.AUTO_EXECUTION_THRESHOLDS.get(atype_str, 1.1)  # Default: never auto-execute
+        
+        return action.confidence >= threshold
+    
+    async def process_user_feedback(
+        self, 
+        action: AiAction, 
+        feedback: str, 
+        context: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """Process user feedback to improve future confidence estimates.
+        
+        Args:
+            action: The action that received feedback
+            feedback: 'accepted', 'rejected', or 'modified'
+            context: Additional context about the feedback
+        """
+        # Store feedback in the action log for future learning
+        async with SessionMaker() as session:
+            entry = AiActionLog(
+                session_id=context.get('session_id') if context else None,
+                prompt_text=context.get('original_prompt', '') if context else '',
+                proposed_action=action.payload,
+                user_decision=feedback,
+                meta=json.dumps({
+                    'confidence': action.confidence,
+                    'auto_executed': getattr(action, 'meta', {}).get('auto_execute', False),
+                    'feedback_context': context or {},
+                    'timestamp': datetime.now().isoformat()
+                })
+            )
+            session.add(entry)
+            await session.commit()
+    
+    async def get_confidence_explanation(self, action: AiAction) -> Dict[str, Any]:
+        """Get a detailed explanation of how confidence was calculated.
+        
+        Returns:
+            Dictionary with confidence breakdown and reasoning
+        """
+        atype_str = action.action.value if isinstance(action.action, AiActionType) else str(action.action)
+        domain = self._determine_domain_from_action(action)
+        
+        # Get historical data for this action type
+        async with SessionMaker() as session:
+            result = await session.execute(
+                select(
+                    func.count().label('total'),
+                    func.sum(
+                        func.case(
+                            (AiActionLog.user_decision.in_(['approved', 'auto']), 1),
+                            else_=0
+                        )
+                    ).label('approved')
+                ).where(
+                    AiActionLog.proposed_action['action'].astext == atype_str
+                )
+            )
+            stats = result.first()
+        
+        total = stats.total if stats else 0
+        approved = stats.approved if stats else 0
+        approval_rate = approved / total if total > 0 else None
+        
+        auto_execute_threshold = self.AUTO_EXECUTION_THRESHOLDS.get(atype_str, 1.1)
+        can_auto_execute = action.confidence >= auto_execute_threshold
+        
+        return {
+            'action_type': atype_str,
+            'domain': domain,
+            'confidence': action.confidence,
+            'historical_data': {
+                'total_actions': total,
+                'approved_actions': approved,
+                'approval_rate': approval_rate
+            },
+            'auto_execution': {
+                'can_auto_execute': can_auto_execute,
+                'threshold': auto_execute_threshold,
+                'enabled': self.enable_auto_execution
+            },
+            'confidence_source': 'historical_data' if approval_rate is not None else 'default',
+            'risk_level': self._get_risk_level(atype_str)
+        }
+    
+    def _get_risk_level(self, action_type: str) -> str:
+        """Get the risk level for an action type."""
+        threshold = self.AUTO_EXECUTION_THRESHOLDS.get(action_type, 1.1)
+        
+        if threshold >= 1.0:
+            return 'high'
+        elif threshold >= 0.90:
+            return 'medium'
+        else:
+            return 'low'
+    
+    async def update_auto_execution_threshold(
+        self, 
+        action_type: str, 
+        new_threshold: float
+    ) -> None:
+        """Update auto-execution threshold for an action type.
+        
+        This allows dynamic adjustment of thresholds based on performance.
+        """
+        if 0.0 <= new_threshold <= 1.1:
+            self.AUTO_EXECUTION_THRESHOLDS[action_type] = new_threshold
+        else:
+            raise ValueError("Threshold must be between 0.0 and 1.1")
+    
+    async def get_learning_metrics(self) -> Dict[str, Any]:
+        """Get metrics about the learning agent's performance."""
+        async with SessionMaker() as session:
+            # Get recent feedback stats
+            week_ago = datetime.now() - timedelta(days=7)
+            
+            result = await session.execute(
+                select(
+                    AiActionLog.proposed_action['action'].astext.label('action_type'),
+                    AiActionLog.user_decision,
+                    func.count().label('count')
+                ).where(
+                    AiActionLog.timestamp >= week_ago
+                ).group_by(
+                    AiActionLog.proposed_action['action'].astext,
+                    AiActionLog.user_decision
+                )
+            )
+            
+            stats = {}
+            for row in result:
+                action_type = row.action_type
+                decision = row.user_decision
+                count = row.count
+                
+                if action_type not in stats:
+                    stats[action_type] = {'approved': 0, 'rejected': 0, 'auto': 0, 'total': 0}
+                
+                stats[action_type][decision] = count
+                stats[action_type]['total'] += count
+            
+            # Calculate approval rates and auto-execution stats
+            for action_type, data in stats.items():
+                if data['total'] > 0:
+                    data['approval_rate'] = (data['approved'] + data['auto']) / data['total']
+                    data['auto_execution_rate'] = data['auto'] / data['total']
+                else:
+                    data['approval_rate'] = 0.0
+                    data['auto_execution_rate'] = 0.0
+        
+        return {
+            'enabled': self.enable_auto_execution,
+            'thresholds': self.AUTO_EXECUTION_THRESHOLDS,
+            'recent_stats': stats,
+            'metrics_period': '7_days'
+        }

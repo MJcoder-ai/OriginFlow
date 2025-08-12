@@ -117,7 +117,20 @@ export interface DesignCardData {
   /** Structured list of key/value specs to display in a table. */
   specs?: { label: string; value: string }[];
   /** List of suggested actions.  Each action will render as a button in the card. */
-  actions?: { label: string; command: string }[];
+  actions?: { label: string; command: string; variant?: 'primary' | 'secondary' | 'danger' }[];
+  /** Confidence score from the AI agent (0-1) */
+  confidence?: number;
+  /** Name of the agent that generated this card */
+  agent?: string;
+  /** Unique identifier for tracking feedback */
+  cardId?: string;
+  /** Alternative suggestions */
+  alternatives?: Array<{
+    title: string;
+    description: string;
+    confidence: number;
+    command: string;
+  }>;
 }
 
 /**
