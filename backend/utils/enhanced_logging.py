@@ -11,7 +11,7 @@ from functools import wraps
 
 import structlog
 from structlog.processors import JSONRenderer
-from structlog.stdlib import LoggerFactory
+from structlog.stdlib import LoggerFactory, add_logger_name
 
 
 class OriginFlowLogger:
@@ -96,7 +96,7 @@ def setup_logging(
     processors = [
         structlog.stdlib.add_log_level,
         structlog.processors.TimeStamper(fmt="ISO"),
-        structlog.processors.add_logger_name,
+        add_logger_name,
         structlog.processors.CallsiteParameterAdder(
             {
                 structlog.processors.CallsiteParameter.FUNC_NAME,
