@@ -28,7 +28,7 @@ spacy = "^3.7.4"
 
 # Crypto utilities
 cryptography = "^45.0.5"
-fastapi-users = {version = "^13.0.0", extras = ["sqlalchemy"]}
+fastapi-users = {version = "^14.0.0", extras = ["sqlalchemy"]}
 python-jose = {version = "^3.3.0", extras = ["cryptography"]}
 passlib = {version = "^1.7.4", extras = ["bcrypt"]}
 python-multipart = "^0.0.20"
