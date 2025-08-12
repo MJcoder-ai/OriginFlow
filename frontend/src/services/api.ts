@@ -122,6 +122,8 @@ export const api = {
   ): Promise<{
     patch: { add_nodes: any[]; add_edges: any[]; removed_nodes: any[]; removed_edges: any[] };
     card?: any;
+    status: string;
+    version?: number;
   }> {
     const res = await fetch(`${API_BASE_URL}/odl/${encodeURIComponent(sessionId)}/act`, {
       method: 'POST',
