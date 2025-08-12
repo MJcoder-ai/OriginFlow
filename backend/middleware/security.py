@@ -147,8 +147,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         client_data = _rate_limit_storage[client_ip]
         requests = client_data.get("requests", [])
         
-        # Loosen dev burst limit on read-only list endpoints
-        path = getattr(_current_request, "path", "") if False else ""  # placeholder
+        # Loosen dev burst limit on read-only list endpoints (placeholder)
         # Check burst limit (requests in last 10 seconds)
         recent_requests = [
             req for req in requests 
