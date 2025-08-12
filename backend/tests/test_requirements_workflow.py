@@ -32,6 +32,7 @@ async def test_generate_design_blocked_until_ready():
     planner = PlannerAgent()
 
     tasks = await planner.plan(session_id, "design system")
+    assert all("title" in t and t["title"] for t in tasks)
     gen_task = next(t for t in tasks if t["id"] == "generate_design")
     assert gen_task["status"] == "blocked"
 
@@ -43,6 +44,7 @@ async def test_generate_design_blocked_until_ready():
     await planner.component_db_service.ingest("inverter", "I1", {"capacity": 5000, "price": 1000})
 
     tasks = await planner.plan(session_id, "design system")
+    assert all("title" in t and t["title"] for t in tasks)
     assert not any(t["id"] == "gather_requirements" for t in tasks)
     gen_task = next(t for t in tasks if t["id"] == "generate_design")
     assert gen_task["status"] == "pending"

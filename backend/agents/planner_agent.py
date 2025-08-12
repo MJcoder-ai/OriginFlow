@@ -7,6 +7,16 @@ from typing import Dict, List, Optional
 from backend.services import odl_graph_service
 from backend.services.component_db_service import ComponentDBService
 
+# Human-readable titles for plan tasks.  Defaults to a prettified version of the
+# task id when a mapping is not provided.
+TASK_TITLES: Dict[str, str] = {
+    "gather_requirements": "Gather requirements",
+    "generate_design": "Generate design",
+    "generate_structural": "Generate structural design",
+    "generate_wiring": "Generate wiring",
+    "refine_validate": "Refine and validate",
+}
+
 
 class PlannerAgent:
     """Interprets user commands and emits a task plan."""
@@ -134,5 +144,11 @@ class PlannerAgent:
                 tasks.append({"id": "generate_wiring", "status": "pending"})
             # Always provide refine/validate at the end
             tasks.append({"id": "refine_validate", "status": "pending"})
+
+        # Attach human-readable titles to each task.  Fallback to a prettified
+        # version of the id if no explicit title is defined.
+        for task in tasks:
+            tid = task["id"]
+            task["title"] = TASK_TITLES.get(tid, tid.replace("_", " ").title())
 
         return tasks
