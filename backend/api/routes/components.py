@@ -1,7 +1,7 @@
 """Component endpoints: CRUD for schematic components and ingestion."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.schemas.components import (
@@ -66,11 +66,15 @@ async def update_component(
     return ComponentSchema.model_validate(obj)
 
 
-@router.delete("/{component_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{component_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+)
 async def delete_component(
     component_id: str,
     session: AsyncSession = Depends(get_session),
-) -> None:
+) -> Response:
     service = ComponentService(session)
     await service.delete(component_id)
-    return None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
