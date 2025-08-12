@@ -62,6 +62,11 @@ const ComponentCanvas: React.FC = () => {
       } catch (err: any) {
         console.error(err);
         updateUpload(tempId, { parsing_status: 'failed', parsing_error: 'Upload or parse failed' });
+        if (err?.status === 401) {
+          addStatusMessage('Unauthorized. Please log in to upload files.', 'error');
+        } else {
+          addStatusMessage('Upload failed', 'error');
+        }
       }
     },
     [addUpload, updateUpload, setActiveDatasheet, setRoute],
