@@ -15,7 +15,11 @@ async def update_requirements(session_id: str, requirements: dict) -> dict:
     given session.  Stores the values on the graph’s metadata.
     """
     graph = await get_graph(session_id)
-    if not graph:
+    # ``get_graph`` returns an empty NetworkX graph when the session exists
+    # but no nodes have been added yet.  NetworkX graphs evaluate to ``False``
+    # when empty, so explicitly check for ``None`` to avoid misclassifying a
+    # valid session as missing.
+    if graph is None:
         raise HTTPException(status_code=404, detail="Session not found")
     graph.graph.setdefault("requirements", {}).update(requirements)
     await save_graph(session_id, graph)
