@@ -63,7 +63,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         )
         
         # Remove server information
-        headers.pop("Server", None)
+        if "Server" in headers:
+            del headers["Server"]
         
         return response
 
