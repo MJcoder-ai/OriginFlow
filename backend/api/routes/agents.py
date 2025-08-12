@@ -8,7 +8,8 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.deps import get_session
-from backend.auth.dependencies import AuthenticatedUser, get_current_user
+from backend.auth.dependencies import get_current_user
+from backend.auth.models import User
 from backend.agents.registry import (
     get_agent_names, 
     get_spec, 
@@ -54,7 +55,7 @@ class AgentRegistrationRequest(BaseModel):
 @router.get("/", response_model=List[AgentInfo])
 async def list_agents(
     domain: Optional[str] = None,
-    current_user: AuthenticatedUser = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ) -> List[AgentInfo]:
     """List all registered agents with their capabilities."""
     
@@ -94,7 +95,7 @@ async def list_agents(
 
 @router.get("/tasks", response_model=List[TaskInfo])
 async def list_tasks(
-    current_user: AuthenticatedUser = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ) -> List[TaskInfo]:
     """List all available tasks and their assigned agents."""
     
@@ -136,7 +137,7 @@ async def list_tasks(
 @router.get("/{agent_name}")
 async def get_agent_info(
     agent_name: str,
-    current_user: AuthenticatedUser = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ) -> AgentInfo:
     """Get detailed information about a specific agent."""
     
@@ -158,7 +159,7 @@ async def get_agent_info(
 @router.get("/{agent_name}/capabilities")
 async def get_agent_capabilities(
     agent_name: str,
-    current_user: AuthenticatedUser = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """Get detailed capabilities of an agent."""
     
@@ -195,7 +196,7 @@ async def get_agent_capabilities(
 @router.post("/register")
 async def register_agent(
     request: AgentRegistrationRequest,
-    current_user: AuthenticatedUser = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Register a new agent dynamically."""
     
@@ -229,7 +230,7 @@ async def register_agent(
 
 @router.get("/domains/available")
 async def get_available_domains(
-    current_user: AuthenticatedUser = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """Get all available domains and their agents."""
     
@@ -269,7 +270,7 @@ async def get_available_domains(
 @router.post("/{agent_name}/enable")
 async def enable_agent(
     agent_name: str,
-    current_user: AuthenticatedUser = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Enable an agent for use."""
     
@@ -291,7 +292,7 @@ async def enable_agent(
 @router.post("/{agent_name}/disable")
 async def disable_agent(
     agent_name: str,
-    current_user: AuthenticatedUser = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Disable an agent from use."""
     
@@ -312,7 +313,7 @@ async def disable_agent(
 
 @router.get("/health/check")
 async def check_agent_health(
-    current_user: AuthenticatedUser = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """Check the health status of all agents."""
     

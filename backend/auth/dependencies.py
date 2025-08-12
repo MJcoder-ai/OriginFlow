@@ -58,3 +58,8 @@ AdminUser = Annotated[User, Depends(current_superuser)]
 AuthenticatedUser = Annotated[User, Depends(current_active_user)]
 AIUser = Annotated[User, Depends(require_ai_access)]
 AdminRoleUser = Annotated[User, Depends(require_admin_role)]
+
+
+def get_current_user(current_user: AuthenticatedUser) -> User:
+    """Return the currently authenticated user."""
+    return current_user

@@ -21,7 +21,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from openai import AsyncOpenAI
 from backend.config import settings
 from backend.api.deps import get_session, get_ai_client
-from backend.auth.dependencies import AuthenticatedUser, require_file_upload
+from backend.auth.dependencies import require_file_upload
+from backend.auth.models import User
 from backend.schemas.file_asset import FileAssetRead, FileAssetUpdate
 from backend.services.file_service import FileService, run_parsing_job
 from backend.utils.id import generate_id
@@ -46,7 +47,7 @@ async def upload_file(
     file: UploadFile = File(...),
     session: AsyncSession = Depends(get_session),
     ai_client: AsyncOpenAI = Depends(get_ai_client),
-    current_user: AuthenticatedUser = Depends(require_file_upload),
+    current_user: User = Depends(require_file_upload),
 ) -> FileAssetRead:
     """Accept a file upload with comprehensive security validation."""
     
