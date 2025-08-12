@@ -177,9 +177,9 @@ interface AppState {
   /**
    * Execute a plan task via the backend.  Sends the task to the
    * ``/odl/{session_id}/act`` endpoint, applies the returned patch,
-   * shows any design card in the chat, and updates the task status.
-   */
-  performPlanTask: (task: PlanTask) => Promise<void>;
+  * shows any design card in the chat, and updates the task status.
+  */
+  performPlanTask: (task: PlanTask) => Promise<PlanTaskStatus>;
   /** User-provided requirements for gather phase. */
   requirements: { target_power?: number; roof_area?: number; budget?: number; brand?: string };
   updateRequirements: (patch: Partial<{ target_power: number; roof_area: number; budget: number; brand: string }>) => Promise<void>;
@@ -397,10 +397,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     get().updatePlanTaskStatus(task.id, 'in_progress');
     set({ isAiProcessing: true });
     try {
-      const { patch, card, version } = await api.act(sessionId, task.id, undefined, get().graphVersion);
+      const { patch, card, status, version } = await api.act(
+        sessionId,
+        task.id,
+        undefined,
+        get().graphVersion
+      );
       if (typeof version === 'number') set({ graphVersion: version });
       // Apply added nodes to canvas
-      if (patch.add_nodes) {
+      if (patch && patch.add_nodes) {
         set((s) => ({
           canvasComponents: [
             ...s.canvasComponents,
@@ -419,7 +424,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         }));
       }
       // Apply added edges to links
-      if (patch.add_edges) {
+      if (patch && patch.add_edges) {
         set((s) => ({
           links: [
             ...s.links,
@@ -447,8 +452,10 @@ export const useAppStore = create<AppState>((set, get) => ({
           type: 'card',
         });
       }
-      // Mark the task complete
-      get().updatePlanTaskStatus(task.id, 'complete');
+      // Update status from backend response (complete, blocked, etc.)
+      const newStatus = (status as PlanTaskStatus) || 'complete';
+      get().updatePlanTaskStatus(task.id, newStatus);
+      return newStatus;
     } catch (err: any) {
       console.error('Failed to perform plan task', err);
       const msg = String(err ?? '');
@@ -458,9 +465,12 @@ export const useAppStore = create<AppState>((set, get) => ({
           const plan = await api.getPlanForSession(sessionId, get().lastPrompt || 'design');
           if ((plan as any).tasks && Array.isArray((plan as any).tasks)) set({ planTasks: (plan as any).tasks as any });
         } catch (_e) {}
+        get().updatePlanTaskStatus(task.id, 'blocked');
+        return 'blocked';
       } else {
         get().updatePlanTaskStatus(task.id, 'blocked');
         get().addStatusMessage('Failed to perform task', 'error');
+        return 'blocked';
       }
     } finally {
       set({ isAiProcessing: false });
@@ -877,12 +887,13 @@ export const useAppStore = create<AppState>((set, get) => ({
         // Execute each plan task automatically via act endpoint
         if (plan.tasks && Array.isArray(plan.tasks)) {
           for (const t of plan.tasks) {
-            await get().performPlanTask({
+            const status = await get().performPlanTask({
               id: t.id,
               title: t.title,
               description: t.description,
               status: (t.status ?? 'pending') as any,
             } as any);
+            if (status === 'blocked') break;
           }
         }
       } catch (err) {

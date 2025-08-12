@@ -108,15 +108,23 @@ class PlannerAgent:
             await self.odl_graph_service.save_graph(session_id, graph)
 
         tasks: List[Dict[str, str]] = []
-        if not requirements_complete or not (
-            await self.component_db_service.exists("panel")
-            and await self.component_db_service.exists("inverter")
-        ):
+
+        # Check which required components are available in the component DB once
+        panel_available = await self.component_db_service.exists("panel")
+        inverter_available = await self.component_db_service.exists("inverter")
+        components_available = panel_available and inverter_available
+
+        # Emit gather_requirements when either user inputs or component data are missing
+        if not requirements_complete or not components_available:
             tasks.append({"id": "gather_requirements", "status": "pending"})
 
-        # Only generate design if we lack panels/inverters
+        # Only generate design if we lack panels/inverters in the graph. The task
+        # remains blocked until both requirements and component datasheets exist.
         if not (has_panels and has_inverters):
-            tasks.append({"id": "generate_design", "status": "pending"})
+            gen_status = (
+                "pending" if (requirements_complete and components_available) else "blocked"
+            )
+            tasks.append({"id": "generate_design", "status": gen_status})
 
         # If a design exists but no mounts or wiring, emit structural/wiring tasks
         if has_panels and has_inverters:

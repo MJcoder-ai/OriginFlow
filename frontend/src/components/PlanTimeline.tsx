@@ -78,8 +78,8 @@ const PlanTimeline: React.FC = () => {
           );
         })}
       </ol>
-      {/* Show requirements form when gather_requirements is present and pending/blocked */}
-      {tasks.some((t) => t.id === 'gather_requirements' && (t.status === 'pending' || t.status === 'blocked')) && (
+      {/* Show requirements form only when the gather step is blocked */}
+      {tasks.some((t) => t.id === 'gather_requirements' && t.status === 'blocked') && (
         <RequirementsForm />
       )}
     </div>
