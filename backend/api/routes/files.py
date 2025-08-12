@@ -21,9 +21,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from openai import AsyncOpenAI
 from backend.config import settings
 from backend.api.deps import get_session, get_ai_client
+from backend.auth.dependencies import AuthenticatedUser, require_file_upload
 from backend.schemas.file_asset import FileAssetRead, FileAssetUpdate
 from backend.services.file_service import FileService, run_parsing_job
 from backend.utils.id import generate_id
+from backend.security.file_validation import validate_uploaded_file, generate_safe_filename, is_safe_path
 
 # Typing helper for JSON-like return values
 from typing import Any
@@ -41,27 +43,70 @@ UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 @router.post("/files/upload", response_model=FileAssetRead)
 async def upload_file(
+    file: UploadFile = File(...),
     session: AsyncSession = Depends(get_session),
     ai_client: AsyncOpenAI = Depends(get_ai_client),
-    file: UploadFile = File(...),
+    current_user: AuthenticatedUser = Depends(require_file_upload),
 ) -> FileAssetRead:
-    """Accept a file upload and persist its metadata."""
+    """Accept a file upload with comprehensive security validation."""
+    
+    # 1. Validate the uploaded file
+    validation_result = await validate_uploaded_file(file)
+    
+    # 2. Generate safe filename and paths
+    safe_filename = generate_safe_filename(
+        validation_result['filename'], 
+        str(current_user.id)
+    )
+    
     service = FileService(session)
     asset_id = generate_id("asset")
     save_path = UPLOADS_DIR / asset_id
-    save_path.mkdir(exist_ok=True)
-    file_path = save_path / file.filename
-    with file_path.open("wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-    url = f"/static/uploads/{asset_id}/{file.filename}"
+    save_path.mkdir(exist_ok=True, mode=0o755)
+    
+    # 3. Validate path safety
+    file_path = save_path / safe_filename
+    if not is_safe_path(str(file_path.relative_to(UPLOADS_DIR)), str(UPLOADS_DIR)):
+        raise HTTPException(
+            status_code=400, 
+            detail="Invalid file path"
+        )
+    
+    # 4. Secure file writing
+    try:
+        # Write file content securely
+        with file_path.open("wb") as buffer:
+            # Read and write in chunks to handle large files
+            chunk_size = 8192
+            while chunk := await file.read(chunk_size):
+                buffer.write(chunk)
+        
+        # Set restrictive file permissions
+        file_path.chmod(0o644)
+        
+    except Exception as e:
+        # Clean up on failure
+        if file_path.exists():
+            file_path.unlink()
+        if save_path.exists() and not any(save_path.iterdir()):
+            save_path.rmdir()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to save file: {str(e)}"
+        )
+    
+    url = f"/static/uploads/{asset_id}/{safe_filename}"
     size = file_path.stat().st_size
+    # 5. Store file metadata with validation results
     obj = await service.create_asset(
         {
             "id": asset_id,
-            "filename": file.filename,
-            "mime": file.content_type,
+            "filename": safe_filename,  # Store safe filename
+            "mime": validation_result['detected_mime'],  # Use validated MIME type
             "size": size,
             "url": url,
+            "uploaded_by": str(current_user.id),  # Track uploader
+            "file_hash": validation_result['hash'],  # Store file hash
         }
     )
     asset = FileAssetRead.model_validate(obj)

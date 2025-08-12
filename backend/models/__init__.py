@@ -19,6 +19,12 @@ from .ai_action_vector import AiActionVector  # noqa: F401
 from .memory import Memory  # noqa: F401
 from .trace_event import TraceEvent  # noqa: F401
 
+# Import auth models
+try:
+    from backend.auth.models import User  # noqa: F401
+except ImportError:
+    User = None  # noqa: F401
+
 __all__ = [
     "Base",
     "ComponentMaster",
@@ -30,4 +36,5 @@ __all__ = [
     "AiActionVector",
     "Memory",
     "TraceEvent",
+    "User",
 ]

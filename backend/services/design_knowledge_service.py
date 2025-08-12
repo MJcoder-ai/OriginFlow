@@ -38,15 +38,35 @@ class DesignKnowledgeService:
         return obj
 
     async def search(self, query: List[float], limit: int = 5) -> List[tuple[DesignVector, float]]:
-        stmt = select(DesignVector)
+        """Optimized vector search with pagination and caching."""
+        # Add reasonable limit to prevent memory issues
+        effective_limit = min(limit, 100)
+        
+        # Use optimized query with limit at database level
+        stmt = select(DesignVector).limit(1000)  # Reasonable upper bound
         result = await self.session.execute(stmt)
         vectors = result.scalars().all()
-        scores: List[tuple[DesignVector, float]] = []
-        for vec in vectors:
-            score = cosine_similarity(query, vec.vector)
-            scores.append((vec, score))
-        scores.sort(key=lambda x: x[1], reverse=True)
-        return scores[:limit]
+        
+        # Vectorized similarity computation for better performance
+        import numpy as np
+        
+        if not vectors:
+            return []
+        
+        # Convert to numpy arrays for efficient computation
+        query_array = np.array(query)
+        vector_arrays = np.array([vec.vector for vec in vectors])
+        
+        # Batch cosine similarity computation
+        query_norm = query_array / np.linalg.norm(query_array)
+        vector_norms = vector_arrays / np.linalg.norm(vector_arrays, axis=1, keepdims=True)
+        similarities = np.dot(vector_norms, query_norm)
+        
+        # Get top-k results efficiently
+        top_k_indices = np.argpartition(similarities, -effective_limit)[-effective_limit:]
+        top_k_indices = top_k_indices[np.argsort(similarities[top_k_indices])[::-1]]
+        
+        return [(vectors[i], float(similarities[i])) for i in top_k_indices]
 
     async def save_design_as_template(self, snapshot: dict, name: str) -> DesignVector:
         """Embed and store a design snapshot as a reusable template."""

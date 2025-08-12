@@ -4,7 +4,7 @@ from __future__ import annotations
 import uvicorn
 from contextlib import asynccontextmanager
 from pathlib import Path
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -16,6 +16,12 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from backend.routes.components_attributes import include_component_attributes_routes
 from backend.middleware.request_id import request_id_middleware
+from backend.middleware.security import (
+    SecurityHeadersMiddleware,
+    RateLimitMiddleware,
+    RequestValidationMiddleware,
+    CORSSecurityMiddleware
+)
 
 
 @asynccontextmanager
@@ -26,10 +32,10 @@ async def lifespan(app: FastAPI):
     is used, so we must create tables here. This ensures that new ORM
     models (e.g. Memory and TraceEvent) exist before requests hit the DB.
     """
-    print("Initializing AI services…")
+    logger.info("Initializing AI services")
     app.state.anonymizer = AnonymizerService()
     app.state.embedder = EmbeddingService()
-    print("AI services initialized.")
+    logger.info("AI services initialized successfully")
     # Create any new database tables.  When using a custom lifespan, startup
     # event handlers are not executed, so we must create missing tables here.
     try:
@@ -46,6 +52,15 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="OriginFlow API", lifespan=lifespan)
+
+# Add security middleware (order matters!)
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RateLimitMiddleware, requests_per_minute=100)
+app.add_middleware(RequestValidationMiddleware)
+app.add_middleware(CORSSecurityMiddleware, 
+                  allowed_origins={"http://localhost:5173", "http://127.0.0.1:5173"})
+
+# Add request ID middleware
 app.middleware("http")(request_id_middleware)
 
 
@@ -91,18 +106,33 @@ from backend.api.routes import (
     agents,
 )
 
+# Import authentication components
+from backend.auth.auth import fastapi_users, auth_backend
+from backend.auth.schemas import UserRead, UserCreate, UserUpdate
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origin_regex=settings.cors_origin_regex,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["Content-Disposition"],
+# Import error handling
+from backend.utils.exceptions import (
+    OriginFlowException, 
+    ErrorHandler,
+    AuthenticationError,
+    ValidationError
 )
+from backend.utils.enhanced_logging import setup_logging, get_logger
+
+# Initialize logging
+setup_logging(log_level="INFO", json_logs=True)
+logger = get_logger(__name__)
+
+
+# CORS middleware replaced with secure CORSSecurityMiddleware above
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Add comprehensive error handling
+app.add_exception_handler(OriginFlowException, ErrorHandler.handle_originflow_exception)
+app.add_exception_handler(HTTPException, ErrorHandler.handle_http_exception)
+app.add_exception_handler(Exception, ErrorHandler.handle_general_exception)
 
 # Resolve the static directory relative to this file and ensure it exists
 _static_root = Path(__file__).resolve().parent / "static"
@@ -134,6 +164,34 @@ app.include_router(odl.router, prefix=settings.api_prefix)
 app.include_router(requirements.router, prefix=settings.api_prefix)
 app.include_router(versioning.router, prefix=settings.api_prefix)
 app.include_router(agents.router, prefix=settings.api_prefix)
+
+# Include authentication routes
+app.include_router(
+    fastapi_users.get_auth_router(auth_backend), 
+    prefix="/auth/jwt", 
+    tags=["auth"]
+)
+app.include_router(
+    fastapi_users.get_register_router(UserRead, UserCreate),
+    prefix="/auth",
+    tags=["auth"],
+)
+app.include_router(
+    fastapi_users.get_reset_password_router(),
+    prefix="/auth",
+    tags=["auth"],
+)
+app.include_router(
+    fastapi_users.get_verify_router(UserRead),
+    prefix="/auth",
+    tags=["auth"],
+)
+app.include_router(
+    fastapi_users.get_users_router(UserRead, UserUpdate),
+    prefix="/users",
+    tags=["users"],
+)
+
 include_component_attributes_routes(app)
 
 
