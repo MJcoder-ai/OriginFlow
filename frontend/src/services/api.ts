@@ -128,11 +128,22 @@ export const api = {
     const res = await fetch(`${API_BASE_URL}/odl/${encodeURIComponent(sessionId)}/act`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ task_id: taskId, action, graph_version: graphVersion }),
+      // Include both the legacy `graph_version` and new `version` keys for
+      // optimistic concurrency. The backend will prefer `version` but accepts
+      // `graph_version` for backwards compatibility.
+      body: JSON.stringify({
+        task_id: taskId,
+        action,
+        version: graphVersion,
+        graph_version: graphVersion,
+      }),
     });
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`Act endpoint error ${res.status}: ${text.slice(0, 120)}`);
+      const error: any = new Error(`Act endpoint error ${res.status}: ${text.slice(0, 120)}`);
+      error.status = res.status;
+      error.detail = text;
+      throw error;
     }
     return res.json();
   },
