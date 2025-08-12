@@ -8,7 +8,8 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.deps import get_session
-from backend.auth.dependencies import AuthenticatedUser, get_current_user
+from backend.auth.dependencies import get_current_user
+from backend.auth.models import User
 from backend.agents.learning_agent import LearningAgent
 from backend.schemas.ai import AiAction
 
@@ -40,7 +41,7 @@ class ConfidenceExplanationRequest(BaseModel):
 async def submit_card_feedback(
     request: CardFeedbackRequest,
     session: AsyncSession = Depends(get_session),
-    current_user: AuthenticatedUser = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Submit feedback for a design card."""
     
@@ -77,7 +78,7 @@ async def submit_card_feedback(
 async def submit_action_feedback(
     request: ActionFeedbackRequest,
     session: AsyncSession = Depends(get_session),
-    current_user: AuthenticatedUser = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Submit feedback for an AI action."""
     
@@ -112,7 +113,7 @@ async def submit_action_feedback(
 async def explain_confidence(
     request: ConfidenceExplanationRequest,
     session: AsyncSession = Depends(get_session),
-    current_user: AuthenticatedUser = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Get detailed explanation of confidence score calculation."""
     
@@ -134,7 +135,7 @@ async def explain_confidence(
 @router.get("/metrics")
 async def get_learning_metrics(
     session: AsyncSession = Depends(get_session),
-    current_user: AuthenticatedUser = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Get learning agent performance metrics."""
     
@@ -153,7 +154,7 @@ async def update_auto_execution_threshold(
     action_type: str,
     new_threshold: float,
     session: AsyncSession = Depends(get_session),
-    current_user: AuthenticatedUser = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Update auto-execution threshold for an action type."""
     
@@ -179,7 +180,7 @@ async def update_auto_execution_threshold(
 @router.get("/thresholds")
 async def get_auto_execution_thresholds(
     session: AsyncSession = Depends(get_session),
-    current_user: AuthenticatedUser = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Get current auto-execution thresholds."""
     
