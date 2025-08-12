@@ -43,6 +43,38 @@ class ComponentService:
         await self.session.refresh(obj)
         return obj
 
+    async def list(self, skip: int = 0, limit: int = 100) -> list[Component]:
+        """Return a paginated list of components."""
+        stmt = select(Component).offset(skip).limit(limit)
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def get(self, component_id: str) -> Component | None:
+        """Return a component by id or None."""
+        stmt = select(Component).where(Component.id == component_id)
+        result = await self.session.execute(stmt)
+        return result.scalars().first()
+
+    async def update(self, component_id: str, data: dict) -> Component:
+        """Update fields on a component and persist changes."""
+        obj = await self.get(component_id)
+        if not obj:
+            raise HTTPException(404, "Component not found")
+        for key, value in data.items():
+            if value is not None:
+                setattr(obj, key, value)
+        await self.session.commit()
+        await self.session.refresh(obj)
+        return obj
+
+    async def delete(self, component_id: str) -> None:
+        """Delete a component by id."""
+        obj = await self.get(component_id)
+        if not obj:
+            raise HTTPException(404, "Component not found")
+        await self.session.delete(obj)
+        await self.session.commit()
+
 
 async def find_component_by_name(name: str) -> Component | None:
     """Return first component matching ``name`` case-insensitively."""

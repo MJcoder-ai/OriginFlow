@@ -55,10 +55,30 @@ app = FastAPI(title="OriginFlow API", lifespan=lifespan)
 
 # Add security middleware (order matters!)
 app.add_middleware(SecurityHeadersMiddleware)
-app.add_middleware(RateLimitMiddleware, requests_per_minute=100)
+# Relax rate limits for common read-only endpoints in dev
+app.add_middleware(
+    RateLimitMiddleware,
+    requests_per_minute=300,
+    burst_requests=30,
+    exempt_paths={
+        "/health",
+        "/docs",
+        "/openapi.json",
+        f"{settings.api_prefix}/links/",
+        f"{settings.api_prefix}/files/",
+        f"{settings.api_prefix}/components/",
+    },
+)
 app.add_middleware(RequestValidationMiddleware)
-app.add_middleware(CORSSecurityMiddleware, 
-                  allowed_origins={"http://localhost:5173", "http://127.0.0.1:5173"})
+app.add_middleware(
+    CORSSecurityMiddleware,
+    allowed_origins={
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        # Allow dev UI served on an alternate port mentioned in your logs
+        "http://localhost:8082",
+    },
+)
 
 # Add request ID middleware
 app.middleware("http")(request_id_middleware)

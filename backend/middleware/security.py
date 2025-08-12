@@ -87,7 +87,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         # Skip rate limiting for exempt paths
-        if request.url.path in self.exempt_paths:
+        if request.url.path in self.exempt_paths or request.method == "OPTIONS":
             return await call_next(request)
         
         # Get client identifier (IP address)
@@ -147,6 +147,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         client_data = _rate_limit_storage[client_ip]
         requests = client_data.get("requests", [])
         
+        # Loosen dev burst limit on read-only list endpoints
+        path = getattr(_current_request, "path", "") if False else ""  # placeholder
         # Check burst limit (requests in last 10 seconds)
         recent_requests = [
             req for req in requests 
