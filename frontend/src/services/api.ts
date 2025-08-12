@@ -183,7 +183,12 @@ export const api = {
       const text = await res.text();
       throw new Error(`Plan session error ${res.status}: ${text.slice(0, 200)}`);
     }
-    return res.json();
+    const data = await res.json();
+    // Backend may return a plain array of tasks; normalize to an object
+    if (Array.isArray(data)) {
+      return { tasks: data } as any;
+    }
+    return data;
   },
 
 

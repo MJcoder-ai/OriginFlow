@@ -16,10 +16,25 @@ export async function uploadFile(
       if (xhr.status >= 200 && xhr.status < 300) {
         res(JSON.parse(xhr.responseText));
       } else {
-        rej(xhr);
+        const contentType = xhr.getResponseHeader('Content-Type') || '';
+        let detail = `${xhr.status} ${xhr.statusText}`;
+        if (contentType.includes('application/json')) {
+          try {
+            const parsed = JSON.parse(xhr.responseText);
+            if (parsed && parsed.detail) detail = `${xhr.status}: ${parsed.detail}`;
+          } catch {}
+        }
+        const err: any = new Error(detail);
+        err.status = xhr.status;
+        err.responseText = xhr.responseText;
+        rej(err);
       }
     };
-    xhr.onerror = () => rej(xhr);
+    xhr.onerror = () => {
+      const err: any = new Error('Network error during upload');
+      err.status = 0;
+      rej(err);
+    };
 
     xhr.open('POST', `${API_BASE_URL}/files/upload`);
     xhr.send(formData);
