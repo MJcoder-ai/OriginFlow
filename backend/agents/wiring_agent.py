@@ -7,7 +7,14 @@ from backend.services import odl_graph_service
 
 
 class WiringAgent:
-    """Generate basic wiring components between panels and inverters."""
+    """Generate basic wiring components between panels and inverters.
+
+    For every electrical edge in the graph a cable node and a protective device
+    are inserted.  The devices are connected using ``protected_by``,
+    ``connected_via`` and ``terminates_at`` edges on the ``wiring`` layer.  The
+    gauge and protection rating are placeholders awaiting a formal wiring rule
+    engine.
+    """
 
     def __init__(self) -> None:
         self.odl_graph_service = odl_graph_service
@@ -15,8 +22,9 @@ class WiringAgent:
     async def execute(self, session_id: str, tid: str, **kwargs) -> Dict:
         """
         Generate wiring for a preliminary design.  For each panel connected to
-        an inverter, create a cable node and a protective device, and connect
-        them accordingly.  Uses simplified current and voltage calculations.
+        an inverter we create a cable node and a protective device and stitch
+        them together through the appropriate wiring edges.  The electrical
+        characteristics use fixed placeholder values and are not safety rated.
         """
         graph = await self.odl_graph_service.get_graph(session_id)
         cables: List[Dict] = []

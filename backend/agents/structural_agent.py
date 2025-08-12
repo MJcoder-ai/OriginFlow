@@ -7,17 +7,24 @@ from backend.services import odl_graph_service
 
 
 class StructuralAgent:
-    """Generate basic mounting hardware for panels."""
+    """Generate basic mounting hardware for panels.
+
+    The agent scans the existing graph for panel nodes and creates a
+    corresponding mount for each one.  Each mount includes a placeholder
+    ``max_load`` value which will eventually be refined by a structural rule
+    engine.  The panel and mount are linked via a ``mounted_on`` edge on the
+    ``structural`` layer.
+    """
 
     def __init__(self) -> None:
         self.odl_graph_service = odl_graph_service
 
     async def execute(self, session_id: str, tid: str, **kwargs) -> Dict:
         """
-        Generate mounting hardware for each panel in the design.  For each
-        panel node, create a corresponding mount node and a physical
-        'mounted_on' edge between the mount and the panel.  Uses a fixed
-        mount specification for now and returns a complete status.
+        Generate mounting hardware for each panel in the design.  For every
+        panel node we add a mount node with a dummy ``max_load`` field and join
+        them with a ``mounted_on`` edge.  The implementation is intentionally
+        simple and acts as a placeholder for more detailed structural analysis.
         """
         graph = await self.odl_graph_service.get_graph(session_id)
         mounts: List[Dict] = []

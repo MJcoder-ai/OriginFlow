@@ -10,7 +10,15 @@ from backend.services.learning_agent_service import LearningAgentService
 
 
 class PVDesignAgent:
-    """Agent responsible for photovoltaic system design."""
+    """Agent responsible for photovoltaic system design.
+
+    The agent operates on the ODL graph to produce a preliminary photovoltaic
+    array.  It analyses component availability and design requirements and then
+    returns a patch describing all nodes and edges to add to the graph plus a
+    summary card.  When a target power is supplied the design is sized
+    accordingly; otherwise a simple single‑panel/single‑inverter layout is
+    produced as a fallback.
+    """
 
     def __init__(self) -> None:
         self.component_db_service = ComponentDBService()
@@ -81,12 +89,15 @@ class PVDesignAgent:
         }
 
     async def _generate_design(self, session_id: str, **kwargs) -> Dict:
-        """
-        Create a preliminary design sized to the user’s target power.
-        - Select a panel model and compute the number of panels required.
-        - Select one or more inverters to meet or exceed total array power.
-        - Insert all panel and inverter nodes and connect them electrically.
-        - Annotate the patch with a confidence score from the learning agent.
+        """Generate a preliminary PV design.
+
+        If the requirements include a ``target_power`` value the array is sized
+        to meet that output by selecting one panel model and enough inverters to
+        handle the total capacity.  When no target is provided the agent falls
+        back to a legacy single‑string design consisting of one panel and one
+        inverter.  All created components are returned as a patch along with a
+        human‑readable design summary and confidence score from the learning
+        agent.
         """
         g = await self.odl_graph_service.get_graph(session_id)
         has_panel = any(data.get("type") == "panel" for _, data in g.nodes(data=True))
@@ -102,15 +113,9 @@ class PVDesignAgent:
             }
         req = g.graph.get("requirements", {})
         target_power = req.get("target_power")
-        if not target_power:
-            return {
-                "card": {
-                    "title": "Generate design",
-                    "body": "No target power specified.  Please enter requirements first.",
-                },
-                "patch": None,
-                "status": "blocked",
-            }
+
+        # Retrieve components up front so we can fall back to a simple design if no
+        # target power was provided.  Missing components still block the task.
         panels = await self.component_db_service.search(category="panel")
         inverters = await self.component_db_service.search(category="inverter")
         if not panels or not inverters:
@@ -122,63 +127,113 @@ class PVDesignAgent:
                 "patch": None,
                 "status": "blocked",
             }
+
+        # Select the most power‑dense panel as a reasonable default choice.  This
+        # is reused for both the dynamic sizing path and the legacy fallback.
         chosen_panel = max(
             panels, key=lambda p: (p["power"] / max(p.get("price", 1.0), 0.01))
         )
-        import math
 
-        panel_power = chosen_panel["power"]
-        num_panels = math.ceil(target_power / panel_power)
-        total_panel_power = num_panels * panel_power
-        sorted_inverters = sorted(inverters, key=lambda inv: inv["capacity"])
-        remaining_power = total_panel_power
-        chosen_inverters = []
-        for inv in sorted_inverters:
-            if remaining_power <= 0:
-                break
-            chosen_inverters.append(inv)
-            remaining_power -= inv["capacity"]
         nodes: List[Dict] = []
         edges: List[Dict] = []
-        for i in range(num_panels):
-            node_id = f"{chosen_panel['part_number']}_{i}"
-            nodes.append(
-                {
-                    "id": node_id,
-                    "data": {
-                        "type": "panel",
-                        "part_number": chosen_panel["part_number"],
-                        "power": chosen_panel["power"],
-                        "layer": "single_line",
+
+        if not target_power:
+            # Legacy fallback: create a single panel and inverter without sizing.
+            chosen_inverter = max(
+                inverters,
+                key=lambda inv: (inv["capacity"] / max(inv.get("price", 1.0), 0.01)),
+            )
+            panel_id = chosen_panel["part_number"]
+            inverter_id = chosen_inverter["part_number"]
+            nodes.extend(
+                [
+                    {
+                        "id": panel_id,
+                        "data": {
+                            "type": "panel",
+                            "part_number": chosen_panel["part_number"],
+                            "power": chosen_panel["power"],
+                            "layer": "single_line",
+                        },
                     },
+                    {
+                        "id": inverter_id,
+                        "data": {
+                            "type": "inverter",
+                            "part_number": chosen_inverter["part_number"],
+                            "capacity": chosen_inverter["capacity"],
+                            "layer": "single_line",
+                        },
+                    },
+                ]
+            )
+            edges.append(
+                {
+                    "source": panel_id,
+                    "target": inverter_id,
+                    "data": {"type": "electrical"},
                 }
             )
-        from uuid import uuid4 as _uuid4
-        for inv in chosen_inverters:
-            inv_id = f"{inv['part_number']}_{_uuid4().hex[:4]}"
-            nodes.append(
-                {
-                    "id": inv_id,
-                    "data": {
-                        "type": "inverter",
-                        "part_number": inv["part_number"],
-                        "capacity": inv["capacity"],
-                        "layer": "single_line",
-                    },
-                }
+            description = "Generated legacy single-string design"
+            total_panel_power = chosen_panel["power"]
+            num_panels = 1
+            chosen_inverters = [chosen_inverter]
+        else:
+            import math
+
+            panel_power = chosen_panel["power"]
+            num_panels = math.ceil(target_power / panel_power)
+            total_panel_power = num_panels * panel_power
+            sorted_inverters = sorted(inverters, key=lambda inv: inv["capacity"])
+            remaining_power = total_panel_power
+            chosen_inverters = []
+            for inv in sorted_inverters:
+                if remaining_power <= 0:
+                    break
+                chosen_inverters.append(inv)
+                remaining_power -= inv["capacity"]
+            for i in range(num_panels):
+                node_id = f"{chosen_panel['part_number']}_{i}"
+                nodes.append(
+                    {
+                        "id": node_id,
+                        "data": {
+                            "type": "panel",
+                            "part_number": chosen_panel["part_number"],
+                            "power": chosen_panel["power"],
+                            "layer": "single_line",
+                        },
+                    }
+                )
+            from uuid import uuid4 as _uuid4
+            for inv in chosen_inverters:
+                inv_id = f"{inv['part_number']}_{_uuid4().hex[:4]}"
+                nodes.append(
+                    {
+                        "id": inv_id,
+                        "data": {
+                            "type": "inverter",
+                            "part_number": inv["part_number"],
+                            "capacity": inv["capacity"],
+                            "layer": "single_line",
+                        },
+                    }
+                )
+                for panel_node in nodes:
+                    if panel_node["data"].get("type") == "panel":
+                        edges.append(
+                            {
+                                "source": panel_node["id"],
+                                "target": inv_id,
+                                "data": {"type": "electrical"},
+                            }
+                        )
+            description = (
+                f"Generated design with {num_panels} panels and {len(chosen_inverters)} inverter(s)"
             )
-            for panel_node in nodes:
-                if panel_node["data"]["type"] == "panel":
-                    edges.append(
-                        {
-                            "source": panel_node["id"],
-                            "target": inv_id,
-                            "data": {"type": "electrical"},
-                        }
-                    )
+
         patch = {"add_nodes": nodes, "add_edges": edges}
         if self.learning_agent:
-            description = f"Generated design with {num_panels} panels and {len(chosen_inverters)} inverter(s)"
             confidence = await self.learning_agent.score_action(description)
         else:
             confidence = 0.5
