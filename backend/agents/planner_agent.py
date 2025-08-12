@@ -1,4 +1,5 @@
 """Task planner that inspects session state and requirements."""
+
 from __future__ import annotations
 
 from typing import Dict, List, Optional
@@ -32,6 +33,11 @@ class PlannerAgent:
           wiring has been added.
         - refine_validate: emitted as the final step after design exists.
 
+        When requirements are complete, the planner also records estimated
+        panel and inverter counts on the graph. These estimates respect the
+        user’s target power, available roof area and budget using conservative
+        default component specifications when necessary.
+
         :param session_id: current design session identifier
         :param command: raw user command (e.g. "design 5kW system")
         :param requirements: optional mapping of required inputs
@@ -58,6 +64,48 @@ class PlannerAgent:
         requirements_complete = all(
             reqs.get(k) for k in ["target_power", "roof_area", "budget"]
         )
+
+        # Estimate component counts when we have requirements.  The values are
+        # stored back onto the graph so downstream agents can rely on them.  Any
+        # missing component attributes fall back to conservative defaults.
+        if requirements_complete:
+            import math
+
+            panels = await self.component_db_service.search("panel")
+            inverters = await self.component_db_service.search("inverter")
+            panel_info = panels[0] if panels else {}
+            inverter_info = inverters[0] if inverters else {}
+
+            panel_power = panel_info.get("power", 400) or 400
+            panel_area = panel_info.get("area", 2.0) or 2.0
+            panel_price = panel_info.get("price", 250.0) or 250.0
+            inverter_capacity = inverter_info.get("capacity", 5000) or 5000
+            inverter_price = inverter_info.get("price", 1000.0) or 1000.0
+
+            target_power = reqs.get("target_power", 0)
+            roof_area = reqs.get("roof_area")
+            budget = reqs.get("budget")
+
+            panels_needed = max(1, math.ceil(target_power / panel_power))
+            if roof_area:
+                panels_needed = min(panels_needed, int(max(roof_area / panel_area, 0)))
+            if budget:
+                panels_needed = min(panels_needed, int(max(budget / panel_price, 0)))
+
+            total_panel_power = panels_needed * panel_power
+            inverters_needed = max(1, math.ceil(total_panel_power / inverter_capacity))
+            if budget:
+                remaining_budget = budget - panels_needed * panel_price
+                if remaining_budget > 0:
+                    inverters_needed = min(
+                        inverters_needed,
+                        int(max(remaining_budget / inverter_price, 1)),
+                    )
+
+            reqs["panel_count_estimate"] = panels_needed
+            reqs["inverter_count_estimate"] = inverters_needed
+            graph.graph["requirements"] = reqs
+            await self.odl_graph_service.save_graph(session_id, graph)
 
         tasks: List[Dict[str, str]] = []
         if not requirements_complete or not (
