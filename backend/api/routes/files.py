@@ -99,17 +99,18 @@ async def upload_file(
     url = f"/static/uploads/{asset_id}/{safe_filename}"
     size = file_path.stat().st_size
     # 5. Store file metadata with validation results
-    obj = await service.create_asset(
-        {
-            "id": asset_id,
-            "filename": safe_filename,  # Store safe filename
-            "mime": validation_result['detected_mime'],  # Use validated MIME type
-            "size": size,
-            "url": url,
-            "uploaded_by": str(current_user.id),  # Track uploader
-            "file_hash": validation_result['hash'],  # Store file hash
-        }
-    )
+    payload = {
+        "id": asset_id,
+        "filename": safe_filename,  # Store safe filename
+        "mime": validation_result["detected_mime"],  # Use validated MIME type
+        "size": size,
+        "url": url,
+        "file_hash": validation_result["hash"],  # Store file hash
+    }
+    # Only track uploader when authentication is enabled
+    if settings.enable_auth:
+        payload["uploaded_by"] = str(current_user.id)
+    obj = await service.create_asset(payload)
     asset = FileAssetRead.model_validate(obj)
 
     if (
