@@ -28,7 +28,7 @@ async def create_session(cmd: CreateSessionRequest | None = None) -> CreateSessi
     provided_session_id = None
     provided_session_id = getattr(cmd, "session_id", None) if cmd else None
     session_id = provided_session_id or str(uuid4())
-    odl_graph_service.create_graph(session_id)
+    await odl_graph_service.create_graph(session_id)
     return CreateSessionResponse(session_id=session_id)
 
 
