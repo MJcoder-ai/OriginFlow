@@ -550,14 +550,17 @@ curl -X POST http://localhost:8000/api/v1/odl/my-session-123/plan \
      -d '{"command":"design 5 kW pv system"}'
 ```
 
-- Execute a task. Include your last known `graph_version` to avoid conflicts. On success the response includes the updated `version`:
+- Execute a task. Include your last known `version` to avoid conflicts. On
+success the response includes the updated `version`:
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/odl/my-session-123/act \
      -H "Content-Type: application/json" \
-     -d '{"task_id":"generate_design","graph_version":2}'
+     -d '{"task_id":"generate_design","version":2}'
 ```
-If the provided `graph_version` is out of date the endpoint returns **409 Conflict**.
+If the provided `version` is out of date the endpoint returns **409 Conflict**.
+Clients should refresh the graph (e.g. via `/versions/{session_id}/diff`),
+update their plan and retry the task.
 
 - Update requirements mid-session to unblock `generate_design`:
 

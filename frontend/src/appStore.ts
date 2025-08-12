@@ -393,19 +393,10 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   async performPlanTask(task) {
     const sessionId = (get() as any).sessionId || 'global';
-    // The ODL session should already be initialised.  Do not recreate it here.
-    get().updatePlanTaskStatus(task.id, 'in_progress');
-    set({ isAiProcessing: true });
-    try {
-      const { patch, card, status, version } = await api.act(
-        sessionId,
-        task.id,
-        undefined,
-        get().graphVersion
-      );
-      if (typeof version === 'number') set({ graphVersion: version });
-      // Apply added nodes to canvas
-      if (patch && patch.add_nodes) {
+    // Helper to apply a graph patch to local state.
+    const applyPatch = (patch: any) => {
+      if (!patch) return;
+      if (patch.add_nodes) {
         set((s) => ({
           canvasComponents: [
             ...s.canvasComponents,
@@ -423,8 +414,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           ],
         }));
       }
-      // Apply added edges to links
-      if (patch && patch.add_edges) {
+      if (patch.add_edges) {
         set((s) => ({
           links: [
             ...s.links,
@@ -436,42 +426,88 @@ export const useAppStore = create<AppState>((set, get) => ({
           ],
         }));
       }
-      // Render design card as a chat message
-      if (card) {
-        get().addMessage({
-          id: crypto.randomUUID(),
-          author: 'AI',
-          text: card.title,
-          card: {
-            title: card.title,
-            description: card.description,
-            imageUrl: (card as any).image_url,
-            specs: card.specs?.map((s: any) => ({ label: s.label, value: s.value })),
-            actions: card.actions?.map((a: any) => ({ label: a.label, command: a.command })),
-          },
-          type: 'card',
-        });
+      const removeNodes = patch.remove_nodes ?? patch.removed_nodes;
+      if (removeNodes && removeNodes.length) {
+        set((s) => ({
+          canvasComponents: s.canvasComponents.filter((c) => !removeNodes.includes(c.id)),
+          links: s.links.filter(
+            (l) => !removeNodes.includes(l.source_id) && !removeNodes.includes(l.target_id)
+          ),
+        }));
       }
-      // Update status from backend response (complete, blocked, etc.)
-      const newStatus = (status as PlanTaskStatus) || 'complete';
-      get().updatePlanTaskStatus(task.id, newStatus);
-      return newStatus;
-    } catch (err: any) {
-      console.error('Failed to perform plan task', err);
-      const msg = String(err ?? '');
-      if (msg.includes('409')) {
-        get().addStatusMessage('The design has changed—refreshing…', 'warning');
-        try {
-          const plan = await api.getPlanForSession(sessionId, get().lastPrompt || 'design');
-          if ((plan as any).tasks && Array.isArray((plan as any).tasks)) set({ planTasks: (plan as any).tasks as any });
-        } catch (_e) {}
-        get().updatePlanTaskStatus(task.id, 'blocked');
-        return 'blocked';
-      } else {
+      const removeEdges = patch.remove_edges ?? patch.removed_edges;
+      if (removeEdges && removeEdges.length) {
+        set((s) => ({
+          links: s.links.filter(
+            (l) => !removeEdges.some((e: any) => e.source === l.source_id && e.target === l.target_id)
+          ),
+        }));
+      }
+    };
+
+    const execute = async (retry = false): Promise<PlanTaskStatus> => {
+      try {
+        const { patch, card, status, version } = await api.act(
+          sessionId,
+          task.id,
+          undefined,
+          get().graphVersion
+        );
+        if (typeof version === 'number') set({ graphVersion: version });
+        applyPatch(patch);
+        if (card) {
+          get().addMessage({
+            id: crypto.randomUUID(),
+            author: 'AI',
+            text: card.title,
+            card: {
+              title: card.title,
+              description: card.description,
+              imageUrl: (card as any).image_url,
+              specs: card.specs?.map((s: any) => ({ label: s.label, value: s.value })),
+              actions: card.actions?.map((a: any) => ({ label: a.label, command: a.command })),
+            },
+            type: 'card',
+          });
+        }
+        const newStatus = (status as PlanTaskStatus) || 'complete';
+        get().updatePlanTaskStatus(task.id, newStatus);
+        return newStatus;
+      } catch (err: any) {
+        if (!retry && err.status === 409) {
+          get().addStatusMessage('The design has changed—refreshing…', 'warning');
+          let serverVersion: number | undefined;
+          const match = String(err.detail || '').match(/server has (\d+)/);
+          if (match) serverVersion = parseInt(match[1], 10);
+          if (serverVersion !== undefined) {
+            try {
+              const diff = await api.getVersionDiff(
+                sessionId,
+                get().graphVersion,
+                serverVersion
+              );
+              diff.patches.forEach((p) => applyPatch(p));
+              set({ graphVersion: serverVersion });
+            } catch (_) {}
+          }
+          try {
+            const plan = await api.getPlanForSession(sessionId, get().lastPrompt || 'design');
+            if ((plan as any).tasks && Array.isArray((plan as any).tasks))
+              set({ planTasks: (plan as any).tasks as any });
+          } catch (_) {}
+          return await execute(true);
+        }
+        console.error('Failed to perform plan task', err);
         get().updatePlanTaskStatus(task.id, 'blocked');
         get().addStatusMessage('Failed to perform task', 'error');
         return 'blocked';
       }
+    };
+
+    get().updatePlanTaskStatus(task.id, 'in_progress');
+    set({ isAiProcessing: true });
+    try {
+      return await execute(false);
     } finally {
       set({ isAiProcessing: false });
     }
