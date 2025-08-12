@@ -573,6 +573,54 @@ async def run_parsing_job(asset_id: str, session: AsyncSession, ai_client: Async
                 else:
                     create_obj = ComponentMasterCreate(**data)
                     await comp_service.create(create_obj)
+
+            # ------------------------------------------------------------------
+            # NEW: Ingest parsed component into the AI component DB service.
+            #
+            # After updating the ComponentMaster table, attempt to insert the
+            # same component into the ComponentDBService used by the AI agents.
+            # This service is responsible for determining whether required
+            # categories (panels, inverters) exist when the gather step runs.
+            #
+            # The ingestion uses the extracted fields and falls back to None for
+            # missing values.  Ingestion errors are logged but do not block the
+            # parsing job.
+            try:
+                from backend.services.component_db_service import ComponentDBService
+                from backend.schemas.component_master import ComponentMasterCreate
+
+                # Create a ComponentDBService tied to the current session to reuse
+                # the same database transaction.  Using the async session avoids
+                # opening a new connection.
+                ai_comp_service = ComponentDBService(session)
+
+                # Assemble a record similar to the one used for ComponentMaster.
+                # Note: we deliberately include only common fields.  Additional
+                # attributes (ports, dependencies, variants, etc.) are optional.
+                ingest_record = ComponentMasterCreate(
+                    part_number=part_number,
+                    name=name,
+                    manufacturer=manufacturer or "Unknown",
+                    category=category,
+                    description=description,
+                    voltage=voltage,
+                    current=current,
+                    power=power,
+                    specs=extraction_result,
+                    ports=ports,
+                    dependencies=dependencies,
+                    layer_affinity=layer_affinity,
+                    sub_elements=sub_elements,
+                    series_name=series_name,
+                    variants=variants if isinstance(variants, list) else None,
+                )
+
+                # Call create() on the service.  If the part number already
+                # exists, the UNIQUE constraint will trigger an update instead.
+                await ai_comp_service.create(ingest_record)
+            except Exception as ingest_err:  # pragma: no cover - log and continue
+                # TODO: replace print with structured logging once available
+                print(f"Datasheet ingestion failed: {ingest_err}")
         except Exception:
             # Swallow any errors during enrichment so that parsing continues
             pass
