@@ -78,6 +78,8 @@ app.add_middleware(
         # Allow dev UI served on an alternate port mentioned in your logs
         "http://localhost:8082",
     },
+    # Enable credentialed requests for local development UIs.
+    allow_credentials=True,
 )
 
 # Add request ID middleware
