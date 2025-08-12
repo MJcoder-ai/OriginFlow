@@ -1,6 +1,13 @@
 import { FileAsset } from './types';
 import { API_BASE_URL } from '../config';
 
+// Helper to attach auth headers when a JWT token is present.
+function authHeaders(headers: HeadersInit = {}): HeadersInit {
+  const token =
+    typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+  return token ? { ...headers, Authorization: `Bearer ${token}` } : headers;
+}
+
 export async function uploadFile(
   file: File,
   onProg: (p: number) => void,
@@ -37,12 +44,27 @@ export async function uploadFile(
     };
 
     xhr.open('POST', `${API_BASE_URL}/files/upload`);
+
+    // Attach authentication if available.  We look for a JWT access token in
+    // localStorage and send it as a Bearer token.  We also enable
+    // `withCredentials` so that cookie-based sessions, if present, are sent
+    // along with the request.
+    const token =
+      typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+    if (token) {
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    }
+    xhr.withCredentials = true;
+
     xhr.send(formData);
   });
 }
 
 export async function listFiles(): Promise<FileAsset[]> {
-  const resp = await fetch(`${API_BASE_URL}/files/`);
+  const resp = await fetch(`${API_BASE_URL}/files/`, {
+    headers: authHeaders(),
+    credentials: 'include',
+  });
   if (!resp.ok) throw new Error('Failed to fetch files');
   return resp.json();
 }
@@ -53,7 +75,11 @@ export async function listFiles(): Promise<FileAsset[]> {
  * @returns The file asset with its parsed payload.
  */
 export async function parseDatasheet(id: string): Promise<FileAsset> {
-  const res = await fetch(`${API_BASE_URL}/files/${id}/parse`, { method: 'POST' });
+  const res = await fetch(`${API_BASE_URL}/files/${id}/parse`, {
+    method: 'POST',
+    headers: authHeaders(),
+    credentials: 'include',
+  });
   if (!res.ok) {
     const error = await res.json();
     throw new Error(error.detail || 'Failed to parse datasheet');
@@ -62,7 +88,10 @@ export async function parseDatasheet(id: string): Promise<FileAsset> {
 }
 
 export async function getFileStatus(id: string): Promise<FileAsset> {
-  const res = await fetch(`${API_BASE_URL}/files/${id}`);
+  const res = await fetch(`${API_BASE_URL}/files/${id}`, {
+    headers: authHeaders(),
+    credentials: 'include',
+  });
   if (!res.ok) {
     const error = await res.json();
     throw new Error(error.detail || 'Failed to fetch status');
@@ -82,7 +111,8 @@ export async function updateParsedData(
   }
   const res = await fetch(`${API_BASE_URL}/files/${id}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    credentials: 'include',
     body: JSON.stringify(body),
   });
   if (!res.ok) {
@@ -97,7 +127,10 @@ export async function updateParsedData(
  * @param assetId The ID of the parent file asset.
  */
 export async function listImages(assetId: string): Promise<any[]> {
-  const res = await fetch(`${API_BASE_URL}/files/${assetId}/images`);
+  const res = await fetch(`${API_BASE_URL}/files/${assetId}/images`, {
+    headers: authHeaders(),
+    credentials: 'include',
+  });
   if (!res.ok) {
     const error = await res.json();
     throw new Error(error.detail || 'Failed to list images');
@@ -116,6 +149,8 @@ export async function uploadImages(assetId: string, images: File[]): Promise<Fil
   });
   const res = await fetch(`${API_BASE_URL}/files/${assetId}/images`, {
     method: 'POST',
+    headers: authHeaders(),
+    credentials: 'include',
     body: formData,
   });
   if (!res.ok) {
@@ -131,6 +166,8 @@ export async function uploadImages(assetId: string, images: File[]): Promise<Fil
 export async function deleteImage(assetId: string, imageId: string): Promise<void> {
   const res = await fetch(`${API_BASE_URL}/files/${assetId}/images/${imageId}`, {
     method: 'DELETE',
+    headers: authHeaders(),
+    credentials: 'include',
   });
   if (!res.ok) {
     const error = await res.json();
@@ -144,6 +181,8 @@ export async function deleteImage(assetId: string, imageId: string): Promise<voi
 export async function setPrimaryImage(assetId: string, imageId: string): Promise<void> {
   const res = await fetch(`${API_BASE_URL}/files/${assetId}/images/${imageId}/primary`, {
     method: 'PATCH',
+    headers: authHeaders(),
+    credentials: 'include',
   });
   if (!res.ok) {
     const error = await res.json();

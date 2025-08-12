@@ -114,11 +114,15 @@ export const EnhancedFileUpload: React.FC<EnhancedFileUploadProps> = ({
         addMessage({ author: 'User', text: `✅ Uploaded ${file.name}` });
         addStatusMessage(`Upload complete: ${file.name}`, 'success');
 
-      } catch (error) {
+      } catch (error: any) {
         console.error('Upload failed', error);
         updateUpload(tempId, { progress: -1 });
         addMessage({ author: 'User', text: `❌ Upload failed for ${file.name}` });
-        addStatusMessage(`Upload failed: ${file.name}`, 'error');
+        if (error?.status === 401) {
+          addStatusMessage('Unauthorized. Please log in to upload files.', 'error');
+        } else {
+          addStatusMessage(`Upload failed: ${file.name}`, 'error');
+        }
       }
     }
 
