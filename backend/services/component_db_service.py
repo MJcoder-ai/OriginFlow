@@ -7,7 +7,7 @@ implementation when available.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, AsyncIterator, Dict, List, Optional
 
 
 class ComponentDBService:
@@ -20,9 +20,25 @@ class ComponentDBService:
         """Return True if any component of the given category exists."""
         return any(c for c in self.components if c.get("category") == category)
 
-    async def search(self, category: str) -> List[Dict[str, Any]]:
-        """Return all components in the given category."""
-        return [c for c in self.components if c.get("category") == category]
+    async def search(self, category: str, min_power: Optional[float] = None) -> List[Dict[str, Any]]:
+        """Return components in the given category, optionally filtered by power.
+
+        Args:
+            category: Component category to search (e.g., 'panel', 'inverter').
+            min_power: Optional minimum power/capacity rating to filter results.
+        """
+        results = [c for c in self.components if c.get("category") == category]
+        if min_power is not None:
+            def meets_power(comp: Dict[str, Any]) -> bool:
+                value = comp.get("power")
+                if value is None:
+                    value = comp.get("capacity")
+                try:
+                    return float(value) >= float(min_power)
+                except (TypeError, ValueError):
+                    return False
+            results = [c for c in results if meets_power(c)]
+        return results
 
     async def ingest(
         self, category: str, part_number: str, attributes: Dict[str, Any]
@@ -39,3 +55,11 @@ class ComponentDBService:
                 return part_number
         self.components.append(component)
         return part_number
+
+
+async def get_component_db_service() -> AsyncIterator[ComponentDBService]:
+    """FastAPI-style dependency provider yielding a component DB service.
+
+    The current implementation provides an in-memory store per request.
+    """
+    yield ComponentDBService()
