@@ -557,6 +557,7 @@ curl -X POST http://localhost:8000/api/v1/odl/my-session-123/act \
      -H "Content-Type: application/json" \
      -d '{"task_id":"generate_design","graph_version":2}'
 ```
+If the provided `graph_version` is out of date the endpoint returns **409 Conflict**.
 
 - Update requirements mid-session to unblock `generate_design`:
 

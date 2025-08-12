@@ -90,10 +90,12 @@ def _deserialize_graph(data: str) -> nx.DiGraph:
     return g
 
 
-def create_graph(session_id: str) -> nx.DiGraph:
-    """Create a new graph for `session_id` if none exists."""
+async def create_graph(session_id: str) -> nx.DiGraph:
+    """Create a new graph for ``session_id`` if none exists."""
     _init_db()
-    g = get_graph(session_id)
+    # ``get_graph`` is async, so we must await it here; the previous
+    # implementation returned a coroutine and short‑circuited creation.
+    g = await get_graph(session_id)
     if g:
         return g
     g = nx.DiGraph()
@@ -237,22 +239,29 @@ async def revert_to_version(session_id: str, target_version: int) -> bool:
     current_version = g.graph.get("version", 0)
     if target_version > current_version:
         return False
-    # reload base graph (version 0)
+    # Fetch patches to retain before mutating storage
+    patches = get_patch_diff(session_id, 0, target_version)
+    if patches is None:
+        return False
+    # Reset stored graph to version 0 and clear existing patches
     with sqlite3.connect(DB_PATH) as conn:
         cur = conn.execute(
             "SELECT graph_json FROM sessions WHERE session_id = ?", (session_id,)
         )
-        base_row = cur.fetchone()
-        if not base_row:
+        row = cur.fetchone()
+        if not row:
             return False
-        g = _deserialize_graph(base_row[0])
-    # apply patches up to target_version
-    patches = get_patch_diff(session_id, 0, target_version)
-    if patches is None:
-        return False
+        base_graph = _deserialize_graph(row[0])
+        base_graph.graph["version"] = 0
+        conn.execute(
+            "UPDATE sessions SET graph_json = ?, version = 0 WHERE session_id = ?",
+            (_serialize_graph(base_graph), session_id),
+        )
+        conn.execute("DELETE FROM patches WHERE session_id = ?", (session_id,))
+        conn.commit()
+    # Reapply patches sequentially up to the target version
     for p in patches:
-        # ignore incoming version for reapplication
-        _ = await apply_patch(
+        await apply_patch(
             session_id,
             {k: p.get(k, []) for k in ["add_nodes", "add_edges", "remove_nodes", "remove_edges"]},
         )
