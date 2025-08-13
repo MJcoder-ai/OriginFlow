@@ -39,8 +39,8 @@ async def create_session(request: CreateSessionRequest = Body(...)) -> CreateSes
         
         # Create the graph
         graph = await odl_graph_service.create_graph(session_id)
-        
-        if not graph:
+
+        if graph is None:
             raise HTTPException(status_code=500, detail="Failed to create session")
         
         return CreateSessionResponse(session_id=session_id)
@@ -78,7 +78,7 @@ async def act_on_task(session_id: str, request: ActOnTaskRequest) -> GraphRespon
         # Check for version conflicts
         if request.graph_version is not None:
             current_graph = await odl_graph_service.get_graph(session_id)
-            if current_graph:
+            if current_graph is not None:
                 current_version = current_graph.graph.get("version", 1)
                 
                 if request.graph_version != current_version:
@@ -119,7 +119,7 @@ async def act_on_task(session_id: str, request: ActOnTaskRequest) -> GraphRespon
                 
                 # Update version in result
                 updated_graph = await odl_graph_service.get_graph(session_id)
-                if updated_graph:
+                if updated_graph is not None:
                     result["version"] = updated_graph.graph.get("version", 1)
             except Exception as e:
                 print(f"Error applying patch: {e}")
@@ -193,7 +193,7 @@ async def get_odl_text(session_id: str) -> ODLTextResponse:
     """Get ODL text representation of the graph."""
     try:
         graph_data = await odl_graph_service.get_graph_with_text(session_id)
-        if not graph_data:
+        if graph_data is None:
             raise HTTPException(status_code=404, detail="Session not found")
         
         return ODLTextResponse(
@@ -215,7 +215,7 @@ async def analyze_placeholders(session_id: str) -> PlaceholderAnalysisResponse:
     """Get placeholder analysis for the session."""
     try:
         graph = await odl_graph_service.get_graph(session_id)
-        if not graph:
+        if graph is None:
             raise HTTPException(status_code=404, detail="Session not found")
         
         analysis = odl_graph_service.analyze_placeholder_status(graph)
@@ -249,7 +249,7 @@ async def select_component(
         
         # Get updated design summary
         graph = await odl_graph_service.get_graph(session_id)
-        design_summary = odl_graph_service.describe_graph(graph) if graph else "No design"
+        design_summary = odl_graph_service.describe_graph(graph) if graph is not None else "No design"
         
         return ComponentSelectionResponse(
             success=result.get("status") == "complete",
@@ -289,8 +289,8 @@ async def revert_version(session_id: str, target_version: int) -> Dict[str, Any]
         
         # Get updated graph info
         graph = await odl_graph_service.get_graph(session_id)
-        current_version = graph.graph.get("version", 1) if graph else 1
-        graph_summary = odl_graph_service.describe_graph(graph) if graph else "Empty design"
+        current_version = graph.graph.get("version", 1) if graph is not None else 1
+        graph_summary = odl_graph_service.describe_graph(graph) if graph is not None else "Empty design"
         
         return {
             "success": True,

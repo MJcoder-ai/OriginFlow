@@ -88,7 +88,7 @@ const PlanTimeline: React.FC = () => {
                   if (canExecute && (task.status === 'pending' || task.status === 'blocked')) {
                     // Prefer enhanced act loop for richer UX
                     if (sessionId) {
-                      api.actEnhanced(sessionId, task.id, undefined, graphVersion)
+                      api.act(sessionId, task.id, undefined, graphVersion)
                         .then((res) => {
                           if (typeof res.version === 'number') setGraphVersion(res.version);
                           if (res.card) {

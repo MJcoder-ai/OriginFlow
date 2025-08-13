@@ -22,14 +22,6 @@ export interface PlanResponse {
   tasks: PlanTask[];
   quick_actions?: QuickAction[];
 }
-export interface VersionDiffResponse {
-  patches: Array<{
-    add_nodes?: any[];
-    add_edges?: any[];
-    remove_nodes?: any[];
-    remove_edges?: any[];
-  }>;
-}
 
 export interface TaskExecutionResponse {
   patch?: { add_nodes?: any[]; add_edges?: any[]; remove_nodes?: any[]; remove_edges?: any[] };
@@ -40,6 +32,7 @@ export interface TaskExecutionResponse {
   next_recommended_task?: string | null;
   execution_time_ms?: number;
 }
+
 export const api = {
   async getComponents(): Promise<CanvasComponent[]> {
     const response = await fetch(`${API_BASE_URL}/components/`);
@@ -98,14 +91,19 @@ export const api = {
     command: string,
     options?: { sessionId?: string }
   ): Promise<PlanResponse> {
-    const url = options?.sessionId
-      ? `${API_BASE_URL}/odl/${encodeURIComponent(options.sessionId)}/plan`
-      : `${API_BASE_URL}/ai/plan`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ command }),
-    });
+    let res: Response;
+    if (options?.sessionId) {
+      const url = `${API_BASE_URL}/odl/sessions/${encodeURIComponent(
+        options.sessionId
+      )}/plan?command=${encodeURIComponent(command)}`;
+      res = await fetch(url);
+    } else {
+      res = await fetch(`${API_BASE_URL}/ai/plan`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command }),
+      });
+    }
     if (!res.ok) {
       const text = await res.text();
       throw new Error(`Plan endpoint error ${res.status}: ${text.slice(0, 120)}`);
@@ -129,13 +127,8 @@ export const api = {
     taskId: string,
     action?: string,
     graphVersion?: number,
-  ): Promise<{
-    patch: { add_nodes?: any[]; add_edges?: any[]; remove_nodes?: any[]; remove_edges?: any[] };
-    card?: any;
-    status: string;
-    version?: number;
-  }> {
-    const res = await fetch(`${API_BASE_URL}/odl/${encodeURIComponent(sessionId)}/act`, {
+  ): Promise<TaskExecutionResponse> {
+    const res = await fetch(`${API_BASE_URL}/odl/sessions/${encodeURIComponent(sessionId)}/act`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       // Include both the legacy `graph_version` and new `version` keys for
@@ -158,31 +151,9 @@ export const api = {
     return res.json();
   },
 
-  /** Enhanced act endpoint that returns updated plan and next recommended task. */
-  async actEnhanced(
-    sessionId: string,
-    taskId: string,
-    action?: string,
-    graphVersion?: number,
-  ): Promise<TaskExecutionResponse> {
-    const res = await fetch(`${API_BASE_URL}/odl/${encodeURIComponent(sessionId)}/act-enhanced`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ task_id: taskId, action, graph_version: graphVersion, version: graphVersion }),
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      const error: any = new Error(`Act-enhanced error ${res.status}: ${text.slice(0, 120)}`);
-      error.status = res.status;
-      error.detail = text;
-      throw error;
-    }
-    return res.json();
-  },
-
   /**
    * Create or reset an ODL design session.  Must be called before
-   * using `/odl/{session_id}/plan` or `/odl/{session_id}/act`.
+   * using `/odl/sessions/{session_id}/plan` or `/odl/sessions/{session_id}/act`.
    */
   async createOdlSession(sessionId?: string): Promise<{ session_id: string }> {
     const res = await fetch(`${API_BASE_URL}/odl/sessions`, {
@@ -199,18 +170,18 @@ export const api = {
 
   /**
    * Get a plan tailored to a specific ODL session.  Uses
-   * `/odl/{session_id}/plan` to return tasks and quick actions
+   * `/odl/sessions/{session_id}/plan` to return tasks and quick actions
    * appropriate for the current graph.
    */
   async getPlanForSession(
     sessionId: string,
     command: string,
   ): Promise<{ tasks: any[]; quick_actions?: any[] }> {
-    const res = await fetch(`${API_BASE_URL}/odl/${encodeURIComponent(sessionId)}/plan`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ command }),
-    });
+    const res = await fetch(
+      `${API_BASE_URL}/odl/sessions/${encodeURIComponent(sessionId)}/plan?command=${encodeURIComponent(
+        command
+      )}`
+    );
     if (!res.ok) {
       const text = await res.text();
       throw new Error(`Plan session error ${res.status}: ${text.slice(0, 200)}`);
@@ -222,7 +193,6 @@ export const api = {
     }
     return data;
   },
-
 
   /** POST a natural-language command and receive deterministic actions. */
   async sendCommandToAI(command: string): Promise<AiAction[]> {
@@ -239,11 +209,14 @@ export const api = {
   },
 
   async postRequirements(sessionId: string, requirements: Record<string, any>): Promise<void> {
-    const res = await fetch(`${API_BASE_URL}/requirements/${encodeURIComponent(sessionId)}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requirements),
-    });
+    const res = await fetch(
+      `${API_BASE_URL}/odl/sessions/${encodeURIComponent(sessionId)}/requirements`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requirements }),
+      }
+    );
     if (!res.ok) throw new Error(`Requirements update failed: ${res.status}`);
   },
 
@@ -257,31 +230,23 @@ export const api = {
     return res.json();
   },
 
-  async getVersionDiff(sessionId: string, fromVersion: number, toVersion: number): Promise<VersionDiffResponse> {
-    const res = await fetch(
-      `${API_BASE_URL}/odl/versions/${encodeURIComponent(sessionId)}/diff?from_version=${fromVersion}&to_version=${toVersion}`
-    );
-    if (!res.ok) throw new Error(`Diff fetch failed: ${res.status}`);
-    const data = await res.json();
-    // Normalize backend VersionDiffResponse to { patches } expected by UI
-    const changes = Array.isArray(data.changes) ? data.changes : [];
-    return { patches: changes };
-  },
-
   async revertToVersion(sessionId: string, targetVersion: number): Promise<{ detail: string; version: number }> {
-    const res = await fetch(`${API_BASE_URL}/odl/versions/${encodeURIComponent(sessionId)}/revert`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ target_version: targetVersion }),
-    });
+    const res = await fetch(
+      `${API_BASE_URL}/odl/sessions/${encodeURIComponent(sessionId)}/revert`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target_version: targetVersion }),
+      }
+    );
     if (!res.ok) throw new Error(`Revert failed: ${res.status}`);
     const data = await res.json();
     // Normalize to existing consumer shape
     return { detail: data.message, version: data.current_version };
   },
 
-  async listAgentTasks(): Promise<{ tasks: string[] }> {
-    const res = await fetch(`${API_BASE_URL}/agents/tasks`);
+  async listAgentTasks(): Promise<{ agents: any; task_types: string[] }> {
+    const res = await fetch(`${API_BASE_URL}/odl/agents`);
     if (!res.ok) throw new Error(`List tasks failed: ${res.status}`);
     return res.json();
   },
@@ -295,8 +260,58 @@ export const api = {
     can_proceed: boolean;
     graph_summary: string;
   }> {
-    const res = await fetch(`${API_BASE_URL}/odl/requirements/${encodeURIComponent(sessionId)}/status`);
+    const res = await fetch(
+      `${API_BASE_URL}/odl/sessions/${encodeURIComponent(sessionId)}/analysis`
+    );
     if (!res.ok) throw new Error(`Requirements status failed: ${res.status}`);
+    return res.json();
+  },
+
+  /** Get ODL text representation */
+  async getOdlText(sessionId: string): Promise<{
+    text: string;
+    version: number;
+    node_count: number;
+    edge_count: number;
+    last_updated?: string;
+  }> {
+    const res = await fetch(`${API_BASE_URL}/odl/sessions/${encodeURIComponent(sessionId)}/text`);
+    if (!res.ok) throw new Error(`Get ODL text failed: ${res.status}`);
+    return res.json();
+  },
+
+  /** Select component to replace placeholder */
+  async selectComponent(sessionId: string, placeholderId: string, component: any): Promise<{
+    success: boolean;
+    message: string;
+    replaced_nodes: string[];
+    patch: any;
+    updated_design_summary: string;
+  }> {
+    const res = await fetch(
+      `${API_BASE_URL}/odl/sessions/${encodeURIComponent(sessionId)}/select-component`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          placeholder_id: placeholderId,
+          component,
+          apply_to_all_similar: false
+        }),
+      }
+    );
+    if (!res.ok) throw new Error(`Component selection failed: ${res.status}`);
+    return res.json();
+  },
+
+  /** Get session versions */
+  async getSessionVersions(sessionId: string): Promise<{
+    session_id: string;
+    versions: any[];
+    total_versions: number;
+  }> {
+    const res = await fetch(`${API_BASE_URL}/odl/sessions/${encodeURIComponent(sessionId)}/versions`);
+    if (!res.ok) throw new Error(`Get versions failed: ${res.status}`);
     return res.json();
   },
 };

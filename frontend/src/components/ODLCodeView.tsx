@@ -27,12 +27,13 @@ export const ODLCodeView: React.FC<ODLCodeViewProps> = ({ sessionId }) => {
     setError(null);
     
     try {
-      const response = await fetch(`/api/v1/odl/sessions/${sessionId}/text`);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch ODL text: ${response.statusText}`);
-      }
-      
-      const data: ODLTextData = await response.json();
+      const data = await fetch(`/api/v1/odl/sessions/${sessionId}/text`)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`Failed to fetch ODL text: ${response.statusText}`);
+          }
+          return response.json();
+        });
       setOdlData(data);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';

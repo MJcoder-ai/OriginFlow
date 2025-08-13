@@ -37,7 +37,7 @@ class WiringAgent:
                 }
             
             graph = await self.odl_graph_service.get_graph(session_id)
-            if not graph:
+            if graph is None:
                 return {
                     "card": {"title": "Wiring design", "body": "Session not found."},
                     "patch": None,

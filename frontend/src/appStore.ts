@@ -500,15 +500,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           const match = String(err.detail || '').match(/server has (\d+)/);
           if (match) serverVersion = parseInt(match[1], 10);
           if (serverVersion !== undefined) {
-            try {
-              const diff = await api.getVersionDiff(
-                sessionId,
-                get().graphVersion,
-                serverVersion
-              );
-              diff.patches.forEach((p) => applyPatch(p));
-              set({ graphVersion: serverVersion });
-            } catch (_) {}
+            set({ graphVersion: serverVersion });
           }
           try {
             const plan = await api.getPlanForSession(sessionId, get().lastPrompt || 'design');

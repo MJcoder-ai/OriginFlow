@@ -52,7 +52,7 @@ const ChatSidebar: React.FC = () => {
         const current = planTasks.find((t) => t.status === 'pending');
         if (!current) return;
         addStatusMessage(`Running ${current.title}…`, 'info');
-        const res = await api.actEnhanced(sessionId, current.id, undefined, graphVersion);
+        const res = await api.act(sessionId, current.id, undefined, graphVersion);
         if (cancelled) return;
         if (typeof res.version === 'number') setGraphVersion(res.version);
         if (res.card) {

@@ -108,15 +108,14 @@ export const UndoRedoControls: React.FC<UndoRedoControlsProps> = ({
     try {
       const targetVersion = Math.max(0, currentVersion - 1);
       
-      const response = await fetch(`${API_BASE_URL}/versions/${sessionId}/revert`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          target_version: targetVersion
-        })
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/odl/sessions/${sessionId}/revert`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target_version: targetVersion })
+        }
+      );
 
       if (!response.ok) {
         throw new Error(`Failed to revert: ${response.statusText}`);
@@ -148,15 +147,14 @@ export const UndoRedoControls: React.FC<UndoRedoControlsProps> = ({
     try {
       const targetVersion = currentVersion + 1;
       
-      const response = await fetch(`${API_BASE_URL}/versions/${sessionId}/revert`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          target_version: targetVersion
-        })
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/odl/sessions/${sessionId}/revert`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target_version: targetVersion })
+        }
+      );
 
       if (!response.ok) {
         throw new Error(`Failed to redo: ${response.statusText}`);
@@ -182,15 +180,14 @@ export const UndoRedoControls: React.FC<UndoRedoControlsProps> = ({
 
     setIsReverting(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/versions/${sessionId}/revert`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          target_version: targetVersion
-        })
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/odl/sessions/${sessionId}/revert`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target_version: targetVersion })
+        }
+      );
 
       if (!response.ok) {
         throw new Error(`Failed to revert: ${response.statusText}`);

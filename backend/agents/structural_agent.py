@@ -28,7 +28,7 @@ class StructuralAgent:
                 }
             
             graph = await self.odl_graph_service.get_graph(session_id)
-            if not graph:
+            if graph is None:
                 return {
                     "card": {"title": "Structural design", "body": "Session not found."},
                     "patch": None,

@@ -517,7 +517,7 @@ async def get_graph_with_text(session_id: str) -> Optional[Dict[str, Any]]:
     """Get graph data including text representation."""
     try:
         graph = await get_graph(session_id)
-        if not graph:
+        if graph is None:
             return None
         
         # Convert to standard format
@@ -608,7 +608,7 @@ async def update_requirements(session_id: str, requirements: Dict[str, Any]) -> 
     """Update design requirements for a session."""
     try:
         graph = await get_graph(session_id)
-        if not graph:
+        if graph is None:
             return False
         
         # Update requirements in graph

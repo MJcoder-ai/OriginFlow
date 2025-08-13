@@ -33,7 +33,7 @@ class ComponentSelectorAgent:
                 }
             
             graph = await self.odl_graph_service.get_graph(session_id)
-            if not graph:
+            if graph is None:
                 return {
                     "card": {"title": "Component Selection", "body": "Session not found"},
                     "patch": None,
@@ -457,8 +457,8 @@ class ComponentSelectorAgent:
         """Replace multiple placeholders at once."""
         try:
             graph = await self.odl_graph_service.get_graph(session_id)
-            
-            if not graph:
+
+            if graph is None:
                 return {
                     "card": {"title": "Bulk Replacement", "body": "Session not found"},
                     "patch": None,
