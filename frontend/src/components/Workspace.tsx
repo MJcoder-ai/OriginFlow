@@ -11,6 +11,7 @@ import { useAppStore, CanvasComponent, Port } from '../appStore';
 import LinkLayer from './LinkLayer';
 import LayerSelector from './LayerSelector';
 import SubAssemblyButton from './SubAssemblyButton';
+import ODLCodeView from './ODLCodeView';
 import clsx from 'clsx';
 
 /** A component card rendered on the canvas with a connection handle */
@@ -169,6 +170,8 @@ const Workspace: React.FC = () => {
     fetchProject,
     selectedComponentId,
     deleteComponent,
+    currentLayer,
+    currentSessionId,
   } = useAppStore();
   useEffect(() => {
     fetchProject();
@@ -219,6 +222,27 @@ const Workspace: React.FC = () => {
 
 
 
+  // Render ODL Code View for the ODL Code layer
+  const renderLayerContent = () => {
+    if (currentLayer === 'ODL Code') {
+      return (
+        <ODLCodeView sessionId={currentSessionId || ''} />
+      );
+    }
+
+    // Default canvas for other layers
+    return (
+      <>
+        <LinkLayer pendingLink={pendingLink} mousePos={mousePos} />
+        <CanvasArea
+          pendingLinkSourceId={pendingLink?.sourceId ?? null}
+          onStartLink={handleStartLink}
+          onEndLink={handleEndLink}
+        />
+      </>
+    );
+  };
+
   return (
     <div
       className="flex-grow h-full relative flex flex-col"
@@ -231,12 +255,7 @@ const Workspace: React.FC = () => {
         <SubAssemblyButton />
       </div>
       <div className="flex-grow relative">
-        <LinkLayer pendingLink={pendingLink} mousePos={mousePos} />
-        <CanvasArea
-          pendingLinkSourceId={pendingLink?.sourceId ?? null}
-          onStartLink={handleStartLink}
-          onEndLink={handleEndLink}
-        />
+        {renderLayerContent()}
       </div>
     </div>
   );

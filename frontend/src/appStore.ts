@@ -300,6 +300,13 @@ interface AppState {
   /** Update the current layer. */
   setCurrentLayer: (layer: string) => void;
 
+  /** Current ODL design session ID */
+  currentSessionId: string | null;
+  /** Set the current ODL session ID */
+  setCurrentSessionId: (sessionId: string | null) => void;
+  /** Create a new ODL session */
+  createODLSession: () => Promise<string | null>;
+
 
   /** Total cost of the current design, if estimated by the AI. */
   costTotal: number | null;
@@ -625,9 +632,44 @@ export const useAppStore = create<AppState>((set, get) => ({
     'High-Level Overview',
     'Civil/Structural',
     'Networking/Monitoring',
+    'ODL Code',
   ],
   currentLayer: 'Single-Line Diagram',
-  setCurrentLayer: (layer) => set({ currentLayer: layer }),
+  setCurrentLayer: (layer) => {
+    set({ currentLayer: layer });
+    
+    // If switching to ODL Code View, ensure we have a session
+    if (layer === 'ODL Code' && !get().currentSessionId) {
+      get().createODLSession();
+    }
+  },
+
+  // ODL session management
+  currentSessionId: null,
+  setCurrentSessionId: (sessionId) => set({ currentSessionId: sessionId }),
+  
+  createODLSession: async () => {
+    try {
+      const response = await fetch('/api/v1/odl/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to create ODL session');
+      }
+      
+      const data = await response.json();
+      get().setCurrentSessionId(data.session_id);
+      get().addStatusMessage('ODL session created', 'success');
+      return data.session_id;
+    } catch (error) {
+      console.error('Error creating ODL session:', error);
+      get().addStatusMessage('Failed to create ODL session', 'error');
+      return null;
+    }
+  },
 
   voiceMode: 'idle',
   isContinuousConversation: false,

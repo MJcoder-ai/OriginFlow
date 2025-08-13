@@ -1,64 +1,129 @@
-"""Structural agent for generating mounting hardware."""
+"""Structural design agent for mounting systems."""
 from __future__ import annotations
 
 from typing import Dict, List
-
-from backend.services.odl_graph_service import get_graph
-from backend.schemas.odl import ODLNode, ODLEdge, GraphPatch
+from backend.services import odl_graph_service
+from backend.services.placeholder_components import get_placeholder_service
+from backend.schemas.odl import ODLNode, ODLEdge
 
 
 class StructuralAgent:
-    """
-    Agent responsible for structural sizing. For each panel in the graph, this
-    agent adds a mount node with a placeholder load rating and a `mounted_on`
-    edge connecting the mount to the panel. Future versions should integrate
-    real engineering calculations.
-    """
-
+    """Agent responsible for structural design and mounting systems."""
+    
+    def __init__(self):
+        self.odl_graph_service = odl_graph_service
+        self.placeholder_service = get_placeholder_service()
+    
     async def execute(self, session_id: str, tid: str, **kwargs) -> Dict:
-        """
-        Perform structural sizing. Accepts `generate_structural` or `structural`
-        as task IDs. If no panels exist the task completes with no patch.
-        """
-        tid = tid.lower().strip()
-        if tid not in {"generate_structural", "structural"}:
-            return {
-                "card": {
-                    "title": "Structural design",
-                    "body": f"Unknown structural task '{tid}'.",
-                },
-                "patch": None,
-                "status": "pending",
+        """Execute structural design task."""
+        try:
+            if tid.lower().strip() not in {"generate_structural", "structural"}:
+                return {
+                    "card": {
+                        "title": "Structural design",
+                        "body": f"Unknown structural task '{tid}'.",
+                    },
+                    "patch": None,
+                    "status": "pending",
+                }
+            
+            graph = await self.odl_graph_service.get_graph(session_id)
+            if not graph:
+                return {
+                    "card": {"title": "Structural design", "body": "Session not found."},
+                    "patch": None,
+                    "status": "blocked",
+                }
+            
+            # Find panels that need mounting
+            panels = [(n, d) for n, d in graph.nodes(data=True) 
+                     if d.get("type") in ["panel", "generic_panel"]]
+            
+            if not panels:
+                return {
+                    "card": {
+                        "title": "Structural design",
+                        "body": "No panels found. Generate design first.",
+                    },
+                    "patch": None,
+                    "status": "blocked",
+                }
+            
+            # Check if mounts already exist
+            existing_mounts = [n for n, d in graph.nodes(data=True) 
+                             if d.get("type") in ["mount", "generic_mount"]]
+            
+            if existing_mounts:
+                return {
+                    "card": {
+                        "title": "Structural design", 
+                        "body": f"Mounting structure already exists ({len(existing_mounts)} mounts).",
+                    },
+                    "patch": None,
+                    "status": "complete",
+                }
+            
+            # Generate mounting for each panel
+            nodes = []
+            edges = []
+            
+            for i, (panel_id, panel_data) in enumerate(panels):
+                mount_id = f"mount_{panel_id}"
+                
+                # Create mount node (placeholder for now)
+                mount_node = self.placeholder_service.create_placeholder_node(
+                    node_id=mount_id,
+                    component_type="generic_mount",
+                    custom_attributes={
+                        "panels_supported": 1,
+                        "panel_reference": panel_id
+                    },
+                    layer=panel_data.get("layer", "structural")
+                )
+                nodes.append(ODLNode(**mount_node))
+                
+                # Connect panel to mount
+                edge = ODLEdge(
+                    source=mount_id,
+                    target=panel_id,
+                    data={"type": "mechanical", "connection": "mounted"},
+                    connection_type="mechanical"
+                )
+                edges.append(edge)
+            
+            patch = {
+                "add_nodes": [n.model_dump() for n in nodes],
+                "add_edges": [e.model_dump() for e in edges]
             }
-        graph = await get_graph(session_id)
-        if not graph:
-            return {
-                "card": {"title": "Structural design", "body": "Session not found."},
-                "patch": None,
-                "status": "pending",
+            
+            card = {
+                "title": "Structural design",
+                "body": f"Generated mounting structure for {len(panels)} panels.",
+                "confidence": 0.8,
+                "specs": [
+                    {"label": "Mounts Created", "value": str(len(panels)), "confidence": 0.8},
+                    {"label": "Mount Type", "value": "Generic placeholder", "confidence": 0.6}
+                ],
+                "actions": [
+                    {"label": "Accept Mounting", "command": "accept_structural", "variant": "primary", "icon": "check"},
+                    {"label": "Customize Mounts", "command": "customize_mounts", "variant": "secondary", "icon": "edit"}
+                ],
+                "warnings": ["Using generic mounting - upload mount datasheets for real components"],
+                "recommendations": ["Consider wind and snow loads for final design"]
             }
-        panel_nodes = [n for n, data in graph.nodes(data=True) if data.get("type") == "panel"]
-        if not panel_nodes:
+            
             return {
-                "card": {
-                    "title": "Structural design",
-                    "body": "No panels present; structural sizing skipped.",
-                },
-                "patch": None,
+                "card": card,
+                "patch": patch,
                 "status": "complete",
             }
-        add_nodes: List[ODLNode] = []
-        add_edges: List[ODLEdge] = []
-        for node_id in panel_nodes:
-            mount_id = f"mount_{node_id}"
-            add_nodes.append(ODLNode(id=mount_id, type="mount", data={"max_load_kN": 50.0}))
-            add_edges.append(ODLEdge(source=mount_id, target=node_id, data={"type": "mounted_on"}))
-        patch = GraphPatch(add_nodes=add_nodes, add_edges=add_edges).dict()
-        return {
-            "card": {
-                "title": "Structural design",
-                "body": f"Added {len(panel_nodes)} mount(s) for panels.",
-            },
-            "patch": patch,
-            "status": "complete",
-        }
+            
+        except Exception as e:
+            return {
+                "card": {
+                    "title": "Structural design",
+                    "body": f"Error generating structural design: {str(e)}",
+                },
+                "patch": None,
+                "status": "blocked",
+            }

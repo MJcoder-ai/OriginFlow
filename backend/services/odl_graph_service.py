@@ -342,3 +342,294 @@ def describe_graph(g: nx.DiGraph) -> str:
     
     return " | ".join(summary_parts)
 
+
+def serialize_to_text(graph: nx.DiGraph) -> str:
+    """Generate human-readable ODL text representation."""
+    lines = []
+    
+    try:
+        # Add header with metadata
+        lines.append("# OriginFlow ODL Design")
+        lines.append(f"# Version: {graph.graph.get('version', 1)}")
+        lines.append(f"# Nodes: {len(graph.nodes)}, Edges: {len(graph.edges)}")
+        lines.append("")
+        
+        # Add requirements section
+        requirements = graph.graph.get("requirements", {})
+        if requirements:
+            lines.append("# Requirements")
+            for key, value in requirements.items():
+                if value is not None and not key.startswith("estimated_"):
+                    if isinstance(value, list):
+                        value_str = ", ".join(str(v) for v in value)
+                    else:
+                        value_str = str(value)
+                    lines.append(f"requirement {key} = {value_str}")
+            lines.append("")
+        
+        # Add estimated values if available
+        estimated_fields = {k: v for k, v in requirements.items() if k.startswith("estimated_") and v is not None}
+        if estimated_fields:
+            lines.append("# Estimated Values")
+            for key, value in estimated_fields.items():
+                lines.append(f"{key} = {value}")
+            lines.append("")
+        
+        # Group nodes by layer and type
+        nodes_by_layer = {}
+        placeholder_nodes = []
+        real_nodes = []
+        
+        for node_id, node_data in graph.nodes(data=True):
+            layer = node_data.get("layer", "default")
+            if layer not in nodes_by_layer:
+                nodes_by_layer[layer] = []
+            nodes_by_layer[layer].append((node_id, node_data))
+            
+            # Track placeholder vs real components
+            if node_data.get("placeholder", False):
+                placeholder_nodes.append((node_id, node_data))
+            else:
+                real_nodes.append((node_id, node_data))
+        
+        # Add summary statistics
+        if placeholder_nodes or real_nodes:
+            lines.append("# Component Summary")
+            if real_nodes:
+                lines.append(f"# Real components: {len(real_nodes)}")
+            if placeholder_nodes:
+                lines.append(f"# Placeholder components: {len(placeholder_nodes)}")
+            lines.append("")
+        
+        # Add nodes by layer
+        for layer, nodes in sorted(nodes_by_layer.items()):
+            if layer != "default":
+                lines.append(f"# Layer: {layer}")
+            
+            # Group nodes by type within layer
+            nodes_by_type = {}
+            for node_id, node_data in nodes:
+                node_type = node_data.get("type", "unknown")
+                if node_type not in nodes_by_type:
+                    nodes_by_type[node_type] = []
+                nodes_by_type[node_type].append((node_id, node_data))
+            
+            # Output nodes by type
+            for node_type, type_nodes in sorted(nodes_by_type.items()):
+                for node_id, node_data in type_nodes:
+                    placeholder_flag = " [PLACEHOLDER]" if node_data.get("placeholder", False) else ""
+                    
+                    # Format node attributes (exclude system fields)
+                    attrs = []
+                    exclude_keys = {"type", "layer", "placeholder", "candidate_components", "replacement_history"}
+                    
+                    for key, value in node_data.items():
+                        if key not in exclude_keys and not key.startswith("_"):
+                            if isinstance(value, (int, float)):
+                                if key in ["power", "capacity"]:
+                                    attrs.append(f"{key}={value}W")
+                                elif key in ["voltage", "voltage_rating"]:
+                                    attrs.append(f"{key}={value}V")
+                                elif key in ["price", "cost"]:
+                                    attrs.append(f"{key}=${value}")
+                                else:
+                                    attrs.append(f"{key}={value}")
+                            elif isinstance(value, str) and value:
+                                attrs.append(f"{key}='{value}'")
+                    
+                    attr_str = f"({', '.join(attrs)})" if attrs else ""
+                    lines.append(f"{node_type} {node_id}{attr_str}{placeholder_flag}")
+                    
+                    # Add candidate components for placeholders
+                    candidates = node_data.get("candidate_components", [])
+                    if candidates:
+                        lines.append(f"  # Candidates: {', '.join(candidates[:3])}{'...' if len(candidates) > 3 else ''}")
+            
+            lines.append("")
+        
+        # Add edges/connections
+        if graph.edges:
+            lines.append("# Connections")
+            
+            # Group edges by type
+            edges_by_type = {}
+            for source, target, edge_data in graph.edges(data=True):
+                edge_type = edge_data.get("type", "connected")
+                if edge_type not in edges_by_type:
+                    edges_by_type[edge_type] = []
+                edges_by_type[edge_type].append((source, target, edge_data))
+            
+            # Output edges by type
+            for edge_type, type_edges in sorted(edges_by_type.items()):
+                if len(type_edges) > 1:
+                    lines.append(f"  # {edge_type.title()} connections:")
+                
+                for source, target, edge_data in type_edges:
+                    provisional_flag = " [PROVISIONAL]" if edge_data.get("provisional", False) else ""
+                    
+                    # Add connection attributes if any
+                    attrs = []
+                    exclude_keys = {"type", "provisional"}
+                    for key, value in edge_data.items():
+                        if key not in exclude_keys and not key.startswith("_"):
+                            if isinstance(value, (int, float)):
+                                attrs.append(f"{key}={value}")
+                            elif isinstance(value, str) and value:
+                                attrs.append(f"{key}='{value}'")
+                    
+                    attr_str = f" ({', '.join(attrs)})" if attrs else ""
+                    lines.append(f"  {source} --{edge_type}--> {target}{attr_str}{provisional_flag}")
+            
+            lines.append("")
+        
+        # Add design analysis
+        analysis = analyze_placeholder_status(graph)
+        if analysis["total_placeholders"] > 0:
+            lines.append("# Design Status")
+            lines.append(f"# Completion: {analysis['completion_percentage']:.1f}%")
+            lines.append(f"# Placeholders remaining: {analysis['total_placeholders']}")
+            
+            if analysis["blocking_issues"]:
+                lines.append("# Blocking Issues:")
+                for issue in analysis["blocking_issues"]:
+                    lines.append(f"#   - {issue}")
+            
+            lines.append("")
+    
+    except Exception as e:
+        # Fallback to basic representation if detailed parsing fails
+        lines = [
+            "# OriginFlow ODL Design",
+            f"# Error generating detailed view: {str(e)}",
+            "",
+            "# Basic Node List:",
+        ]
+        
+        for node_id, node_data in graph.nodes(data=True):
+            node_type = node_data.get("type", "unknown")
+            placeholder = " [PLACEHOLDER]" if node_data.get("placeholder", False) else ""
+            lines.append(f"{node_type} {node_id}{placeholder}")
+    
+    return "\n".join(lines)
+
+
+async def get_graph_with_text(session_id: str) -> Optional[Dict[str, Any]]:
+    """Get graph data including text representation."""
+    try:
+        graph = await get_graph(session_id)
+        if not graph:
+            return None
+        
+        # Convert to standard format
+        nodes = [{"id": n, "data": dict(graph.nodes[n]), "layer": graph.nodes[n].get("layer")} for n in graph.nodes]
+        edges = [{"source": u, "target": v, "data": dict(graph.edges[u, v])} for u, v in graph.edges]
+        
+        # Generate text representation
+        text_representation = serialize_to_text(graph)
+        
+        return {
+            "nodes": nodes,
+            "edges": edges,
+            "graph_data": dict(graph.graph),
+            "version": graph.graph.get("version", 1),
+            "text": text_representation,
+            "node_count": len(nodes),
+            "edge_count": len(edges),
+            "last_updated": graph.graph.get("last_updated")
+        }
+    
+    except Exception as e:
+        print(f"Error getting graph with text for session {session_id}: {e}")
+        return None
+
+
+def analyze_placeholder_status(graph: nx.DiGraph) -> Dict[str, Any]:
+    """Analyze placeholder component status in the graph."""
+    try:
+        # Count placeholders by type
+        placeholders_by_type = {}
+        total_placeholders = 0
+        total_components = 0
+        
+        for node_id, node_data in graph.nodes(data=True):
+            total_components += 1
+            if node_data.get("placeholder", False):
+                total_placeholders += 1
+                node_type = node_data.get("type", "unknown")
+                placeholders_by_type[node_type] = placeholders_by_type.get(node_type, 0) + 1
+        
+        # Calculate completion percentage
+        completion_percentage = 0.0
+        if total_components > 0:
+            real_components = total_components - total_placeholders
+            completion_percentage = (real_components / total_components) * 100
+        
+        # Identify blocking issues
+        blocking_issues = []
+        
+        # Check for common issues
+        requirements = graph.graph.get("requirements", {})
+        missing_reqs = [k for k in ["target_power", "roof_area", "budget"] if not requirements.get(k)]
+        if missing_reqs:
+            blocking_issues.append(f"Missing requirements: {', '.join(missing_reqs)}")
+        
+        # Check for placeholder types without available replacements
+        for placeholder_type in placeholders_by_type.keys():
+            # This would be enhanced with actual component availability check
+            if placeholder_type.startswith("generic_"):
+                real_type = placeholder_type.replace("generic_", "")
+                blocking_issues.append(f"Need {real_type} components in library")
+        
+        # Check for design connectivity issues
+        isolated_nodes = [n for n in graph.nodes() if graph.degree(n) == 0 and total_components > 1]
+        if isolated_nodes:
+            blocking_issues.append(f"{len(isolated_nodes)} isolated components")
+        
+        return {
+            "total_placeholders": total_placeholders,
+            "placeholders_by_type": placeholders_by_type,
+            "completion_percentage": completion_percentage,
+            "blocking_issues": blocking_issues,
+            "available_replacements": {},  # Would be populated by component service
+        }
+    
+    except Exception as e:
+        print(f"Error analyzing placeholder status: {e}")
+        return {
+            "total_placeholders": 0,
+            "placeholders_by_type": {},
+            "completion_percentage": 100.0,
+            "blocking_issues": [f"Analysis error: {str(e)}"],
+            "available_replacements": {},
+        }
+
+
+async def update_requirements(session_id: str, requirements: Dict[str, Any]) -> bool:
+    """Update design requirements for a session."""
+    try:
+        graph = await get_graph(session_id)
+        if not graph:
+            return False
+        
+        # Update requirements in graph
+        current_requirements = graph.graph.get("requirements", {})
+        current_requirements.update(requirements)
+        
+        # Add metadata
+        from datetime import datetime
+        current_requirements["last_updated"] = datetime.utcnow().isoformat()
+        
+        # Calculate completion status
+        required_fields = ["target_power", "roof_area", "budget"]
+        completed_fields = sum(1 for field in required_fields if current_requirements.get(field))
+        current_requirements["completion_status"] = completed_fields / len(required_fields)
+        
+        graph.graph["requirements"] = current_requirements
+        
+        # Save updated graph
+        await save_graph(session_id, graph)
+        return True
+    
+    except Exception as e:
+        print(f"Error updating requirements for session {session_id}: {e}")
+        return False

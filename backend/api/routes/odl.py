@@ -1,429 +1,342 @@
-"""ODL graph and planning routes."""
+"""ODL graph and session management API endpoints."""
 from __future__ import annotations
 
-from typing import List, Dict, Any
-from uuid import uuid4
+from typing import Dict, Any, List
+from fastapi import APIRouter, HTTPException, Depends, Body
+from pydantic import BaseModel
 
-from fastapi import APIRouter, HTTPException, Body
-
-from backend.schemas.ai import AiCommandRequest, PlanTask
+from backend.services import odl_graph_service
+from backend.agents.planner_agent import PlannerAgent
+from backend.agents.odl_domain_agents import PVDesignAgent
+from backend.agents.component_selector_agent import ComponentSelectorAgent
+from backend.agents.wiring_agent import WiringAgent
+from backend.agents.structural_agent import StructuralAgent
 from backend.schemas.odl import (
     ActOnTaskRequest, 
-    CreateSessionResponse, 
-    CreateSessionRequest, 
     GraphResponse,
-    RequirementsStatusResponse,
-    TaskExecutionResponse,
-    VersionDiffResponse,
-    VersionRevertRequest,
-    VersionRevertResponse
+    CreateSessionRequest,
+    CreateSessionResponse,
+    RequirementsUpdateRequest,
+    RequirementsUpdateResponse,
+    ComponentSelectionRequest,
+    ComponentSelectionResponse,
+    ODLTextResponse,
+    PlaceholderAnalysisResponse,
+    DesignRequirements
 )
-from backend.agents.planner_agent import PlannerAgent
-from backend.agents.registry import registry
-from backend.services import odl_graph_service
-from backend.services.component_db_service import ComponentDBService
+import uuid
+import time
+
 
 router = APIRouter(prefix="/odl", tags=["odl"])
 
-planner_agent = PlannerAgent()
-component_db_service = ComponentDBService()
-
 
 @router.post("/sessions", response_model=CreateSessionResponse)
-async def create_session(cmd: CreateSessionRequest | None = None) -> CreateSessionResponse:
-    """Create a new design session and initialise its graph.
-
-    Accepts an optional body; when a `session_id` is provided by the
-    frontend, reuse it to allow stable sessions across refreshes.
-    """
-    # Prefer client-provided id when present
-    provided_session_id = None
-    provided_session_id = getattr(cmd, "session_id", None) if cmd else None
-    session_id = provided_session_id or str(uuid4())
-    await odl_graph_service.create_graph(session_id)
-    return CreateSessionResponse(session_id=session_id)
-
-
-@router.get("/requirements/{session_id}/status", response_model=RequirementsStatusResponse)
-async def get_requirements_status(session_id: str) -> RequirementsStatusResponse:
-    """
-    Return the status of requirements and components for a session.
+async def create_session(request: CreateSessionRequest = Body(...)) -> CreateSessionResponse:
+    """Create a new ODL design session."""
+    try:
+        session_id = request.session_id or str(uuid.uuid4())
+        
+        # Create the graph
+        graph = await odl_graph_service.create_graph(session_id)
+        
+        if not graph:
+            raise HTTPException(status_code=500, detail="Failed to create session")
+        
+        return CreateSessionResponse(session_id=session_id)
     
-    This endpoint checks which requirement fields are missing (target_power, 
-    roof_area, budget) and whether necessary components (panels, inverters) 
-    exist in the component database. The frontend can use this information 
-    to decide when to show requirement forms or component upload widgets.
-    """
-    # Get the current graph
-    graph = await odl_graph_service.get_graph(session_id)
-    if not graph:
-        raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
-    
-    # Check requirements completeness
-    requirements = graph.graph.get("requirements", {})
-    required_fields = ["target_power", "roof_area", "budget"]
-    missing_requirements = [field for field in required_fields if not requirements.get(field)]
-    requirements_complete = len(missing_requirements) == 0
-    
-    # Check component availability
-    panel_available = await component_db_service.exists(category="panel")
-    inverter_available = await component_db_service.exists(category="inverter")
-    missing_components = []
-    if not panel_available:
-        missing_components.append("panel")
-    if not inverter_available:
-        missing_components.append("inverter")
-    components_available = len(missing_components) == 0
-    
-    # Determine if we can proceed with design generation
-    can_proceed = requirements_complete and components_available
-    
-    # Get graph summary using our new helper
-    graph_summary = odl_graph_service.describe_graph(graph)
-    
-    return RequirementsStatusResponse(
-        missing_requirements=missing_requirements,
-        missing_components=missing_components,
-        requirements_complete=requirements_complete,
-        components_available=components_available,
-        can_proceed=can_proceed,
-        graph_summary=graph_summary
-    )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating session: {str(e)}")
 
 
-@router.post("/{session_id}/plan", response_model=List[PlanTask])
-async def get_plan(session_id: str, cmd: AiCommandRequest) -> List[PlanTask]:
-    """
-    Return a dynamic list of tasks for this session.  The request may
-    include partial requirements (target power, roof area, budget) which are
-    saved on the graph.  The planner then inspects the graph and user
-    inputs to determine which tasks are needed.
-    """
-    requirements = getattr(cmd, "requirements", None)
-    if requirements:
-        graph = await odl_graph_service.get_graph(session_id)
-        graph.graph.setdefault("requirements", {}).update(requirements)
-        await odl_graph_service.save_graph(session_id, graph)
-    tasks = await planner_agent.plan(session_id, cmd.command, requirements=requirements)
-    return [PlanTask(**t) for t in tasks]
-
-
-@router.post("/{session_id}/act", response_model=GraphResponse)
-async def act_on_task(session_id: str, req: ActOnTaskRequest) -> GraphResponse:
-    """Execute a task on the current graph."""
-    task_id = req.task_id.lower().strip()
-    agent = registry.get_agent(task_id)
-    if agent:
-        result = await agent.execute(session_id, task_id)
-    else:
-        result = {
-            "card": {"title": "Unknown task", "body": f"Task {req.task_id} not supported."},
-            "patch": None,
-            "status": "error",
+@router.get("/sessions/{session_id}/plan")
+async def get_session_plan(session_id: str, command: str = "design system") -> Dict[str, Any]:
+    """Get the current planning state for a session."""
+    try:
+        planner = PlannerAgent()
+        tasks = await planner.plan(session_id, command)
+        
+        return {
+            "session_id": session_id,
+            "tasks": tasks,
+            "total_tasks": len(tasks),
+            "completed_tasks": len([t for t in tasks if t.get("status") == "complete"]),
+            "blocked_tasks": len([t for t in tasks if t.get("status") == "blocked"]),
+            "pending_tasks": len([t for t in tasks if t.get("status") == "pending"])
         }
-    patch = result.get("patch")
-    if patch:
-        graph = await odl_graph_service.get_graph(session_id)
-        patch_with_version = dict(patch)
-        # Prefer client-observed version for optimistic concurrency if provided
-        client_version = req.graph_version
-        patch_with_version["version"] = (
-            client_version if client_version is not None else graph.graph.get("version", 0)
-        )
-        success, error = await odl_graph_service.apply_patch(session_id, patch_with_version)
-        if not success:
-            raise HTTPException(status_code=409, detail=error)
-        # Load updated version to return
-        graph = await odl_graph_service.get_graph(session_id)
-        current_version = graph.graph.get("version", None)
-    else:
-        graph = await odl_graph_service.get_graph(session_id)
-        current_version = graph.graph.get("version", None)
-    return GraphResponse(
-        card=result["card"],
-        patch=patch,
-        status=result.get("status", "pending"),
-        version=current_version,
-    )
-
-
-@router.post("/{session_id}/act-enhanced", response_model=TaskExecutionResponse)
-async def act_on_task_enhanced(session_id: str, req: ActOnTaskRequest) -> TaskExecutionResponse:
-    """
-    Execute a task on the current graph with enhanced status tracking.
     
-    This enhanced version provides:
-    - Automatic plan refresh after task execution
-    - Next recommended task suggestion
-    - Execution time tracking
-    - Updated task list with current statuses
-    """
-    import time
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting plan: {str(e)}")
+
+
+@router.post("/sessions/{session_id}/act", response_model=GraphResponse)
+async def act_on_task(session_id: str, request: ActOnTaskRequest) -> GraphResponse:
+    """Execute a task from the dynamic plan."""
     start_time = time.time()
     
-    task_id = req.task_id.lower().strip()
-    agent = registry.get_agent(task_id)
-    
-    # Execute the task (same as original)
-    if agent:
-        result = await agent.execute(session_id, task_id)
-    else:
-        result = {
-            "card": {"title": "Unknown task", "body": f"Task {req.task_id} not supported."},
-            "patch": None,
-            "status": "error",
-        }
-    
-    # Apply patch if provided (same as original)
-    patch = result.get("patch")
-    if patch:
-        graph = await odl_graph_service.get_graph(session_id)
-        patch_with_version = dict(patch)
-        client_version = req.graph_version
-        patch_with_version["version"] = (
-            client_version if client_version is not None else graph.graph.get("version", 0)
-        )
-        success, error = await odl_graph_service.apply_patch(session_id, patch_with_version)
-        if not success:
-            raise HTTPException(status_code=409, detail=error)
-        # Load updated version to return
-        graph = await odl_graph_service.get_graph(session_id)
-        current_version = graph.graph.get("version", None)
-    else:
-        graph = await odl_graph_service.get_graph(session_id)
-        current_version = graph.graph.get("version", None)
-    
-    # Enhanced features: Refresh plan and suggest next task
-    updated_tasks = None
-    next_recommended_task = None
-    
-    if result.get("status") == "complete":
-        try:
-            # Refresh the plan after successful task completion
-            updated_tasks_raw = await planner_agent.plan(
-                session_id, "design system", requirements=graph.graph.get("requirements", {})
-            )
-            updated_tasks = updated_tasks_raw
+    try:
+        # Check for version conflicts
+        if request.graph_version is not None:
+            current_graph = await odl_graph_service.get_graph(session_id)
+            if current_graph:
+                current_version = current_graph.graph.get("version", 1)
+                
+                if request.graph_version != current_version:
+                    raise HTTPException(
+                        status_code=409, 
+                        detail=f"Version conflict: client has {request.graph_version}, server has {current_version}"
+                    )
+        
+        # Route task to appropriate agent
+        task_id = request.task_id.lower().strip()
+        
+        if task_id in ["gather_requirements", "generate_design", "refine_validate"]:
+            agent = PVDesignAgent()
+            result = await agent.execute(session_id, task_id, action=request.action)
             
-            # Find next pending task as recommendation
-            for task in updated_tasks_raw:
-                if task.get("status") == "pending":
-                    next_recommended_task = task.get("id")
-                    break
-                    
-        except Exception as e:
-            # Don't fail the whole request if plan refresh fails
-            print(f"Plan refresh failed: {e}")
-    
-    # Calculate execution time
-    execution_time_ms = int((time.time() - start_time) * 1000)
-    
-    return TaskExecutionResponse(
-        card=result["card"],
-        patch=patch,
-        status=result.get("status", "pending"),
-        version=current_version,
-        updated_tasks=updated_tasks,
-        next_recommended_task=next_recommended_task,
-        execution_time_ms=execution_time_ms
-    )
-
-
-@router.get("/versions/{session_id}/diff", response_model=VersionDiffResponse)
-async def get_version_diff(
-    session_id: str, 
-    from_version: int, 
-    to_version: int
-) -> VersionDiffResponse:
-    """
-    Get the differences between two versions of a session graph.
-    
-    This endpoint returns a summary of changes made between two versions,
-    useful for undo/redo functionality and change tracking.
-    
-    Args:
-        session_id: Session identifier
-        from_version: Starting version number
-        to_version: Ending version number
-        
-    Returns:
-        Detailed diff with change summary
-    """
-    # Validate session exists
-    graph = await odl_graph_service.get_graph(session_id)
-    if not graph:
-        raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
-    
-    current_version = graph.graph.get("version", 0)
-    
-    # Validate version numbers
-    if from_version < 0 or to_version < 0:
-        raise HTTPException(status_code=400, detail="Version numbers must be non-negative")
-    
-    if to_version > current_version:
-        raise HTTPException(status_code=400, detail=f"to_version {to_version} exceeds current version {current_version}")
-    
-    # Get patch differences
-    patches = odl_graph_service.get_patch_diff(session_id, from_version, to_version)
-    
-    if patches is None:
-        changes = []
-        summary = f"No changes between versions {from_version} and {to_version}"
-    else:
-        changes = patches
-        
-        # Generate summary
-        total_additions = sum(
-            len(patch.get("add_nodes", [])) + len(patch.get("add_edges", []))
-            for patch in patches
-        )
-        total_removals = sum(
-            len(patch.get("remove_nodes", [])) + len(patch.get("remove_edges", []))
-            for patch in patches
-        )
-        
-        summary_parts = []
-        if total_additions > 0:
-            summary_parts.append(f"{total_additions} addition{'s' if total_additions != 1 else ''}")
-        if total_removals > 0:
-            summary_parts.append(f"{total_removals} removal{'s' if total_removals != 1 else ''}")
-        
-        if summary_parts:
-            summary = f"Changes from v{from_version} to v{to_version}: {', '.join(summary_parts)}"
+        elif task_id == "generate_structural":
+            agent = StructuralAgent()
+            result = await agent.execute(session_id, task_id)
+            
+        elif task_id == "generate_wiring":
+            agent = WiringAgent()
+            result = await agent.execute(session_id, task_id)
+            
+        elif task_id == "populate_real_components":
+            agent = ComponentSelectorAgent()
+            result = await agent.execute(session_id, task_id)
+            
+        # Note: generate_battery and generate_monitoring would be implemented here
+        # when those agents are created
+            
         else:
-            summary = f"No net changes between versions {from_version} and {to_version}"
-    
-    return VersionDiffResponse(
-        from_version=from_version,
-        to_version=to_version,
-        changes=changes,
-        summary=summary
-    )
+            raise HTTPException(status_code=400, detail=f"Unknown task: {task_id}")
+        
+        # Apply patch if provided
+        if result.get("patch"):
+            try:
+                await odl_graph_service.apply_patch(session_id, result["patch"])
+                
+                # Update version in result
+                updated_graph = await odl_graph_service.get_graph(session_id)
+                if updated_graph:
+                    result["version"] = updated_graph.graph.get("version", 1)
+            except Exception as e:
+                print(f"Error applying patch: {e}")
+                # Continue with the response even if patch fails
+        
+        # Add execution time
+        execution_time = int((time.time() - start_time) * 1000)
+        result["execution_time_ms"] = execution_time
+        
+        # Add confidence scoring if not present
+        if "card" in result and "confidence" not in result["card"]:
+            try:
+                from backend.agents.learning_agent import LearningAgent
+                learning_agent = LearningAgent()
+                confidence = await learning_agent.score_action(f"{task_id}_{result.get('status', 'unknown')}")
+                result["card"]["confidence"] = confidence
+            except Exception:
+                result["card"]["confidence"] = 0.5  # Default confidence
+        
+        return GraphResponse(**result)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error executing task: {str(e)}")
 
 
-@router.post("/versions/{session_id}/revert", response_model=VersionRevertResponse)
-async def revert_to_version(
+@router.put("/sessions/{session_id}/requirements", response_model=RequirementsUpdateResponse)
+async def update_requirements(
     session_id: str, 
-    req: VersionRevertRequest
-) -> VersionRevertResponse:
-    """
-    Revert a session graph to a previous version.
-    
-    This endpoint implements the undo functionality by reverting the graph
-    to a specified earlier version. All patches after the target version
-    are discarded.
-    
-    Args:
-        session_id: Session identifier
-        req: Revert request with target version
+    request: RequirementsUpdateRequest
+) -> RequirementsUpdateResponse:
+    """Update design requirements for a session."""
+    try:
+        # Convert request to dict for the service
+        requirements_dict = request.requirements.model_dump(exclude_none=True)
         
-    Returns:
-        Success status and updated graph information
-    """
-    target_version = req.target_version
-    
-    # Validate session exists
-    graph = await odl_graph_service.get_graph(session_id)
-    if not graph:
-        raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
-    
-    current_version = graph.graph.get("version", 0)
-    
-    # Validate target version
-    if target_version < 0:
-        raise HTTPException(status_code=400, detail="Target version must be non-negative")
-    
-    if target_version > current_version:
-        raise HTTPException(status_code=400, detail=f"Target version {target_version} exceeds current version {current_version}")
-    
-    if target_version == current_version:
-        return VersionRevertResponse(
+        success = await odl_graph_service.update_requirements(session_id, requirements_dict)
+        
+        if not success:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Get updated requirements
+        graph = await odl_graph_service.get_graph(session_id)
+        updated_requirements = DesignRequirements(**graph.graph.get("requirements", {}))
+        
+        # Determine which tasks might be affected
+        affected_tasks = []
+        if requirements_dict.get("target_power"):
+            affected_tasks.extend(["generate_design", "generate_structural", "generate_wiring"])
+        if requirements_dict.get("backup_hours"):
+            affected_tasks.append("generate_battery")
+        if requirements_dict.get("budget"):
+            affected_tasks.extend(["generate_design", "populate_real_components"])
+        
+        return RequirementsUpdateResponse(
             success=True,
-            message=f"Already at version {target_version}",
-            current_version=current_version,
-            graph_summary=odl_graph_service.describe_graph(graph)
+            message="Requirements updated successfully",
+            updated_requirements=updated_requirements,
+            affected_tasks=affected_tasks
         )
-    
-    # Perform the revert
-    success = await odl_graph_service.revert_to_version(session_id, target_version)
-    
-    if not success:
-        raise HTTPException(status_code=500, detail=f"Failed to revert to version {target_version}")
-    
-    # Get updated graph for summary
-    updated_graph = await odl_graph_service.get_graph(session_id)
-    updated_version = updated_graph.graph.get("version", 0)
-    graph_summary = odl_graph_service.describe_graph(updated_graph)
-    
-    return VersionRevertResponse(
-        success=True,
-        message=f"Successfully reverted from version {current_version} to {updated_version}",
-        current_version=updated_version,
-        graph_summary=graph_summary
-    )
-
-
-@router.get("/registry/tasks")
-async def get_task_registry() -> Dict[str, Any]:
-    """
-    Get information about all registered tasks and agents.
-    
-    This endpoint provides comprehensive documentation about:
-    - Available tasks and their descriptions
-    - Domain categorization
-    - Task dependencies and prerequisites
-    - Agent capabilities
-    
-    Useful for frontend documentation and dynamic UI generation.
-    """
-    from backend.agents.registry import registry
-    
-    tasks = {}
-    
-    # Get all task information
-    for task_id in registry.available_tasks():
-        task_info = registry.get_task_info(task_id)
-        tasks[task_id] = task_info
-    
-    # Add domain and dependency information
-    domains = registry.get_all_domains()
-    dependency_map = registry.get_dependency_map()
-    
-    return {
-        "tasks": tasks,
-        "domains": domains,
-        "dependencies": dependency_map,
-        "task_count": len(tasks),
-        "domain_breakdown": {
-            domain: registry.get_tasks_by_domain(domain) 
-            for domain in domains
-        }
-    }
-
-
-@router.post("/registry/validate-sequence")
-async def validate_task_sequence(
-    task_sequence: List[str] = Body(..., embed=False)
-) -> Dict[str, Any]:
-    """
-    Validate a proposed task sequence for dependency violations.
-    
-    This endpoint helps validate task execution order and identifies
-    any missing prerequisites or circular dependencies.
-    
-    Args:
-        task_sequence: Ordered list of task IDs to validate
         
-    Returns:
-        Validation results with any errors or warnings
-    """
-    from backend.agents.registry import registry
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating requirements: {str(e)}")
+
+
+@router.get("/sessions/{session_id}/text", response_model=ODLTextResponse)
+async def get_odl_text(session_id: str) -> ODLTextResponse:
+    """Get ODL text representation of the graph."""
+    try:
+        graph_data = await odl_graph_service.get_graph_with_text(session_id)
+        if not graph_data:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        return ODLTextResponse(
+            text=graph_data["text"],
+            version=graph_data["version"],
+            last_updated=graph_data.get("last_updated"),
+            node_count=graph_data["node_count"],
+            edge_count=graph_data["edge_count"]
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting ODL text: {str(e)}")
+
+
+@router.get("/sessions/{session_id}/analysis", response_model=PlaceholderAnalysisResponse)
+async def analyze_placeholders(session_id: str) -> PlaceholderAnalysisResponse:
+    """Get placeholder analysis for the session."""
+    try:
+        graph = await odl_graph_service.get_graph(session_id)
+        if not graph:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        analysis = odl_graph_service.analyze_placeholder_status(graph)
+        
+        # TODO: Enhance with actual component availability checking
+        # For now, return the basic analysis
+        return PlaceholderAnalysisResponse(**analysis)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error analyzing placeholders: {str(e)}")
+
+
+@router.post("/sessions/{session_id}/select-component", response_model=ComponentSelectionResponse)
+async def select_component(
+    session_id: str,
+    request: ComponentSelectionRequest
+) -> ComponentSelectionResponse:
+    """Replace a placeholder component with a real component."""
+    try:
+        component_selector = ComponentSelectorAgent()
+        
+        result = await component_selector.replace_placeholder(
+            session_id, request.placeholder_id, request.component
+        )
+        
+        # Apply the patch if one was generated
+        if result.get("patch"):
+            await odl_graph_service.apply_patch(session_id, result["patch"])
+        
+        # Get updated design summary
+        graph = await odl_graph_service.get_graph(session_id)
+        design_summary = odl_graph_service.describe_graph(graph) if graph else "No design"
+        
+        return ComponentSelectionResponse(
+            success=result.get("status") == "complete",
+            message=result.get("card", {}).get("body", "Component selected"),
+            replaced_nodes=[request.placeholder_id] if result.get("status") == "complete" else [],
+            patch=result.get("patch", {}),
+            updated_design_summary=design_summary
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error selecting component: {str(e)}")
+
+
+@router.get("/sessions/{session_id}/versions")
+async def list_versions(session_id: str) -> Dict[str, Any]:
+    """List all versions for a session."""
+    try:
+        versions = await odl_graph_service.list_versions(session_id)
+        return {
+            "session_id": session_id,
+            "versions": versions,
+            "total_versions": len(versions)
+        }
     
-    errors = registry.validate_task_sequence(task_sequence)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error listing versions: {str(e)}")
+
+
+@router.post("/sessions/{session_id}/revert")
+async def revert_version(session_id: str, target_version: int) -> Dict[str, Any]:
+    """Revert to a specific version."""
+    try:
+        success = await odl_graph_service.revert_to_version(session_id, target_version)
+        
+        if not success:
+            raise HTTPException(status_code=400, detail="Failed to revert to version")
+        
+        # Get updated graph info
+        graph = await odl_graph_service.get_graph(session_id)
+        current_version = graph.graph.get("version", 1) if graph else 1
+        graph_summary = odl_graph_service.describe_graph(graph) if graph else "Empty design"
+        
+        return {
+            "success": True,
+            "message": f"Reverted to version {target_version}",
+            "current_version": current_version,
+            "graph_summary": graph_summary
+        }
     
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reverting version: {str(e)}")
+
+
+@router.get("/agents")
+async def list_agents() -> Dict[str, Any]:
+    """List available agents and their supported tasks."""
     return {
-        "valid": len(errors) == 0,
-        "errors": errors,
-        "task_sequence": task_sequence,
-        "suggestion": "Fix dependency violations before executing tasks" if errors else "Task sequence is valid"
+        "agents": {
+            "PVDesignAgent": {
+                "tasks": ["gather_requirements", "generate_design", "refine_validate"],
+                "description": "Photovoltaic system design agent"
+            },
+            "ComponentSelectorAgent": {
+                "tasks": ["populate_real_components"],
+                "description": "Component selection and placeholder replacement"
+            },
+            "StructuralAgent": {
+                "tasks": ["generate_structural"],
+                "description": "Structural design and mounting systems"
+            },
+            "WiringAgent": {
+                "tasks": ["generate_wiring"],
+                "description": "Electrical wiring and protection devices"
+            },
+            "PlannerAgent": {
+                "tasks": ["plan"],
+                "description": "Dynamic task planning and orchestration"
+            }
+        },
+        "task_types": [
+            "gather_requirements",
+            "generate_design", 
+            "generate_structural",
+            "generate_wiring",
+            "populate_real_components",
+            "refine_validate"
+        ]
     }

@@ -8,14 +8,19 @@ from typing import Dict, List, Optional
 from backend.services import odl_graph_service
 from backend.services.component_db_service import ComponentDBService
 from backend.services.ai_clients import get_openai_client
+from backend.services.placeholder_components import get_placeholder_service
+from collections import Counter
 
 # Human-readable titles for plan tasks.  Defaults to a prettified version of the
 # task id when a mapping is not provided.
 TASK_TITLES: Dict[str, str] = {
     "gather_requirements": "Gather requirements",
     "generate_design": "Generate design",
-    "generate_structural": "Generate structural design",
+    "generate_structural": "Generate structural design", 
     "generate_wiring": "Generate wiring",
+    "populate_real_components": "Select real components",
+    "generate_battery": "Design battery system",
+    "generate_monitoring": "Add monitoring system",
     "refine_validate": "Refine and validate",
 }
 
@@ -27,6 +32,7 @@ class PlannerAgent:
         self.odl_graph_service = odl_graph_service
         self.component_db_service = ComponentDBService()
         self.openai_client = get_openai_client()
+        self.placeholder_service = get_placeholder_service()
 
     async def plan(
         self, session_id: str, command: str, *, requirements: Optional[Dict] = None
@@ -67,29 +73,21 @@ class PlannerAgent:
             # If no graph exists, create one
             graph = await self.odl_graph_service.create_graph(session_id)
 
-        # Enhanced graph state analysis
-        has_panels = any(d.get("type") == "panel" for _, d in graph.nodes(data=True))
-        has_inverters = any(d.get("type") == "inverter" for _, d in graph.nodes(data=True))
-        has_mounts = any(d.get("type") == "mount" for _, d in graph.nodes(data=True))
-        has_wiring = any(d.get("type") in {"cable", "fuse"} for _, d in graph.nodes(data=True))
+        # Enhanced graph state analysis with placeholder support
+        state = await self._analyze_graph_state(graph)
         
-        # Count existing components for better decision making
-        panel_count = len([d for _, d in graph.nodes(data=True) if d.get("type") == "panel"])
-        inverter_count = len([d for _, d in graph.nodes(data=True) if d.get("type") == "inverter"])
-        
-        # Check requirements completeness
-        reqs = graph.graph.get("requirements", {})
-        required_fields = ["target_power", "roof_area", "budget"]
-        missing_requirements = [k for k in required_fields if not reqs.get(k)]
-        requirements_complete = len(missing_requirements) == 0
-        
-        # Enhanced component availability checking
-        panel_available = await self.component_db_service.exists(category="panel")
-        inverter_available = await self.component_db_service.exists(category="inverter")
-        components_available = panel_available and inverter_available
-        
-        # Check if we have a complete preliminary design
-        has_preliminary_design = has_panels and has_inverters
+        # Extract commonly used values
+        has_panels = state["has_panels"]
+        has_inverters = state["has_inverters"] 
+        has_mounts = state["has_mounts"]
+        has_wiring = state["has_wiring"]
+        panel_count = state["panel_count"]
+        inverter_count = state["inverter_count"]
+        requirements_complete = state["requirements_complete"]
+        components_available = state["components_available"]
+        has_preliminary_design = state["has_preliminary_design"]
+        missing_requirements = state["missing_requirements"]
+        reqs = state["requirements"]
 
         # Estimate component counts when we have requirements.  The values are
         # stored back onto the graph so downstream agents can rely on them.  Any
@@ -136,15 +134,15 @@ class PlannerAgent:
         # Build dynamic task list based on current state
         tasks: List[Dict[str, str]] = []
 
-        # Phase 1: Gather Requirements (blocked if inputs/components missing)
-        if not requirements_complete or not components_available:
-            missing_items: List[str] = []
+        # Phase 1: Gather Requirements (blocked if inputs/components missing for real design)
+        if not requirements_complete or (not components_available and not state["allow_placeholder_design"]):
+            missing_items = []
             if missing_requirements:
                 missing_items.extend(missing_requirements)
-            if not components_available:
-                if not panel_available:
+            if not components_available and not state["allow_placeholder_design"]:
+                if not state["panel_available"]:
                     missing_items.append("panel datasheet")
-                if not inverter_available:
+                if not state["inverter_available"]:
                     missing_items.append("inverter datasheet")
 
             tasks.append({
@@ -152,20 +150,24 @@ class PlannerAgent:
                 "status": "blocked",
                 "reason": f"Missing: {', '.join(missing_items)}",
                 "missing_requirements": missing_requirements,
-                "missing_components": [] if components_available else ["panel", "inverter"]
+                "missing_components": [] if components_available else ["panel", "inverter"],
+                "can_use_placeholders": state["allow_placeholder_design"]
             })
 
         # Phase 2: Generate Design (only if no preliminary design exists)
         if not has_preliminary_design:
-            if requirements_complete and components_available:
+            if requirements_complete and (components_available or state["allow_placeholder_design"]):
                 design_status = "pending"
-                design_reason = "Ready to generate preliminary design"
+                if components_available:
+                    design_reason = "Ready to generate design with real components"
+                else:
+                    design_reason = "Ready to generate placeholder design"
             else:
                 design_status = "blocked"
                 blockers = []
                 if not requirements_complete:
                     blockers.append("requirements incomplete")
-                if not components_available:
+                if not components_available and not state["allow_placeholder_design"]:
                     blockers.append("components unavailable")
                 design_reason = f"Blocked by: {', '.join(blockers)}"
             
@@ -174,7 +176,20 @@ class PlannerAgent:
                 "status": design_status,
                 "reason": design_reason,
                 "estimated_panels": panel_count if panel_count > 0 else reqs.get("panel_count_estimate", 1),
-                "estimated_inverters": inverter_count if inverter_count > 0 else reqs.get("inverter_count_estimate", 1)
+                "estimated_inverters": inverter_count if inverter_count > 0 else reqs.get("inverter_count_estimate", 1),
+                "design_type": "real" if components_available else "placeholder"
+            })
+
+        # NEW: Phase 2.5: Populate Real Components (only if placeholders exist and real components available)
+        if state["has_placeholders"] and state["components_available"]:
+            placeholder_summary = self._create_placeholder_summary(state["placeholders_by_type"])
+            tasks.append({
+                "id": "populate_real_components",
+                "status": "pending",
+                "reason": f"Replace {state['total_placeholders']} placeholder component(s)",
+                "placeholder_summary": placeholder_summary,
+                "estimated_selections": state["total_placeholders"],
+                "available_replacements": state.get("available_replacement_count", 0)
             })
 
         # Phase 3: Structural Design (only after preliminary design exists)
@@ -193,6 +208,24 @@ class PlannerAgent:
                 "reason": f"Generate wiring between {panel_count} panel{'s' if panel_count != 1 else ''} and {inverter_count} inverter{'s' if inverter_count != 1 else ''}"
             })
 
+        # NEW: Phase 4.5: Domain-specific tasks
+        if has_preliminary_design and self._should_add_battery_design(reqs, state):
+            tasks.append({
+                "id": "generate_battery",
+                "status": "pending",
+                "reason": f"Design battery system for {reqs.get('backup_hours', 8)} hours backup",
+                "backup_hours": reqs.get("backup_hours", 8),
+                "estimated_capacity": self._estimate_battery_capacity(reqs)
+            })
+
+        if has_preliminary_design and self._should_add_monitoring(reqs, state):
+            tasks.append({
+                "id": "generate_monitoring",
+                "status": "pending", 
+                "reason": "Add system monitoring and data collection",
+                "monitoring_type": "basic"
+            })
+
         # Phase 5: Refine and Validate (always appended)
         validation_status = "pending"
         completion_items: List[str] = []
@@ -200,13 +233,17 @@ class PlannerAgent:
             completion_items.append("structural")
         if has_wiring:
             completion_items.append("wiring")
+        if state.get("has_batteries", False):
+            completion_items.append("battery")
+        if state.get("has_monitoring", False):
+            completion_items.append("monitoring")
 
         if has_preliminary_design:
             if completion_items:
                 validation_reason = f"Validate design with {', '.join(completion_items)}"
             else:
                 validation_reason = "Validate preliminary design"
-            design_completeness = len(completion_items) / 2.0
+            design_completeness = len(completion_items) / 4.0  # Updated for new domains
         else:
             validation_reason = "Awaiting preliminary design"
             design_completeness = 0.0
@@ -216,6 +253,7 @@ class PlannerAgent:
             "status": validation_status,
             "reason": validation_reason,
             "design_completeness": design_completeness,
+            "placeholder_percentage": state.get("placeholder_percentage", 0.0)
         })
 
         # Enhance all tasks with titles and context
@@ -374,3 +412,145 @@ Return a JSON array of tasks with reasoning for each decision."""
             return None
         
         return None
+
+    async def _analyze_graph_state(self, graph) -> Dict[str, Any]:
+        """Enhanced graph state analysis including placeholder detection."""
+        try:
+            nodes = {n: d for n, d in graph.nodes(data=True)}
+            
+            # Basic component analysis
+            has_panels = any(d.get("type") in ["panel", "generic_panel"] for d in nodes.values())
+            has_inverters = any(d.get("type") in ["inverter", "generic_inverter"] for d in nodes.values())
+            has_mounts = any(d.get("type") in ["mount", "generic_mount"] for d in nodes.values())
+            has_wiring = any(d.get("type") in ["cable", "fuse", "generic_cable", "generic_fuse"] for d in nodes.values())
+            has_batteries = any(d.get("type") in ["battery", "generic_battery"] for d in nodes.values())
+            has_monitoring = any(d.get("type") in ["monitoring", "generic_monitoring"] for d in nodes.values())
+            
+            # Count components
+            panel_count = len([d for d in nodes.values() if d.get("type") in ["panel", "generic_panel"]])
+            inverter_count = len([d for d in nodes.values() if d.get("type") in ["inverter", "generic_inverter"]])
+            
+            # Placeholder analysis
+            placeholder_nodes = {n: d for n, d in nodes.items() if d.get("placeholder", False)}
+            real_nodes = {n: d for n, d in nodes.items() if not d.get("placeholder", False)}
+            
+            has_placeholders = len(placeholder_nodes) > 0
+            placeholders_by_type = Counter(d.get("type") for d in placeholder_nodes.values())
+            
+            placeholder_percentage = 0.0
+            if len(nodes) > 0:
+                placeholder_percentage = len(placeholder_nodes) / len(nodes) * 100
+            
+            # Requirements analysis
+            requirements = graph.graph.get("requirements", {})
+            required_fields = ["target_power", "roof_area", "budget"]
+            missing_requirements = [k for k in required_fields if not requirements.get(k)]
+            requirements_complete = len(missing_requirements) == 0
+            
+            # Component availability analysis
+            panel_available = await self.component_db_service.exists(category="panel")
+            inverter_available = await self.component_db_service.exists(category="inverter")
+            components_available = panel_available and inverter_available
+            
+            # Determine if placeholder design is allowed (when requirements complete but no real components)
+            allow_placeholder_design = requirements_complete and not components_available
+            
+            # Count available replacements for each placeholder type
+            available_replacement_count = 0
+            if has_placeholders:
+                for placeholder_type in placeholders_by_type.keys():
+                    if placeholder_type.startswith("generic_"):
+                        real_type = placeholder_type.replace("generic_", "")
+                        try:
+                            replacements = await self.component_db_service.search(category=real_type)
+                            available_replacement_count += len(replacements)
+                        except Exception:
+                            pass
+            
+            return {
+                "has_panels": has_panels,
+                "has_inverters": has_inverters,
+                "has_mounts": has_mounts,
+                "has_wiring": has_wiring,
+                "has_batteries": has_batteries,
+                "has_monitoring": has_monitoring,
+                "panel_count": panel_count,
+                "inverter_count": inverter_count,
+                "has_preliminary_design": has_panels and has_inverters,
+                "has_placeholders": has_placeholders,
+                "placeholders_by_type": dict(placeholders_by_type),
+                "total_placeholders": len(placeholder_nodes),
+                "placeholder_percentage": placeholder_percentage,
+                "real_component_count": len(real_nodes),
+                "requirements": requirements,
+                "missing_requirements": missing_requirements,
+                "requirements_complete": requirements_complete,
+                "panel_available": panel_available,
+                "inverter_available": inverter_available,
+                "components_available": components_available,
+                "allow_placeholder_design": allow_placeholder_design,
+                "available_replacement_count": available_replacement_count,
+            }
+        
+        except Exception as e:
+            print(f"Error analyzing graph state: {e}")
+            # Return safe defaults
+            return {
+                "has_panels": False,
+                "has_inverters": False,
+                "has_mounts": False,
+                "has_wiring": False,
+                "has_batteries": False,
+                "has_monitoring": False,
+                "panel_count": 0,
+                "inverter_count": 0,
+                "has_preliminary_design": False,
+                "has_placeholders": False,
+                "placeholders_by_type": {},
+                "total_placeholders": 0,
+                "placeholder_percentage": 0.0,
+                "real_component_count": 0,
+                "requirements": {},
+                "missing_requirements": ["target_power", "roof_area", "budget"],
+                "requirements_complete": False,
+                "panel_available": False,
+                "inverter_available": False,
+                "components_available": False,
+                "allow_placeholder_design": False,
+                "available_replacement_count": 0,
+            }
+
+    def _create_placeholder_summary(self, placeholders_by_type: Dict[str, int]) -> str:
+        """Create human-readable summary of placeholder components."""
+        if not placeholders_by_type:
+            return "no placeholders"
+        
+        parts = []
+        for ptype, count in placeholders_by_type.items():
+            display_type = ptype.replace("generic_", "").replace("_", " ")
+            parts.append(f"{count} {display_type}{'s' if count != 1 else ''}")
+        
+        return ", ".join(parts)
+
+    def _should_add_battery_design(self, requirements: Dict[str, Any], state: Dict[str, Any]) -> bool:
+        """Determine if battery design task should be added."""
+        # Add battery design if backup hours specified and no batteries exist
+        backup_hours = requirements.get("backup_hours", 0)
+        return backup_hours > 0 and not state.get("has_batteries", False)
+
+    def _should_add_monitoring(self, requirements: Dict[str, Any], state: Dict[str, Any]) -> bool:
+        """Determine if monitoring system task should be added."""
+        # Add monitoring for systems above 1kW and no monitoring exists
+        target_power = requirements.get("target_power", 0)
+        return target_power > 1000 and not state.get("has_monitoring", False)
+
+    def _estimate_battery_capacity(self, requirements: Dict[str, Any]) -> float:
+        """Estimate required battery capacity in kWh."""
+        target_power = requirements.get("target_power", 0)
+        backup_hours = requirements.get("backup_hours", 8)
+        
+        if target_power > 0 and backup_hours > 0:
+            # Rough estimate: power * hours / 1000 (W to kW)
+            return (target_power * backup_hours) / 1000
+        
+        return 10.0  # Default 10kWh

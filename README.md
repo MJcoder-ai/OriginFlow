@@ -8,34 +8,54 @@
 
 OriginFlow is a browser-based, AI-powered design environment that converts rough engineering sketches and customer inputs into standards-compliant schematics and bills-of-materials. It supports both engineers and non-technical users, offering features like drag-and-drop datasheets, AI auto-completion, and real-time compliance checks.
 
-Recent updates introduce:
-  - A persistent graph service with patch/version history and undo/redo support.
-  - A dynamic planner that emits tasks based on session state and skips completed design steps.
-  - Separate structural and wiring tasks dispatched through a new agent registry.
-  - API routes to update requirements, list available tasks and versions, and revert changes. Clients should include the current graph version in act calls to avoid conflicts.
+Recent updates introduce a **Multi-Domain Platform** with placeholder component support:
+  - **Placeholder Component System**: Start designing with generic components before real datasheets are available
+  - **Enhanced Dynamic Planner**: Placeholder-aware task generation with multi-domain support (PV, battery, monitoring)
+  - **Component Selector Agent**: Intelligent replacement of placeholders with real parts based on requirements
+  - **ODL Code View**: Live textual representation of designs with real-time updates
+  - **Requirements Management**: Comprehensive form-based requirement collection and validation
+  - **Version Control**: Complete graph versioning with patch history and revert capabilities
+  - **Enhanced APIs**: 15+ new endpoints for ODL session management, component selection, and analysis
 
 ### Planner and Domain Agents
 
-OriginFlow now includes a **dynamic planner** that inspects the current
-graph and stored requirements before deciding which tasks are needed. The planner may:
+OriginFlow now includes an **enhanced dynamic planner** that provides placeholder-aware task generation and multi-domain support. The planner analyzes graph state and generates contextual tasks:
 
-1. Emit a `gather_requirements` task (blocked) when inputs such as target power, roof area or budget are missing.
-2. Add `generate_design` only if no panel or inverter nodes exist.
-3. Add `generate_structural` when mounts are absent for existing panels.
-4. Add `generate_wiring` when electrical links lack cables and protection.
-5. Always include `refine_validate` as a final optimisation step.
+**Core Tasks:**
+1. `gather_requirements` – Collect design requirements (with placeholder design option)
+2. `generate_design` – Create PV design using real components or placeholders
+3. `generate_structural` – Add mounting systems (placeholder or real)
+4. `generate_wiring` – Add cables and protection devices
+5. `populate_real_components` – Replace placeholders with real components
 
-Agents handle specific domains:
+**Domain-Specific Tasks:**
+6. `generate_battery` – Design battery storage systems
+7. `generate_monitoring` – Add system monitoring capabilities
+8. `refine_validate` – Final optimization and validation
 
-* **PVDesignAgent** – sizes arrays, selects components and provides the gather and design steps.
-* **StructuralAgent** – adds mounts for each panel with placeholder load ratings.
-* **WiringAgent** – inserts cables and fuses for each electrical edge.
+**Enhanced Domain Agents:**
 
-Each agent returns a `GraphPatch` plus a design card summarising the changes.
+* **PVDesignAgent** – Generates placeholder or real component designs based on availability
+* **ComponentSelectorAgent** – Finds and ranks real components to replace placeholders
+* **StructuralAgent** – Creates mounting systems with placeholder support
+* **WiringAgent** – Designs electrical connections using placeholders or real components
 
-### 🚀 **Current Status: Phase 1 MVP**
+**Key Workflow Innovation:**
+- Start designing immediately with placeholder components
+- Gradually replace placeholders as real component data becomes available
+- Maintain design connectivity throughout the iterative process
+- Support for mixed designs (real + placeholder components)
+
+Each agent returns enhanced design cards with confidence scores, specifications, interactive actions, warnings, and recommendations.
+
+### 🚀 **Current Status: Multi-Domain Platform (Phase 1 Complete)**
 - ✅ **Core Design Platform**: Fully functional canvas, components, AI chat interface
-- ✅ **18 AI Agents**: Basic design, wiring, performance, financial, and support agents  
+- ✅ **20+ AI Agents**: PV design, component selection, structural, wiring, and domain agents  
+- ✅ **Placeholder Component System**: 7 generic component types with intelligent replacement
+- ✅ **Enhanced Dynamic Planner**: Context-aware task generation with multi-domain support
+- ✅ **ODL Code View**: Live textual design representation with real-time updates
+- ✅ **Requirements Management**: Comprehensive form-based requirement collection
+- ✅ **Component Selection**: Intelligent candidate finding and ranking system
 - ✅ **Learning System**: Confidence-driven autonomy with vector-based memory
 - ✅ **Production Ready**: SQLite/PostgreSQL, robust error handling, type safety
 

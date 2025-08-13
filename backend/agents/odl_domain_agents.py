@@ -7,6 +7,10 @@ from uuid import uuid4
 from backend.services.component_db_service import ComponentDBService
 from backend.services import odl_graph_service
 from backend.services.learning_agent_service import LearningAgentService
+from backend.services.placeholder_components import get_placeholder_service
+from backend.schemas.odl import ODLNode, ODLEdge
+import math
+from datetime import datetime
 
 
 class PVDesignAgent:
@@ -24,6 +28,7 @@ class PVDesignAgent:
         self.component_db_service = ComponentDBService()
         self.odl_graph_service = odl_graph_service
         self.learning_agent = LearningAgentService()
+        self.placeholder_service = get_placeholder_service()
 
     async def execute(self, session_id: str, tid: str, **kwargs) -> Dict:
         task = tid.lower().strip()
@@ -136,205 +141,390 @@ class PVDesignAgent:
         }
 
     async def _generate_design(self, session_id: str, **kwargs) -> Dict:
-        """Generate a preliminary PV design.
-
-        If the requirements include a ``target_power`` value the array is sized
-        to meet that output by selecting one panel model and enough inverters to
-        handle the total capacity.  When no target is provided the agent falls
-        back to a legacy single‑string design consisting of one panel and one
-        inverter.  All created components are returned as a patch along with a
-        human‑readable design summary and confidence score from the learning
-        agent.
+        """Enhanced design generation with placeholder support.
+        
+        This method can generate designs using either real components from the 
+        database or placeholder components when real ones aren't available.
         """
-        g = await self.odl_graph_service.get_graph(session_id)
-        has_panel = any(data.get("type") == "panel" for _, data in g.nodes(data=True))
-        has_inverter = any(data.get("type") == "inverter" for _, data in g.nodes(data=True))
-        if has_panel and has_inverter:
+        try:
+            g = await self.odl_graph_service.get_graph(session_id)
+            
+            # Check if any design already exists (real or placeholder)
+            has_panel = any(data.get("type") in ["panel", "generic_panel"] for _, data in g.nodes(data=True))
+            has_inverter = any(data.get("type") in ["inverter", "generic_inverter"] for _, data in g.nodes(data=True))
+            
+            if has_panel and has_inverter:
+                return {
+                    "card": {
+                        "title": "Generate design",
+                        "body": "A preliminary design already exists. Proceed to refinement.",
+                    },
+                    "patch": None,
+                    "status": "complete",
+                }
+            
+            requirements = g.graph.get("requirements", {})
+            target_power = requirements.get("target_power")
+            
+            # Check component availability
+            panels_available = await self.component_db_service.search(category="panel")
+            inverters_available = await self.component_db_service.search(category="inverter")
+            
+            components_available = bool(panels_available and inverters_available)
+            
+            # Decide whether to use real or placeholder components
+            if components_available:
+                return await self._generate_real_component_design(session_id, target_power, requirements, panels_available, inverters_available)
+            else:
+                return await self._generate_placeholder_design(session_id, target_power, requirements)
+                
+        except Exception as e:
             return {
                 "card": {
                     "title": "Generate design",
-                    "body": "A preliminary design already exists.  Proceed to refinement.",
-                },
-                "patch": None,
-                "status": "complete",
-            }
-        req = g.graph.get("requirements", {})
-        target_power = req.get("target_power")
-
-        # Retrieve components up front so we can fall back to a simple design if no
-        # target power was provided.  Missing components still block the task.
-        panels = await self.component_db_service.search(category="panel")
-        inverters = await self.component_db_service.search(category="inverter")
-        if not panels or not inverters:
-            return {
-                "card": {
-                    "title": "Generate design",
-                    "body": "No components available. Please upload panel and inverter datasheets.",
+                    "body": f"Error generating design: {str(e)}",
                 },
                 "patch": None,
                 "status": "blocked",
             }
 
-        # Select the most power‑dense panel as a reasonable default choice.  This
-        # is reused for both the dynamic sizing path and the legacy fallback.
-        chosen_panel = max(
-            panels, key=lambda p: (p["power"] / max(p.get("price", 1.0), 0.01))
-        )
+    async def _generate_placeholder_design(self, session_id: str, target_power: float, requirements: Dict) -> Dict:
+        """Generate design using placeholder components."""
+        try:
+            # Get placeholder component definitions
+            panel_placeholder = self.placeholder_service.get_placeholder_type("generic_panel")
+            inverter_placeholder = self.placeholder_service.get_placeholder_type("generic_inverter")
+            
+            if not panel_placeholder or not inverter_placeholder:
+                return {
+                    "card": {
+                        "title": "Generate design",
+                        "body": "Placeholder components not available.",
+                    },
+                    "patch": None,
+                    "status": "blocked",
+                }
+            
+            # Calculate component counts using placeholder defaults
+            default_panel_power = panel_placeholder.default_attributes["power"]
+            default_inverter_capacity = inverter_placeholder.default_attributes["capacity"]
+            
+            if target_power and target_power > 0:
+                panel_count = max(1, math.ceil(target_power / default_panel_power))
+                total_panel_power = panel_count * default_panel_power
+                inverter_count = max(1, math.ceil(total_panel_power / default_inverter_capacity))
+            else:
+                panel_count = 1
+                inverter_count = 1
+                total_panel_power = default_panel_power
+            
+            # Apply constraints from requirements
+            roof_area = requirements.get("roof_area", 0)
+            if roof_area > 0:
+                panel_area = panel_placeholder.default_attributes.get("area", 2.0)
+                max_panels = int(roof_area / panel_area)
+                panel_count = min(panel_count, max_panels)
+                total_panel_power = panel_count * default_panel_power
+                inverter_count = max(1, math.ceil(total_panel_power / default_inverter_capacity))
+            
+            budget = requirements.get("budget", 0)
+            if budget > 0:
+                panel_price = panel_placeholder.default_attributes.get("price", 250)
+                inverter_price = inverter_placeholder.default_attributes.get("price", 1000)
+                
+                # Simple budget allocation (70% panels, 30% inverters)
+                panel_budget = budget * 0.7
+                inverter_budget = budget * 0.3
+                
+                max_panels_budget = int(panel_budget / panel_price)
+                max_inverters_budget = int(inverter_budget / inverter_price)
+                
+                panel_count = min(panel_count, max_panels_budget)
+                inverter_count = min(inverter_count, max_inverters_budget)
+            
+            # Create placeholder nodes
+            nodes = []
+            edges = []
+            
+            # Create panels
+            for i in range(panel_count):
+                panel_node = self.placeholder_service.create_placeholder_node(
+                    node_id=f"placeholder_panel_{i}",
+                    component_type="generic_panel",
+                    layer="single_line"
+                )
+                nodes.append(ODLNode(**panel_node))
+            
+            # Create inverters
+            panels_per_inverter = max(1, panel_count // inverter_count)
+            for i in range(inverter_count):
+                inverter_node = self.placeholder_service.create_placeholder_node(
+                    node_id=f"placeholder_inverter_{i}",
+                    component_type="generic_inverter",
+                    layer="single_line"
+                )
+                nodes.append(ODLNode(**inverter_node))
+                
+                # Connect panels to this inverter
+                start_panel = i * panels_per_inverter
+                end_panel = min((i + 1) * panels_per_inverter, panel_count)
+                
+                for j in range(start_panel, end_panel):
+                    edge = ODLEdge(
+                        source=f"placeholder_panel_{j}",
+                        target=f"placeholder_inverter_{i}",
+                        data={"type": "electrical"},
+                        connection_type="electrical",
+                        provisional=True
+                    )
+                    edges.append(edge)
+            
+            patch = {
+                "add_nodes": [n.model_dump() for n in nodes],
+                "add_edges": [e.model_dump() for e in edges]
+            }
+            
+            confidence = 0.7  # Moderate confidence for placeholder design
+            
+            # Calculate estimated costs
+            panel_price = panel_placeholder.default_attributes.get("price", 250)
+            inverter_price = inverter_placeholder.default_attributes.get("price", 1000)
+            estimated_cost = (panel_count * panel_price) + (inverter_count * inverter_price)
+            
+            # Create enhanced design card
+            specs = [
+                {"label": "Array Size", "value": f"{total_panel_power/1000:.1f} kW (estimated)", "confidence": confidence},
+                {"label": "Panel Count", "value": f"{panel_count} (placeholder)", "confidence": confidence},
+                {"label": "Inverter Count", "value": f"{inverter_count} (placeholder)", "confidence": confidence},
+                {"label": "Design Type", "value": "Placeholder", "confidence": 1.0},
+                {"label": "Estimated Cost", "value": f"${estimated_cost:,.0f}", "confidence": 0.6}
+            ]
+            
+            actions = [
+                {"label": "Accept Placeholder Design", "command": "accept_placeholder_design", "variant": "primary", "icon": "check"},
+                {"label": "Upload Real Components", "command": "upload_components", "variant": "secondary", "icon": "upload"},
+                {"label": "Modify Requirements", "command": "edit_requirements", "variant": "secondary", "icon": "edit"}
+            ]
+            
+            warnings = ["Design uses placeholder components - upload datasheets to select real parts"]
+            recommendations = ["Upload panel and inverter datasheets to generate realistic design"]
+            
+            if roof_area > 0:
+                area_utilization = (panel_count * panel_placeholder.default_attributes.get("area", 2.0)) / roof_area
+                if area_utilization > 0.8:
+                    warnings.append(f"High roof area utilization ({area_utilization:.1%})")
+            
+            enhanced_card = {
+                "title": "Generate placeholder design",
+                "body": f"Generated placeholder design with {panel_count} generic panels and {inverter_count} generic inverters",
+                "confidence": confidence,
+                "specs": specs,
+                "actions": actions,
+                "warnings": warnings,
+                "recommendations": recommendations
+            }
+            
+            return {
+                "card": enhanced_card,
+                "patch": patch,
+                "status": "complete"
+            }
+            
+        except Exception as e:
+            return {
+                "card": {
+                    "title": "Generate placeholder design",
+                    "body": f"Error generating placeholder design: {str(e)}",
+                },
+                "patch": None,
+                "status": "blocked",
+            }
 
-        nodes: List[Dict] = []
-        edges: List[Dict] = []
-
-        if not target_power:
-            # Legacy fallback: create a single panel and inverter without sizing.
-            chosen_inverter = max(
-                inverters,
-                key=lambda inv: (inv["capacity"] / max(inv.get("price", 1.0), 0.01)),
+    async def _generate_real_component_design(self, session_id: str, target_power: float, requirements: Dict, panels: List, inverters: List) -> Dict:
+        """Generate design using real components from the database."""
+        try:
+            # Select optimal components
+            chosen_panel = max(
+                panels, key=lambda p: (p.get("power", 0) / max(p.get("price", 1.0), 0.01))
             )
-            panel_id = chosen_panel["part_number"]
-            inverter_id = chosen_inverter["part_number"]
-            nodes.extend(
-                [
-                    {
-                        "id": panel_id,
-                        "data": {
-                            "type": "panel",
+            
+            nodes = []
+            edges = []
+            
+            if not target_power or target_power <= 0:
+                # Single panel/inverter fallback
+                chosen_inverter = max(
+                    inverters,
+                    key=lambda inv: (inv.get("capacity", 0) / max(inv.get("price", 1.0), 0.01)),
+                )
+                
+                panel_id = chosen_panel["part_number"]
+                inverter_id = chosen_inverter["part_number"]
+                
+                nodes.extend([
+                    ODLNode(
+                        id=panel_id,
+                        type="panel",
+                        data={
                             "part_number": chosen_panel["part_number"],
                             "power": chosen_panel["power"],
                             "layer": "single_line",
-                        },
-                    },
-                    {
-                        "id": inverter_id,
-                        "data": {
-                            "type": "inverter",
+                        }
+                    ),
+                    ODLNode(
+                        id=inverter_id,
+                        type="inverter",
+                        data={
                             "part_number": chosen_inverter["part_number"],
                             "capacity": chosen_inverter["capacity"],
                             "layer": "single_line",
-                        },
-                    },
-                ]
-            )
-            edges.append(
-                {
-                    "source": panel_id,
-                    "target": inverter_id,
-                    "data": {"type": "electrical"},
-                }
-            )
-            description = "Generated legacy single-string design"
-            total_panel_power = chosen_panel["power"]
-            num_panels = 1
-            chosen_inverters = [chosen_inverter]
-        else:
-            import math
-
-            panel_power = chosen_panel["power"]
-            num_panels = math.ceil(target_power / panel_power)
-            total_panel_power = num_panels * panel_power
-            sorted_inverters = sorted(inverters, key=lambda inv: inv["capacity"])
-            remaining_power = total_panel_power
-            chosen_inverters = []
-            for inv in sorted_inverters:
-                if remaining_power <= 0:
-                    break
-                chosen_inverters.append(inv)
-                remaining_power -= inv["capacity"]
-            for i in range(num_panels):
-                node_id = f"{chosen_panel['part_number']}_{i}"
-                nodes.append(
-                    {
-                        "id": node_id,
-                        "data": {
-                            "type": "panel",
+                        }
+                    )
+                ])
+                
+                edges.append(ODLEdge(
+                    source=panel_id,
+                    target=inverter_id,
+                    data={"type": "electrical"},
+                    connection_type="electrical"
+                ))
+                
+                description = "Generated single-panel design"
+                total_panel_power = chosen_panel["power"]
+                num_panels = 1
+                chosen_inverters = [chosen_inverter]
+                
+            else:
+                # Multi-panel sized design
+                panel_power = chosen_panel["power"]
+                num_panels = math.ceil(target_power / panel_power)
+                total_panel_power = num_panels * panel_power
+                
+                # Select inverters to handle total capacity
+                sorted_inverters = sorted(inverters, key=lambda inv: inv.get("capacity", 0))
+                remaining_power = total_panel_power
+                chosen_inverters = []
+                
+                for inv in sorted_inverters:
+                    if remaining_power <= 0:
+                        break
+                    chosen_inverters.append(inv)
+                    remaining_power -= inv.get("capacity", 0)
+                
+                # Create panel nodes
+                for i in range(num_panels):
+                    panel_id = f"{chosen_panel['part_number']}_{i}"
+                    nodes.append(ODLNode(
+                        id=panel_id,
+                        type="panel",
+                        data={
                             "part_number": chosen_panel["part_number"],
                             "power": chosen_panel["power"],
                             "layer": "single_line",
-                        },
-                    }
-                )
-            from uuid import uuid4 as _uuid4
-            for inv in chosen_inverters:
-                inv_id = f"{inv['part_number']}_{_uuid4().hex[:4]}"
-                nodes.append(
-                    {
-                        "id": inv_id,
-                        "data": {
-                            "type": "inverter",
+                        }
+                    ))
+                
+                # Create inverter nodes and connections
+                for j, inv in enumerate(chosen_inverters):
+                    inv_id = f"{inv['part_number']}_{uuid4().hex[:4]}"
+                    nodes.append(ODLNode(
+                        id=inv_id,
+                        type="inverter",
+                        data={
                             "part_number": inv["part_number"],
                             "capacity": inv["capacity"],
                             "layer": "single_line",
-                        },
-                    }
-                )
-                for panel_node in nodes:
-                    if panel_node["data"].get("type") == "panel":
-                        edges.append(
-                            {
-                                "source": panel_node["id"],
-                                "target": inv_id,
-                                "data": {"type": "electrical"},
-                            }
-                        )
-            description = (
-                f"Generated design with {num_panels} panels and {len(chosen_inverters)} inverter(s)"
-            )
-
-        patch = {"add_nodes": nodes, "add_edges": edges}
-        if self.learning_agent:
-            confidence = await self.learning_agent.score_action(description)
-        else:
-            confidence = 0.5
-        
-        # Enhanced design card with specs and actions
-        total_cost = (num_panels * chosen_panel.get("price", 250)) + sum(inv.get("price", 1000) for inv in chosen_inverters)
-        
-        specs = [
-            {"label": "Array Size", "value": f"{total_panel_power/1000:.1f}", "unit": "kW", "confidence": confidence},
-            {"label": "Panel Count", "value": str(num_panels), "confidence": confidence},
-            {"label": "Inverter Count", "value": str(len(chosen_inverters)), "confidence": confidence},
-            {"label": "Estimated Cost", "value": f"${total_cost:,.0f}", "confidence": 0.8}
-        ]
-        
-        actions = [
-            {"label": "Accept Design", "command": "accept_design", "variant": "primary", "icon": "check"},
-            {"label": "See Alternatives", "command": "generate_alternatives", "variant": "secondary", "icon": "refresh"},
-            {"label": "Modify Requirements", "command": "edit_requirements", "variant": "secondary", "icon": "edit"}
-        ]
-        
-        warnings = []
-        recommendations = []
-        
-        # Add warnings based on design analysis
-        if target_power and abs(total_panel_power - target_power) / target_power > 0.1:
-            warnings.append(f"Array output ({total_panel_power/1000:.1f} kW) differs from target ({target_power/1000:.1f} kW)")
-        
-        if confidence < 0.7:
-            warnings.append("Low confidence design - consider reviewing requirements")
-        
-        # Add recommendations
-        if not target_power:
-            recommendations.append("Consider specifying target power for optimized sizing")
-        
-        if num_panels > 20:
-            recommendations.append("Large array - consider structural load analysis")
-        
-        body = f"Generated {description.lower()} with {num_panels} panels and {len(chosen_inverters)} inverter(s)"
-        
-        enhanced_card = {
-            "title": "Generate design",
-            "body": body,
-            "confidence": confidence,
-            "specs": specs,
-            "actions": actions,
-            "warnings": warnings,
-            "recommendations": recommendations
-        }
-        
-        return {
-            "card": enhanced_card,
-            "patch": patch,
-            "status": "complete",
-        }
+                        }
+                    ))
+                    
+                    # Connect panels to this inverter (simple distribution)
+                    panels_per_inverter = max(1, num_panels // len(chosen_inverters))
+                    start_panel = j * panels_per_inverter
+                    end_panel = min((j + 1) * panels_per_inverter, num_panels)
+                    
+                    for k in range(start_panel, end_panel):
+                        panel_id = f"{chosen_panel['part_number']}_{k}"
+                        edges.append(ODLEdge(
+                            source=panel_id,
+                            target=inv_id,
+                            data={"type": "electrical"},
+                            connection_type="electrical"
+                        ))
+                
+                description = f"Generated design with {num_panels} panels and {len(chosen_inverters)} inverters"
+            
+            patch = {
+                "add_nodes": [n.model_dump() for n in nodes],
+                "add_edges": [e.model_dump() for e in edges]
+            }
+            
+            # Score confidence
+            confidence = 0.8 if target_power else 0.6
+            if self.learning_agent:
+                try:
+                    confidence = await self.learning_agent.score_action(description)
+                except Exception:
+                    pass
+            
+            # Calculate costs
+            total_cost = (num_panels * chosen_panel.get("price", 250)) + sum(inv.get("price", 1000) for inv in chosen_inverters)
+            
+            # Create enhanced design card
+            specs = [
+                {"label": "Array Size", "value": f"{total_panel_power/1000:.1f} kW", "confidence": confidence},
+                {"label": "Panel Count", "value": str(num_panels), "confidence": confidence},
+                {"label": "Inverter Count", "value": str(len(chosen_inverters)), "confidence": confidence},
+                {"label": "Total Cost", "value": f"${total_cost:,.0f}", "confidence": 0.8}
+            ]
+            
+            actions = [
+                {"label": "Accept Design", "command": "accept_design", "variant": "primary", "icon": "check"},
+                {"label": "See Alternatives", "command": "generate_alternatives", "variant": "secondary", "icon": "refresh"},
+                {"label": "Modify Requirements", "command": "edit_requirements", "variant": "secondary", "icon": "edit"}
+            ]
+            
+            warnings = []
+            recommendations = []
+            
+            # Add warnings based on design analysis
+            if target_power and abs(total_panel_power - target_power) / target_power > 0.1:
+                warnings.append(f"Array output ({total_panel_power/1000:.1f} kW) differs from target ({target_power/1000:.1f} kW)")
+            
+            if confidence < 0.7:
+                warnings.append("Low confidence design - consider reviewing requirements")
+            
+            # Add recommendations
+            if not target_power:
+                recommendations.append("Consider specifying target power for optimized sizing")
+            
+            if num_panels > 20:
+                recommendations.append("Large array - consider structural load analysis")
+            
+            enhanced_card = {
+                "title": "Generate design",
+                "body": f"Generated {description.lower()} using real components",
+                "confidence": confidence,
+                "specs": specs,
+                "actions": actions,
+                "warnings": warnings,
+                "recommendations": recommendations
+            }
+            
+            return {
+                "card": enhanced_card,
+                "patch": patch,
+                "status": "complete",
+            }
+            
+        except Exception as e:
+            return {
+                "card": {
+                    "title": "Generate design",
+                    "body": f"Error generating real component design: {str(e)}",
+                },
+                "patch": None,
+                "status": "blocked",
+            }
 
     async def _refine_validate(self, session_id: str, **kwargs) -> Dict:
         """
