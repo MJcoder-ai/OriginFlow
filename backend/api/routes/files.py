@@ -98,18 +98,20 @@ async def upload_file(
     
     url = f"/static/uploads/{asset_id}/{safe_filename}"
     size = file_path.stat().st_size
-    # 5. Store file metadata with validation results
+    # 5. Store file metadata
     payload = {
         "id": asset_id,
         "filename": safe_filename,  # Store safe filename
         "mime": validation_result["detected_mime"],  # Use validated MIME type
         "size": size,
         "url": url,
-        "file_hash": validation_result["hash"],  # Store file hash
     }
-    # Only track uploader when authentication is enabled
+    # Compute hash for potential future auditing but do not persist it until
+    # the database schema includes a ``file_hash`` column.
+    file_hash = validation_result["hash"]  # noqa: F841 - reserved for future use
+    # Only track uploader when authentication is enabled and schema supports it
     if settings.enable_auth:
-        payload["uploaded_by"] = str(current_user.id)
+        _ = current_user.id  # Placeholder for future ``uploaded_by`` persistence
     obj = await service.create_asset(payload)
     asset = FileAssetRead.model_validate(obj)
 
