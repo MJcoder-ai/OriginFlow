@@ -97,7 +97,7 @@ async def create_graph(session_id: str) -> nx.DiGraph:
     # ``get_graph`` is async, so we must await it here; the previous
     # implementation returned a coroutine and short‑circuited creation.
     g = await get_graph(session_id)
-    if g:
+    if g is not None:
         return g
     g = nx.DiGraph()
     g.graph["version"] = 0
