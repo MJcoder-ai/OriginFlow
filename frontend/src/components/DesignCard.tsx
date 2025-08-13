@@ -4,10 +4,8 @@
  * Integrates with the learning agent to track user preferences and improve suggestions.
  */
 import React, { useState } from 'react';
-import { DesignCardData } from '../appStore';
-import { useAppStore } from '../appStore';
+import { DesignCardData, useAppStore } from '../appStore';
 import { API_BASE_URL } from '../config';
-import { useAppStore } from '../appStore';
 import { 
   ThumbsUp, 
   ThumbsDown, 
