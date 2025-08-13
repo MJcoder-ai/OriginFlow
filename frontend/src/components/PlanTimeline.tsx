@@ -5,6 +5,7 @@
  */
 import React from 'react';
 import { useAppStore, PlanTask } from '../appStore';
+import { api } from '../services/api';
 import RequirementsForm from './RequirementsForm';
 import { CheckCircle, Circle, Loader2, AlertTriangle, Clock, ArrowRight } from 'lucide-react';
 
@@ -27,6 +28,11 @@ const statusColors: Record<PlanTask['status'], string> = {
 const PlanTimeline: React.FC = () => {
   const tasks = useAppStore((s) => s.planTasks);
   const performPlanTask = useAppStore((s) => s.performPlanTask);
+  const sessionId = useAppStore((s) => s.sessionId);
+  const graphVersion = useAppStore((s) => s.graphVersion);
+  const setGraphVersion = useAppStore((s) => s.setGraphVersion);
+  const setPlanTasks = useAppStore((s) => s.setPlanTasks);
+  const addMessage = useAppStore((s) => s.addMessage);
   const updatePlanTaskStatus = useAppStore((s) => s.updatePlanTaskStatus);
   const isAiProcessing = useAppStore((s) => s.isAiProcessing);
   
@@ -79,7 +85,28 @@ const PlanTimeline: React.FC = () => {
                 type="button"
                 onClick={() => {
                   if (canExecute && (task.status === 'pending' || task.status === 'blocked')) {
-                    performPlanTask(task);
+                    // Prefer enhanced act loop for richer UX
+                    if (sessionId) {
+                      api.actEnhanced(sessionId, task.id, undefined, graphVersion)
+                        .then((res) => {
+                          if (typeof res.version === 'number') setGraphVersion(res.version);
+                          if (res.card) {
+                            addMessage({ id: crypto.randomUUID(), author: 'AI', text: res.card.title, card: {
+                              title: res.card.title,
+                              description: res.card.body,
+                              specs: res.card.specs?.map((s: any) => ({ label: s.label, value: s.value })),
+                              actions: res.card.actions?.map((a: any) => ({ label: a.label, command: a.command })),
+                              confidence: res.card.confidence,
+                            }, type: 'card' });
+                          }
+                          if (Array.isArray(res.updated_tasks)) {
+                            setPlanTasks(res.updated_tasks.map((t: any) => ({ id: t.id, title: t.title, description: t.reason || t.description, status: t.status })));
+                          }
+                        })
+                        .catch(() => performPlanTask(task));
+                    } else {
+                      performPlanTask(task);
+                    }
                   }
                 }}
                 disabled={!canExecute}

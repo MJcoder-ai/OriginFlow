@@ -30,6 +30,16 @@ export interface VersionDiffResponse {
     remove_edges?: any[];
   }>;
 }
+
+export interface TaskExecutionResponse {
+  patch?: { add_nodes?: any[]; add_edges?: any[]; remove_nodes?: any[]; remove_edges?: any[] };
+  card?: any;
+  status: string;
+  version?: number;
+  updated_tasks?: any[];
+  next_recommended_task?: string | null;
+  execution_time_ms?: number;
+}
 export const api = {
   async getComponents(): Promise<CanvasComponent[]> {
     const response = await fetch(`${API_BASE_URL}/components/`);
@@ -120,7 +130,7 @@ export const api = {
     action?: string,
     graphVersion?: number,
   ): Promise<{
-    patch: { add_nodes: any[]; add_edges: any[]; removed_nodes: any[]; removed_edges: any[] };
+    patch: { add_nodes?: any[]; add_edges?: any[]; remove_nodes?: any[]; remove_edges?: any[] };
     card?: any;
     status: string;
     version?: number;
@@ -141,6 +151,28 @@ export const api = {
     if (!res.ok) {
       const text = await res.text();
       const error: any = new Error(`Act endpoint error ${res.status}: ${text.slice(0, 120)}`);
+      error.status = res.status;
+      error.detail = text;
+      throw error;
+    }
+    return res.json();
+  },
+
+  /** Enhanced act endpoint that returns updated plan and next recommended task. */
+  async actEnhanced(
+    sessionId: string,
+    taskId: string,
+    action?: string,
+    graphVersion?: number,
+  ): Promise<TaskExecutionResponse> {
+    const res = await fetch(`${API_BASE_URL}/odl/${encodeURIComponent(sessionId)}/act-enhanced`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ task_id: taskId, action, graph_version: graphVersion, version: graphVersion }),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      const error: any = new Error(`Act-enhanced error ${res.status}: ${text.slice(0, 120)}`);
       error.status = res.status;
       error.detail = text;
       throw error;
@@ -227,25 +259,44 @@ export const api = {
 
   async getVersionDiff(sessionId: string, fromVersion: number, toVersion: number): Promise<VersionDiffResponse> {
     const res = await fetch(
-      `${API_BASE_URL}/versions/${encodeURIComponent(sessionId)}/diff?from_version=${fromVersion}&to_version=${toVersion}`
+      `${API_BASE_URL}/odl/versions/${encodeURIComponent(sessionId)}/diff?from_version=${fromVersion}&to_version=${toVersion}`
     );
     if (!res.ok) throw new Error(`Diff fetch failed: ${res.status}`);
-    return res.json();
+    const data = await res.json();
+    // Normalize backend VersionDiffResponse to { patches } expected by UI
+    const changes = Array.isArray(data.changes) ? data.changes : [];
+    return { patches: changes };
   },
 
   async revertToVersion(sessionId: string, targetVersion: number): Promise<{ detail: string; version: number }> {
-    const res = await fetch(`${API_BASE_URL}/versions/${encodeURIComponent(sessionId)}/revert`, {
+    const res = await fetch(`${API_BASE_URL}/odl/versions/${encodeURIComponent(sessionId)}/revert`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ target_version: targetVersion }),
     });
     if (!res.ok) throw new Error(`Revert failed: ${res.status}`);
-    return res.json();
+    const data = await res.json();
+    // Normalize to existing consumer shape
+    return { detail: data.message, version: data.current_version };
   },
 
   async listAgentTasks(): Promise<{ tasks: string[] }> {
     const res = await fetch(`${API_BASE_URL}/agents/tasks`);
     if (!res.ok) throw new Error(`List tasks failed: ${res.status}`);
+    return res.json();
+  },
+
+  /** Requirements status helper for blocked gather step. */
+  async getRequirementsStatus(sessionId: string): Promise<{
+    missing_requirements: string[];
+    missing_components: string[];
+    requirements_complete: boolean;
+    components_available: boolean;
+    can_proceed: boolean;
+    graph_summary: string;
+  }> {
+    const res = await fetch(`${API_BASE_URL}/odl/requirements/${encodeURIComponent(sessionId)}/status`);
+    if (!res.ok) throw new Error(`Requirements status failed: ${res.status}`);
     return res.json();
   },
 };
