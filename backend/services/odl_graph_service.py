@@ -179,6 +179,16 @@ async def apply_patch(session_id: str, patch: Dict[str, List[Dict]]) -> Tuple[bo
         if src is None or dst is None:
             return False, "Edge source and target are required"
         g.add_edge(src, dst, **edge.get("data", {}))
+    
+    # Handle edge updates
+    for edge in patch.get("update_edges", []):
+        src = edge.get("source")
+        dst = edge.get("target")
+        if src is None or dst is None:
+            return False, "Edge source and target are required for update"
+        if g.has_edge(src, dst):
+            # Update edge attributes
+            g.edges[src, dst].update(edge.get("data", {}))
 
     # bump version
     g.graph["version"] = g.graph.get("version", 0) + 1
@@ -189,7 +199,7 @@ async def apply_patch(session_id: str, patch: Dict[str, List[Dict]]) -> Tuple[bo
     stored_patch = {
         key: val
         for key, val in patch.items()
-        if key in {"add_nodes", "add_edges", "remove_nodes", "remove_edges"}
+        if key in {"add_nodes", "add_edges", "remove_nodes", "remove_edges", "update_edges"}
     }
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute(

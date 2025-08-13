@@ -64,7 +64,15 @@ class PlannerAgent:
         :returns: ordered list of task dicts with ids, statuses, and context
         """
         cmd = command.lower().strip()
-        if not cmd.startswith("design"):
+        
+        # Handle special commands that should continue the design workflow
+        if cmd == "accept_placeholder_design":
+            # User accepted placeholder design, continue with next steps
+            return await self._plan_continuation_tasks(session_id)
+        elif cmd in ["upload_components", "edit_requirements"]:
+            # These commands should restart the design process
+            return await self.plan(session_id, "design system")
+        elif not cmd.startswith("design"):
             return []
 
         # Get current graph and analyze its state
@@ -265,6 +273,94 @@ class PlannerAgent:
             if "graph_summary" not in task:
                 task["graph_summary"] = odl_graph_service.describe_graph(graph)
 
+        return tasks
+
+    async def _plan_continuation_tasks(self, session_id: str) -> List[Dict[str, str]]:
+        """Plan continuation tasks after placeholder design acceptance.
+        
+        This method generates the next logical tasks in the design workflow
+        after the user has accepted a placeholder design.
+        """
+        # Get current graph and analyze its state
+        graph = await self.odl_graph_service.get_graph(session_id)
+        if graph is None:
+            return []
+
+        # Analyze graph state to determine next steps
+        state = await self._analyze_graph_state(graph)
+        
+        tasks: List[Dict[str, str]] = []
+        
+        # Mark the current design as accepted by updating provisional edges
+        # This converts provisional electrical connections to confirmed ones
+        patch = {"update_edges": []}
+        for u, v, edge_data in graph.edges(data=True):
+            if edge_data.get("provisional", False):
+                patch["update_edges"].append({
+                    "source": u,
+                    "target": v,
+                    "data": {**edge_data, "provisional": False}
+                })
+        
+        if patch["update_edges"]:
+            await self.odl_graph_service.apply_patch(session_id, patch)
+        
+        # Generate next logical tasks
+        has_panels = state["has_panels"]
+        has_inverters = state["has_inverters"]
+        has_mounts = state["has_mounts"]
+        has_wiring = state["has_wiring"]
+        
+        # Always add structural design if we have panels but no mounts
+        if has_panels and not has_mounts:
+            tasks.append({
+                "id": "generate_structural",
+                "title": "Generate Structural Design",
+                "status": "pending",
+                "reason": "Add mounting systems for panels",
+                "description": "Design and size mounting hardware for the solar array"
+            })
+        
+        # Always add wiring design if we have electrical components but no wiring
+        if (has_panels or has_inverters) and not has_wiring:
+            tasks.append({
+                "id": "generate_wiring", 
+                "title": "Generate Wiring Design",
+                "status": "pending",
+                "reason": "Add cables and protective devices",
+                "description": "Size and route electrical wiring between components"
+            })
+        
+        # Add domain-specific tasks based on requirements
+        requirements = graph.graph.get("requirements", {})
+        if requirements.get("backup_hours") and not state.get("has_battery", False):
+            tasks.append({
+                "id": "generate_battery",
+                "title": "Generate Battery Storage",
+                "status": "pending", 
+                "reason": "Backup power requirement specified",
+                "description": f"Add battery storage for {requirements['backup_hours']} hours backup"
+            })
+        
+        target_power = requirements.get("target_power", 0)
+        if target_power > 1000 and not state.get("has_monitoring", False):  # > 1kW
+            tasks.append({
+                "id": "generate_monitoring",
+                "title": "Generate Monitoring System",
+                "status": "pending",
+                "reason": "Large system requires monitoring",
+                "description": "Add performance monitoring and data collection"
+            })
+        
+        # Always add refinement as final step
+        tasks.append({
+            "id": "refine_validate",
+            "title": "Refine & Validate",
+            "status": "pending",
+            "reason": "Final design optimization and validation",
+            "description": "Optimize design and validate all requirements"
+        })
+        
         return tasks
 
     async def _build_planning_context(

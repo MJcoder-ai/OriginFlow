@@ -632,7 +632,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     
     // If switching to ODL Code View, ensure we have a session
     if (layer === 'ODL Code' && !get().currentSessionId) {
-      get().createODLSession();
+      get().createODLSession().catch(err => {
+        console.error('Failed to create ODL session on layer switch:', err);
+      });
     }
   },
 
@@ -641,6 +643,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   setCurrentSessionId: (sessionId) => set({ currentSessionId: sessionId }),
   
   createODLSession: async () => {
+    // Defensive check: don't create if one already exists
+    if (get().currentSessionId) {
+      console.log('ODL session already exists:', get().currentSessionId);
+      return get().currentSessionId;
+    }
+    
     try {
       const response = await fetch('/api/v1/odl/sessions', {
         method: 'POST',
@@ -649,7 +657,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       });
       
       if (!response.ok) {
-        throw new Error('Failed to create ODL session');
+        const errorText = await response.text();
+        throw new Error(`Failed to create ODL session: ${response.status} ${errorText}`);
       }
       
       const data = await response.json();
@@ -658,7 +667,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       return data.session_id;
     } catch (error) {
       console.error('Error creating ODL session:', error);
-      get().addStatusMessage('Failed to create ODL session', 'error');
+      get().addStatusMessage(`Failed to create ODL session: ${error.message}`, 'error');
       return null;
     }
   },
