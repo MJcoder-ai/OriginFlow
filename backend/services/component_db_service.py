@@ -56,6 +56,19 @@ class ComponentDBService:
         self.components.append(component)
         return part_number
 
+    async def get_by_part_number(self, part_number: str) -> Optional[Dict[str, Any]]:
+        """Return the first component matching ``part_number``.
+
+        The in-memory store keeps components as dictionaries keyed by
+        ``part_number``.  This helper searches the list and returns the
+        matching component dictionary when found or ``None`` otherwise.
+        """
+
+        for comp in self.components:
+            if comp.get("part_number") == part_number:
+                return comp
+        return None
+
 
 async def get_component_db_service() -> AsyncIterator[ComponentDBService]:
     """FastAPI-style dependency provider yielding a component DB service.

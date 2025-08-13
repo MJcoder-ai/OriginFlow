@@ -49,15 +49,15 @@ class ComponentAgent(AgentBase):
             comp = await comp_service.get_by_part_number(tok)
             if comp:
                 payload = {
-                    "name": comp.name,
-                    "type": comp.category,
-                    "standard_code": comp.part_number,
+                    "name": comp.get("name"),
+                    "type": comp.get("category"),
+                    "standard_code": comp.get("part_number"),
                 }
                 return [
                     AiAction(action=AiActionType.add_component, payload=payload, version=1).model_dump(),
                     AiAction(
                         action=AiActionType.validation,
-                        payload={"message": f"Using library component {comp.part_number} from the datasheet"},
+                        payload={"message": f"Using library component {comp.get('part_number')} from the datasheet"},
                         version=1,
                     ).model_dump(),
                 ]
@@ -88,13 +88,13 @@ class ComponentAgent(AgentBase):
             ]
 
         comps_sorted = sorted(
-            comps, key=lambda c: c.price if c.price is not None else float("inf")
+            comps, key=lambda c: c.get("price", float("inf"))
         )
         chosen = comps_sorted[0]
         payload = {
-            "name": chosen.name,
-            "type": chosen.category,
-            "standard_code": chosen.part_number,
+            "name": chosen.get("name"),
+            "type": chosen.get("category"),
+            "standard_code": chosen.get("part_number"),
         }
         message = (
             f"ComponentAgent found {len(comps)} {category}(s); selecting the cheapest."
@@ -164,11 +164,11 @@ class ComponentAgent(AgentBase):
                     if code:
                         comp = await comp_service.get_by_part_number(code)
                         if comp:
-                            enriched["name"] = comp.name
-                            enriched["type"] = comp.category
-                            enriched["standard_code"] = comp.part_number
+                            enriched["name"] = comp.get("name")
+                            enriched["type"] = comp.get("category")
+                            enriched["standard_code"] = comp.get("part_number")
                             validation_msg = (
-                                f"Using library component {comp.part_number} from the datasheet"
+                                f"Using library component {comp.get('part_number')} from the datasheet"
                             )
                     if validation_msg is None:
                         category = None
@@ -189,12 +189,12 @@ class ComponentAgent(AgentBase):
                             if comps:
                                 comps_sorted = sorted(
                                     comps,
-                                    key=lambda c: c.price if c.price is not None else float("inf"),
+                                    key=lambda c: c.get("price", float("inf")),
                                 )
                                 chosen = comps_sorted[0]
-                                enriched["name"] = chosen.name
-                                enriched["type"] = chosen.category
-                                enriched["standard_code"] = chosen.part_number
+                                enriched["name"] = chosen.get("name")
+                                enriched["type"] = chosen.get("category")
+                                enriched["standard_code"] = chosen.get("part_number")
                                 validation_msg = (
                                     f"ComponentAgent found {len(comps)} {category}(s); selecting the cheapest."
                                 )
