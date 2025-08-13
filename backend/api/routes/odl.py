@@ -1,10 +1,10 @@
 """ODL graph and planning routes."""
 from __future__ import annotations
 
-from typing import List
+from typing import List, Dict, Any
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Body
 
 from backend.schemas.ai import AiCommandRequest, PlanTask
 from backend.schemas.odl import (
@@ -364,7 +364,7 @@ async def revert_to_version(
 
 
 @router.get("/registry/tasks")
-async def get_task_registry() -> Dict[str, any]:
+async def get_task_registry() -> Dict[str, Any]:
     """
     Get information about all registered tasks and agents.
     
@@ -402,7 +402,9 @@ async def get_task_registry() -> Dict[str, any]:
 
 
 @router.post("/registry/validate-sequence")
-async def validate_task_sequence(task_sequence: List[str]) -> Dict[str, any]:
+async def validate_task_sequence(
+    task_sequence: List[str] = Body(..., embed=False)
+) -> Dict[str, Any]:
     """
     Validate a proposed task sequence for dependency violations.
     
