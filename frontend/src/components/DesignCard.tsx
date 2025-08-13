@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { DesignCardData } from '../appStore';
 import { useAppStore } from '../appStore';
 import { API_BASE_URL } from '../config';
+import { useAppStore } from '../appStore';
 import { 
   ThumbsUp, 
   ThumbsDown, 
@@ -24,6 +25,8 @@ interface DesignCardProps {
 
 const DesignCard: React.FC<DesignCardProps> = ({ card }) => {
   const analyzeAndExecute = useAppStore((s) => s.analyzeAndExecute);
+  const sessionId = useAppStore((s) => s.sessionId);
+  const lastPrompt = useAppStore((s) => s.lastPrompt);
   const [showAlternatives, setShowAlternatives] = useState(false);
   const [userFeedback, setUserFeedback] = useState<'accepted' | 'rejected' | null>(null);
   
@@ -61,19 +64,25 @@ const DesignCard: React.FC<DesignCardProps> = ({ card }) => {
     
     // Send feedback to learning agent
     try {
-      if (card.cardId) {
-        await fetch(`${API_BASE_URL}/feedback/card`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            cardId: card.cardId,
-            feedback,
-            reason,
+      await fetch(`${API_BASE_URL}/ai/log-feedback-v2`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: sessionId,
+          user_prompt: lastPrompt || '',
+          proposed_action: {
+            action: 'design_card_feedback',
+            card_title: card.title,
             agent: card.agent,
-            confidence: card.confidence
-          })
-        });
-      }
+          },
+          user_decision: feedback === 'accepted' ? 'approved' : 'rejected',
+          component_type: undefined,
+          design_context: undefined,
+          session_history: undefined,
+          confidence_shown: card.confidence ?? null,
+          confirmed_by: 'human',
+        }),
+      });
     } catch (error) {
       console.error('Failed to send feedback:', error);
     }
