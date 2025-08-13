@@ -75,7 +75,8 @@ export async function listFiles(): Promise<FileAsset[]> {
 export async function parseDatasheet(id: string): Promise<FileAsset> {
   const res = await fetch(`${API_BASE_URL}/files/${id}/parse`, {
     method: 'POST',
-    headers: authHeaders(),
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: '{}',
   });
   if (!res.ok) {
     const error = await res.json();
@@ -173,7 +174,8 @@ export async function deleteImage(assetId: string, imageId: string): Promise<voi
 export async function setPrimaryImage(assetId: string, imageId: string): Promise<void> {
   const res = await fetch(`${API_BASE_URL}/files/${assetId}/images/${imageId}/primary`, {
     method: 'PATCH',
-    headers: authHeaders(),
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: '{}',
   });
   if (!res.ok) {
     const error = await res.json();
