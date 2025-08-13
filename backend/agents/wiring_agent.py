@@ -3,78 +3,66 @@ from __future__ import annotations
 
 from typing import Dict, List
 
-from backend.services import odl_graph_service
+from backend.services.odl_graph_service import get_graph
+from backend.schemas.odl import ODLNode, ODLEdge, GraphPatch
 
 
 class WiringAgent:
-    """Generate basic wiring components between panels and inverters.
-
-    For every electrical edge in the graph a cable node and a protective device
-    are inserted.  The devices are connected using ``protected_by``,
-    ``connected_via`` and ``terminates_at`` edges on the ``wiring`` layer.  The
-    gauge and protection rating are placeholders awaiting a formal wiring rule
-    engine.
     """
-
-    def __init__(self) -> None:
-        self.odl_graph_service = odl_graph_service
+    Agent responsible for wiring design. For each electrical connection between
+    a panel and an inverter this agent adds a cable and a protective fuse,
+    connecting them with appropriate edge types.
+    """
 
     async def execute(self, session_id: str, tid: str, **kwargs) -> Dict:
         """
-        Generate wiring for a preliminary design.  For each panel connected to
-        an inverter we create a cable node and a protective device and stitch
-        them together through the appropriate wiring edges.  The electrical
-        characteristics use fixed placeholder values and are not safety rated.
+        Perform wiring sizing. Accepts `generate_wiring` or `wiring` as task IDs
+        and returns a card summarising any added components.
         """
-        graph = await self.odl_graph_service.get_graph(session_id)
-        cables: List[Dict] = []
-        devices: List[Dict] = []
-        edges: List[Dict] = []
-        for u, v, data in graph.edges(data=True):
-            if data.get("type") == "electrical":
-                cable_id = f"cable_{u}_{v}"
-                cables.append(
-                    {
-                        "id": cable_id,
-                        "data": {
-                            "type": "cable",
-                            "layer": "wiring",
-                            "gauge": "10 AWG",
-                        },
-                    }
-                )
-                fuse_id = f"fuse_{u}_{v}"
-                devices.append(
-                    {
-                        "id": fuse_id,
-                        "data": {
-                            "type": "fuse",
-                            "layer": "wiring",
-                            "rating": 15.0,
-                        },
-                    }
-                )
-                edges.extend(
-                    [
-                        {"source": u, "target": fuse_id, "data": {"type": "protected_by"}},
-                        {"source": fuse_id, "target": cable_id, "data": {"type": "connected_via"}},
-                        {"source": cable_id, "target": v, "data": {"type": "terminates_at"}},
-                    ]
-                )
-        if not cables:
+        tid = tid.lower().strip()
+        if tid not in {"generate_wiring", "wiring"}:
             return {
                 "card": {
                     "title": "Wiring design",
-                    "body": "No electrical connections found; nothing to wire.",
+                    "body": f"Unknown wiring task '{tid}'.",
+                },
+                "patch": None,
+                "status": "pending",
+            }
+        graph = await get_graph(session_id)
+        if not graph:
+            return {
+                "card": {"title": "Wiring design", "body": "Session not found."},
+                "patch": None,
+                "status": "pending",
+            }
+        add_nodes: List[ODLNode] = []
+        add_edges: List[ODLEdge] = []
+        for u, v, e_data in graph.edges(data=True):
+            if e_data.get("type") == "electrical":
+                cable_id = f"cable_{u}_{v}"
+                fuse_id = f"fuse_{u}_{v}"
+                add_nodes.append(ODLNode(id=cable_id, type="cable", data={"gauge": "10AWG", "length_m": 10.0}))
+                add_nodes.append(ODLNode(id=fuse_id, type="fuse", data={"rating_A": 15.0}))
+                add_edges.extend([
+                    ODLEdge(source=u, target=fuse_id, data={"type": "protected_by"}),
+                    ODLEdge(source=fuse_id, target=cable_id, data={"type": "connected_via"}),
+                    ODLEdge(source=cable_id, target=v, data={"type": "terminates_at"}),
+                ])
+        if not add_nodes:
+            return {
+                "card": {
+                    "title": "Wiring design",
+                    "body": "No panel–inverter connections found; wiring skipped.",
                 },
                 "patch": None,
                 "status": "complete",
             }
-        patch = {"add_nodes": cables + devices, "add_edges": edges}
+        patch = GraphPatch(add_nodes=add_nodes, add_edges=add_edges).dict()
         return {
             "card": {
                 "title": "Wiring design",
-                "body": f"Added {len(cables)} cables and {len(devices)} protective devices.",
+                "body": f"Added {len(add_nodes)//2} cable(s) and protective device(s).",
             },
             "patch": patch,
             "status": "complete",

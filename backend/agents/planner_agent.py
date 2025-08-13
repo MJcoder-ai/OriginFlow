@@ -136,10 +136,9 @@ class PlannerAgent:
         # Build dynamic task list based on current state
         tasks: List[Dict[str, str]] = []
 
-        # Phase 1: Gather Requirements (always first if incomplete)
+        # Phase 1: Gather Requirements (blocked if inputs/components missing)
         if not requirements_complete or not components_available:
-            gather_status = "pending"  # This is always actionable by user
-            missing_items = []
+            missing_items: List[str] = []
             if missing_requirements:
                 missing_items.extend(missing_requirements)
             if not components_available:
@@ -147,10 +146,10 @@ class PlannerAgent:
                     missing_items.append("panel datasheet")
                 if not inverter_available:
                     missing_items.append("inverter datasheet")
-            
+
             tasks.append({
                 "id": "gather_requirements",
-                "status": gather_status,
+                "status": "blocked",
                 "reason": f"Missing: {', '.join(missing_items)}",
                 "missing_requirements": missing_requirements,
                 "missing_components": [] if components_available else ["panel", "inverter"]
@@ -194,26 +193,30 @@ class PlannerAgent:
                 "reason": f"Generate wiring between {panel_count} panel{'s' if panel_count != 1 else ''} and {inverter_count} inverter{'s' if inverter_count != 1 else ''}"
             })
 
-        # Phase 5: Refine and Validate (always last when design exists)
+        # Phase 5: Refine and Validate (always appended)
+        validation_status = "pending"
+        completion_items: List[str] = []
+        if has_mounts:
+            completion_items.append("structural")
+        if has_wiring:
+            completion_items.append("wiring")
+
         if has_preliminary_design:
-            validation_status = "pending"
-            completion_items = []
-            if has_mounts:
-                completion_items.append("structural")
-            if has_wiring:
-                completion_items.append("wiring")
-            
             if completion_items:
                 validation_reason = f"Validate design with {', '.join(completion_items)}"
             else:
                 validation_reason = "Validate preliminary design"
-            
-            tasks.append({
-                "id": "refine_validate",
-                "status": validation_status,
-                "reason": validation_reason,
-                "design_completeness": len(completion_items) / 2.0  # structural + wiring
-            })
+            design_completeness = len(completion_items) / 2.0
+        else:
+            validation_reason = "Awaiting preliminary design"
+            design_completeness = 0.0
+
+        tasks.append({
+            "id": "refine_validate",
+            "status": validation_status,
+            "reason": validation_reason,
+            "design_completeness": design_completeness,
+        })
 
         # Enhance all tasks with titles and context
         for task in tasks:
