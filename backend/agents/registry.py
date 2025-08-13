@@ -74,25 +74,169 @@ from backend.agents.structural_agent import StructuralAgent  # noqa: E402
 from backend.agents.wiring_agent import WiringAgent  # noqa: E402
 
 
+class TaskAgentMapping:
+    """Definition of a task-agent mapping with metadata."""
+    
+    def __init__(self, task_id: str, agent_class, description: str, domain: str, prerequisites: List[str] = None):
+        self.task_id = task_id
+        self.agent_class = agent_class
+        self.description = description
+        self.domain = domain
+        self.prerequisites = prerequisites or []
+        self.agent_instance = None
+    
+    def get_agent(self):
+        """Get or create agent instance (singleton pattern)."""
+        if self.agent_instance is None:
+            self.agent_instance = self.agent_class()
+        return self.agent_instance
+
+
 class AgentRegistry:
-    """Singleton registry mapping task IDs to agent instances."""
+    """
+    Enhanced registry mapping task IDs to agent instances with metadata.
+    
+    This registry enables dynamic planning by providing:
+    - Task-to-agent mappings with descriptions
+    - Domain categorization for agents
+    - Prerequisites tracking for dependency analysis
+    - Extensible registration system for new agents
+    """
 
     def __init__(self) -> None:
-        self._agents: Dict[str, object] = {
-            "gather_requirements": PVDesignAgent(),
-            "generate_design": PVDesignAgent(),
-            "refine_validate": PVDesignAgent(),
-            "generate_structural": StructuralAgent(),
-            "generate_wiring": WiringAgent(),
-        }
+        self._task_mappings: Dict[str, TaskAgentMapping] = {}
+        self._initialize_default_mappings()
+
+    def _initialize_default_mappings(self) -> None:
+        """Initialize the default task-agent mappings."""
+        mappings = [
+            TaskAgentMapping(
+                task_id="gather_requirements",
+                agent_class=PVDesignAgent,
+                description="Collect user requirements and verify component availability",
+                domain="requirements",
+                prerequisites=[]
+            ),
+            TaskAgentMapping(
+                task_id="generate_design",
+                agent_class=PVDesignAgent,
+                description="Generate preliminary PV system design with panels and inverters",
+                domain="electrical",
+                prerequisites=["gather_requirements"]
+            ),
+            TaskAgentMapping(
+                task_id="generate_structural",
+                agent_class=StructuralAgent,
+                description="Generate mounting hardware and structural components",
+                domain="structural",
+                prerequisites=["generate_design"]
+            ),
+            TaskAgentMapping(
+                task_id="generate_wiring",
+                agent_class=WiringAgent,
+                description="Generate electrical wiring and protective devices",
+                domain="electrical",
+                prerequisites=["generate_design"]
+            ),
+            TaskAgentMapping(
+                task_id="refine_validate",
+                agent_class=PVDesignAgent,
+                description="Refine and validate the complete design",
+                domain="validation",
+                prerequisites=["generate_design"]
+            ),
+        ]
+        
+        for mapping in mappings:
+            self._task_mappings[mapping.task_id] = mapping
+
+    def register_task(self, task_id: str, agent_class, description: str, domain: str, prerequisites: List[str] = None) -> None:
+        """
+        Register a new task-agent mapping.
+        
+        Args:
+            task_id: Unique identifier for the task
+            agent_class: Agent class that handles this task
+            description: Human-readable description of the task
+            domain: Domain category (e.g., 'electrical', 'structural', 'validation')
+            prerequisites: List of task IDs that must complete before this task
+        """
+        mapping = TaskAgentMapping(task_id, agent_class, description, domain, prerequisites)
+        self._task_mappings[task_id] = mapping
 
     def get_agent(self, task_id: str):
         """Return the agent responsible for the given task ID."""
-        return self._agents.get(task_id)
+        mapping = self._task_mappings.get(task_id)
+        return mapping.get_agent() if mapping else None
+
+    def get_task_info(self, task_id: str) -> Dict[str, str]:
+        """Return metadata about a task."""
+        mapping = self._task_mappings.get(task_id)
+        if not mapping:
+            return {}
+        
+        return {
+            "task_id": mapping.task_id,
+            "description": mapping.description,
+            "domain": mapping.domain,
+            "prerequisites": mapping.prerequisites
+        }
 
     def available_tasks(self) -> List[str]:
         """Return a list of registered task IDs."""
-        return list(self._agents.keys())
+        return list(self._task_mappings.keys())
+    
+    def get_tasks_by_domain(self, domain: str) -> List[str]:
+        """Return task IDs for a specific domain."""
+        return [
+            task_id for task_id, mapping in self._task_mappings.items()
+            if mapping.domain == domain
+        ]
+    
+    def get_all_domains(self) -> List[str]:
+        """Return all available domains."""
+        return list(set(mapping.domain for mapping in self._task_mappings.values()))
+    
+    def get_dependency_map(self) -> Dict[str, List[str]]:
+        """Return a map of task dependencies."""
+        return {
+            task_id: mapping.prerequisites
+            for task_id, mapping in self._task_mappings.items()
+        }
+    
+    def validate_task_sequence(self, task_sequence: List[str]) -> List[str]:
+        """
+        Validate a task sequence and return any dependency violations.
+        
+        Args:
+            task_sequence: Ordered list of task IDs
+            
+        Returns:
+            List of error messages for dependency violations
+        """
+        errors = []
+        completed_tasks = set()
+        
+        for task_id in task_sequence:
+            mapping = self._task_mappings.get(task_id)
+            if not mapping:
+                errors.append(f"Unknown task: {task_id}")
+                continue
+            
+            # Check prerequisites
+            missing_prereqs = [
+                prereq for prereq in mapping.prerequisites
+                if prereq not in completed_tasks
+            ]
+            
+            if missing_prereqs:
+                errors.append(
+                    f"Task '{task_id}' missing prerequisites: {', '.join(missing_prereqs)}"
+                )
+            
+            completed_tasks.add(task_id)
+        
+        return errors
 
 
 registry = AgentRegistry()

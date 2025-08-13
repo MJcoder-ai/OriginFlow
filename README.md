@@ -532,31 +532,91 @@ If running the frontend on a different host or port, update the `origins` list i
 4. **User**: "optimise the layout" → nodes rearranged
 5. **User**: "what is the bill of materials" → BoM table appears
 
-### 6.11 ODL Plan–Act and Versioning
+### 6.11 Dynamic ODL Plan–Act System
 
-- Create a session (optionally provide your own `session_id`):
+OriginFlow now features a **dynamic, state-aware planning system** that intelligently adapts to the current design state and user requirements. The system replaces static planning with contextual task generation.
 
+#### Key Features
+
+- **Dynamic Task Generation**: Tasks are generated based on current graph state, requirements completeness, and component availability
+- **Enhanced Design Cards**: Rich cards with confidence scores, specifications, interactive actions, and recommendations
+- **Automatic Plan Refresh**: Plans update automatically after task completion
+- **Version Control**: Complete undo/redo with diff tracking and revert capabilities
+- **Graph State Analysis**: Comprehensive graph summarization with warnings and component analysis
+
+#### Core Endpoints
+
+**Create a session:**
 ```bash
 curl -X POST http://localhost:8000/api/v1/odl/sessions \
      -H "Content-Type: application/json" \
      -d '{"session_id":"my-session-123"}'
 ```
 
-- Get a plan for a command and current session state:
-
+**Get dynamic plan based on current state:**
 ```bash
 curl -X POST http://localhost:8000/api/v1/odl/my-session-123/plan \
      -H "Content-Type: application/json" \
      -d '{"command":"design 5 kW pv system"}'
 ```
 
-- Execute a task. Include your last known `version` to avoid conflicts. On
-success the response includes the updated `version`:
-
+**Execute task with enhanced response:**
 ```bash
-curl -X POST http://localhost:8000/api/v1/odl/my-session-123/act \
+curl -X POST http://localhost:8000/api/v1/odl/my-session-123/act-enhanced \
      -H "Content-Type: application/json" \
-     -d '{"task_id":"generate_design","version":2}'
+     -d '{"task_id":"generate_design","graph_version":2}'
+```
+
+#### New State Management Endpoints
+
+**Check requirements status:**
+```bash
+curl -X GET http://localhost:8000/api/v1/odl/requirements/my-session-123/status
+```
+
+**Get version differences:**
+```bash
+curl -X GET "http://localhost:8000/api/v1/odl/versions/my-session-123/diff?from_version=0&to_version=2"
+```
+
+**Revert to previous version:**
+```bash
+curl -X POST http://localhost:8000/api/v1/odl/versions/my-session-123/revert \
+     -H "Content-Type: application/json" \
+     -d '{"target_version":1}'
+```
+
+**View agent registry:**
+```bash
+curl -X GET http://localhost:8000/api/v1/odl/registry/tasks
+```
+
+#### Dynamic Planning Logic
+
+The planner now intelligently decides task sequences:
+
+1. **gather_requirements**: Emitted when user inputs or component datasheets are missing
+2. **generate_design**: Only when no panels/inverters exist AND requirements are complete
+3. **generate_structural**: After design exists but mounting is missing  
+4. **generate_wiring**: After design exists but electrical connections are missing
+5. **refine_validate**: Final validation step when design components exist
+
+#### Enhanced Design Cards
+
+Tasks now return rich design cards with:
+- **Confidence scores** (0.0-1.0) based on AI learning
+- **Specifications** with units and individual confidence ratings
+- **Interactive actions** (Accept, See Alternatives, Modify Requirements)
+- **Warnings** for design issues or low confidence
+- **Recommendations** for next steps or improvements
+
+#### Task Dependencies and Validation
+
+The system tracks task prerequisites and validates execution order:
+```bash
+curl -X POST http://localhost:8000/api/v1/odl/registry/validate-sequence \
+     -H "Content-Type: application/json" \
+     -d '["gather_requirements", "generate_design", "generate_structural"]'
 ```
 If the provided `version` is out of date the endpoint returns **409 Conflict**.
 Clients should refresh the graph (e.g. via `/versions/{session_id}/diff`),

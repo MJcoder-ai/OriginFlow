@@ -2,7 +2,7 @@
 ODL graph service: persist and manage per-session graphs and patches.
 
 This module replaces the previous in-memory `_GRAPHS` dict with a simple
-SQLite-backed store. Each session’s graph is serialized to JSON and
+SQLite-backed store. Each session's graph is serialized to JSON and
 persisted alongside a monotonic `version` integer for optimistic concurrency.
 Incremental patches are also stored to support diffing and undo/redo.
 
@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections import Counter
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -266,4 +267,78 @@ async def revert_to_version(session_id: str, target_version: int) -> bool:
             {k: p.get(k, []) for k in ["add_nodes", "add_edges", "remove_nodes", "remove_edges"]},
         )
     return True
+
+
+def describe_graph(g: nx.DiGraph) -> str:
+    """Return a compact description of the current session graph.
+    
+    This helper function supports dynamic planning by providing a summary that
+    includes:
+    - Component counts by type (panels, inverters, mounts, cables)
+    - Graph version
+    - Any warnings about missing components or issues
+    
+    Args:
+        g: The NetworkX DiGraph to summarize
+        
+    Returns:
+        A human-readable string describing the graph state
+    """
+    if not g:
+        return "version=0, empty graph"
+    
+    # Count components by type
+    counts = Counter(n_data.get("type", "unknown") for _, n_data in g.nodes(data=True))
+    
+    # Format counts as readable strings
+    parts = [f"{v} {k}{'s' if v != 1 else ''}" for k, v in counts.items() if v > 0]
+    
+    # Get version and basic graph stats
+    version = g.graph.get("version", 0)
+    node_count = len(g.nodes)
+    edge_count = len(g.edges)
+    
+    # Build summary components
+    summary_parts = [f"version={version}"]
+    
+    if parts:
+        summary_parts.append(", ".join(parts))
+    else:
+        summary_parts.append("no components")
+    
+    # Add basic graph statistics
+    summary_parts.append(f"({node_count} nodes, {edge_count} edges)")
+    
+    # Check for warnings
+    warnings = []
+    
+    # Check for common design issues
+    panels = [n for n, d in g.nodes(data=True) if d.get("type") == "panel"]
+    inverters = [n for n, d in g.nodes(data=True) if d.get("type") == "inverter"]
+    mounts = [n for n, d in g.nodes(data=True) if d.get("type") == "mount"]
+    
+    if panels and not inverters:
+        warnings.append("panels without inverters")
+    elif inverters and not panels:
+        warnings.append("inverters without panels")
+    
+    if panels and not mounts:
+        warnings.append("panels without mounting")
+    
+    # Check for isolated components
+    isolated = [n for n in g.nodes() if g.degree(n) == 0]
+    if isolated:
+        warnings.append(f"{len(isolated)} isolated component{'s' if len(isolated) != 1 else ''}")
+    
+    # Requirements status
+    requirements = g.graph.get("requirements", {})
+    missing_reqs = [k for k in ["target_power", "roof_area", "budget"] if not requirements.get(k)]
+    if missing_reqs:
+        warnings.append(f"missing requirements: {', '.join(missing_reqs)}")
+    
+    # Add warnings if any
+    if warnings:
+        summary_parts.append(f"warnings: {'; '.join(warnings)}")
+    
+    return " | ".join(summary_parts)
 

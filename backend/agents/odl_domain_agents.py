@@ -67,23 +67,62 @@ class PVDesignAgent:
                 )
             actions = []
             if missing_components:
-                actions.append({"label": "Upload datasheet", "command": "upload_datasheet"})
+                actions.append({
+                    "label": "Upload Datasheet", 
+                    "command": "upload_datasheet", 
+                    "variant": "primary",
+                    "icon": "upload"
+                })
             if missing_reqs:
-                actions.append({"label": "Enter requirements", "command": "enter_requirements"})
+                actions.append({
+                    "label": "Enter Requirements", 
+                    "command": "enter_requirements", 
+                    "variant": "primary",
+                    "icon": "form"
+                })
+            
+            # Add specs showing what's missing vs available
+            specs = []
+            for field in ["target_power", "roof_area", "budget"]:
+                if field in missing_reqs:
+                    specs.append({"label": field.replace("_", " ").title(), "value": "Missing", "confidence": 0.0})
+                else:
+                    specs.append({"label": field.replace("_", " ").title(), "value": "Provided", "confidence": 1.0})
+            
+            enhanced_card = {
+                "title": "Gather requirements",
+                "body": " ".join(body_lines),
+                "confidence": 0.0,
+                "specs": specs,
+                "actions": actions,
+                "warnings": body_lines,
+                "recommendations": ["Complete all requirements to proceed with design generation"]
+            }
+            
             return {
-                "card": {
-                    "title": "Gather requirements",
-                    "body": " ".join(body_lines),
-                    "actions": actions,
-                },
+                "card": enhanced_card,
                 "patch": None,
                 "status": "blocked",
             }
+        enhanced_card = {
+            "title": "Gather requirements",
+            "body": "All requirements and components are present. Ready to generate a design.",
+            "confidence": 1.0,
+            "specs": [
+                {"label": "Target Power", "value": "Provided", "confidence": 1.0},
+                {"label": "Roof Area", "value": "Provided", "confidence": 1.0},
+                {"label": "Budget", "value": "Provided", "confidence": 1.0},
+                {"label": "Components", "value": "Available", "confidence": 1.0}
+            ],
+            "actions": [
+                {"label": "Generate Design", "command": "generate_design", "variant": "primary", "icon": "play"}
+            ],
+            "warnings": [],
+            "recommendations": ["Proceed to generate preliminary design"]
+        }
+        
         return {
-            "card": {
-                "title": "Gather requirements",
-                "body": "All requirements and components are present. Ready to generate a design.",
-            },
+            "card": enhanced_card,
             "patch": None,
             "status": "complete",
         }
@@ -237,12 +276,54 @@ class PVDesignAgent:
             confidence = await self.learning_agent.score_action(description)
         else:
             confidence = 0.5
-        body = (
-            f"Added {num_panels} × {chosen_panel['part_number']} panels and {len(chosen_inverters)} inverter(s). "
-            f"Estimated array size: {total_panel_power/1000:.1f} kW. Confidence: {confidence:.2f}"
-        )
+        
+        # Enhanced design card with specs and actions
+        total_cost = (num_panels * chosen_panel.get("price", 250)) + sum(inv.get("price", 1000) for inv in chosen_inverters)
+        
+        specs = [
+            {"label": "Array Size", "value": f"{total_panel_power/1000:.1f}", "unit": "kW", "confidence": confidence},
+            {"label": "Panel Count", "value": str(num_panels), "confidence": confidence},
+            {"label": "Inverter Count", "value": str(len(chosen_inverters)), "confidence": confidence},
+            {"label": "Estimated Cost", "value": f"${total_cost:,.0f}", "confidence": 0.8}
+        ]
+        
+        actions = [
+            {"label": "Accept Design", "command": "accept_design", "variant": "primary", "icon": "check"},
+            {"label": "See Alternatives", "command": "generate_alternatives", "variant": "secondary", "icon": "refresh"},
+            {"label": "Modify Requirements", "command": "edit_requirements", "variant": "secondary", "icon": "edit"}
+        ]
+        
+        warnings = []
+        recommendations = []
+        
+        # Add warnings based on design analysis
+        if target_power and abs(total_panel_power - target_power) / target_power > 0.1:
+            warnings.append(f"Array output ({total_panel_power/1000:.1f} kW) differs from target ({target_power/1000:.1f} kW)")
+        
+        if confidence < 0.7:
+            warnings.append("Low confidence design - consider reviewing requirements")
+        
+        # Add recommendations
+        if not target_power:
+            recommendations.append("Consider specifying target power for optimized sizing")
+        
+        if num_panels > 20:
+            recommendations.append("Large array - consider structural load analysis")
+        
+        body = f"Generated {description.lower()} with {num_panels} panels and {len(chosen_inverters)} inverter(s)"
+        
+        enhanced_card = {
+            "title": "Generate design",
+            "body": body,
+            "confidence": confidence,
+            "specs": specs,
+            "actions": actions,
+            "warnings": warnings,
+            "recommendations": recommendations
+        }
+        
         return {
-            "card": {"title": "Generate design", "body": body},
+            "card": enhanced_card,
             "patch": patch,
             "status": "complete",
         }

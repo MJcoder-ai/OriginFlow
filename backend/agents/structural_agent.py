@@ -59,11 +59,31 @@ class StructuralAgent:
                 "status": "complete",
             }
         patch = {"add_nodes": mounts, "add_edges": edges}
+        
+        # Enhanced design card with specs and actions
+        enhanced_card = {
+            "title": "Structural design",
+            "body": f"Generated mounting hardware for {len(mounts)} panel{'s' if len(mounts) != 1 else ''}.",
+            "confidence": 0.8,  # Structural design is fairly standardized
+            "specs": [
+                {"label": "Mounts Created", "value": str(len(mounts)), "confidence": 1.0},
+                {"label": "Max Load", "value": "50.0", "unit": "kg", "confidence": 0.8},
+                {"label": "Mount Type", "value": "Standard", "confidence": 0.8}
+            ],
+            "actions": [
+                {"label": "Accept Mounting", "command": "accept_structural", "variant": "primary", "icon": "check"},
+                {"label": "Review Loads", "command": "review_structural", "variant": "secondary", "icon": "calculator"},
+                {"label": "Custom Mounting", "command": "custom_structural", "variant": "secondary", "icon": "edit"}
+            ],
+            "warnings": [],
+            "recommendations": [
+                "Verify structural load calculations with a licensed engineer",
+                "Consider wind and snow loads for your region"
+            ]
+        }
+        
         return {
-            "card": {
-                "title": "Structural design",
-                "body": f"Added {len(mounts)} mounts for {len(mounts)} panel(s).",
-            },
+            "card": enhanced_card,
             "patch": patch,
             "status": "complete",
         }
