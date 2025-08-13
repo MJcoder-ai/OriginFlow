@@ -63,7 +63,7 @@ class PlannerAgent:
 
         # Get current graph and analyze its state
         graph = await self.odl_graph_service.get_graph(session_id)
-        if not graph:
+        if graph is None:
             # If no graph exists, create one
             graph = await self.odl_graph_service.create_graph(session_id)
 
