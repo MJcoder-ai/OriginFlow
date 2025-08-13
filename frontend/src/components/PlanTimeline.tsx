@@ -8,7 +8,6 @@ import { useAppStore, PlanTask } from '../appStore';
 import { api } from '../services/api';
 import RequirementsForm from './RequirementsForm';
 import EnhancedFileUpload from './EnhancedFileUpload';
-import { api } from '../services/api';
 import { CheckCircle, Circle, Loader2, AlertTriangle, Clock, ArrowRight } from 'lucide-react';
 
 /** Mapping of task status to icon component. */
