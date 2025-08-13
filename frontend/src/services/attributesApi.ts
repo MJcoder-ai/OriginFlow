@@ -34,12 +34,20 @@ export async function patchAttributes(componentId: string, patches: AttributePat
 }
 
 export async function confirmClose(componentId: string): Promise<void> {
-  const r = await fetch(`${API_BASE_URL}/components/${componentId}/confirm-close`, { method: 'POST' });
+  const r = await fetch(`${API_BASE_URL}/components/${componentId}/confirm-close`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{}',
+  });
   if (!r.ok) throw new Error(`Failed to confirm & close: ${r.status}`);
 }
 
 export async function reanalyze(componentId: string): Promise<{ job_id: string }> {
-  const r = await fetch(`${API_BASE_URL}/components/${componentId}/reanalyze`, { method: 'POST' });
+  const r = await fetch(`${API_BASE_URL}/components/${componentId}/reanalyze`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{}',
+  });
   if (!r.ok) throw new Error(`Failed to reanalyze: ${r.status}`);
   return r.json();
 }
