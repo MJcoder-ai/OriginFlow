@@ -14,6 +14,25 @@ Recent updates introduce:
   - Separate structural and wiring tasks dispatched through a new agent registry.
   - API routes to update requirements, list available tasks and versions, and revert changes. Clients should include the current graph version in act calls to avoid conflicts.
 
+### Planner and Domain Agents
+
+OriginFlow now includes a **dynamic planner** that inspects the current
+graph and stored requirements before deciding which tasks are needed. The planner may:
+
+1. Emit a `gather_requirements` task (blocked) when inputs such as target power, roof area or budget are missing.
+2. Add `generate_design` only if no panel or inverter nodes exist.
+3. Add `generate_structural` when mounts are absent for existing panels.
+4. Add `generate_wiring` when electrical links lack cables and protection.
+5. Always include `refine_validate` as a final optimisation step.
+
+Agents handle specific domains:
+
+* **PVDesignAgent** – sizes arrays, selects components and provides the gather and design steps.
+* **StructuralAgent** – adds mounts for each panel with placeholder load ratings.
+* **WiringAgent** – inserts cables and fuses for each electrical edge.
+
+Each agent returns a `GraphPatch` plus a design card summarising the changes.
+
 ### 🚀 **Current Status: Phase 1 MVP**
 - ✅ **Core Design Platform**: Fully functional canvas, components, AI chat interface
 - ✅ **18 AI Agents**: Basic design, wiring, performance, financial, and support agents  

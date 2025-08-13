@@ -31,6 +31,14 @@ class PVDesignAgent:
             return await self._gather(session_id, **kwargs)
         if task == "generate_design":
             return await self._generate_design(session_id, **kwargs)
+        if task in {"generate_structural", "generate wiring", "generate_wiring"}:
+            return {
+                "card": {
+                    "title": "Delegated task",
+                    "body": f"Task '{tid}' is handled by StructuralAgent or WiringAgent",
+                },
+                "patch": None,
+            }
         if task == "refine_validate":
             return await self._refine_validate(session_id, **kwargs)
         return {
@@ -359,6 +367,7 @@ class PVDesignAgent:
         if self.learning_agent:
             conf = await self.learning_agent.score_action("refine_validate")
             body += f" Confidence: {conf:.2f}."
+        body += " Structural and wiring tasks run separately."
         return {
             "card": {"title": "Refine/Validate", "body": body},
             "patch": None,
