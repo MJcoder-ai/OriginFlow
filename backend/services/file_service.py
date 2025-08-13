@@ -639,6 +639,11 @@ class FileService:
 
     async def create_asset(self, data: dict) -> FileAsset:
         payload = dict(data)
+        # Remove fields that are not yet persisted to the database. This allows
+        # upstream callers to supply metadata such as ``uploaded_by`` or
+        # ``file_hash`` without causing ORM errors during experimentation.
+        payload.pop("uploaded_by", None)
+        payload.pop("file_hash", None)
         asset_id = payload.pop("id", generate_id("asset"))
         payload["uploaded_at"] = datetime.now(timezone.utc)
         obj = FileAsset(id=asset_id, **payload)
