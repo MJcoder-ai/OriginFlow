@@ -16,6 +16,12 @@ from backend.models.standard_envelope import StandardEnvelope
 def validate_envelope(envelope: Dict[str, Any]) -> Tuple[bool, List[str]]:
     """Validate a candidate envelope against the StandardEnvelope schema.
 
+    This function first attempts to validate the envelope using the
+    Pydantic ``StandardEnvelope`` model.  If the model validation
+    passes, additional manual checks ensure that required keys are
+    present in the envelope and that the types of certain fields are
+    appropriate.  Validation errors are collected and returned.
+
     Args:
         envelope: A dictionary representation of an envelope.
 
@@ -25,9 +31,21 @@ def validate_envelope(envelope: Dict[str, Any]) -> Tuple[bool, List[str]]:
         error messages describing validation failures.
     """
     errors: List[str] = []
+    # Perform Pydantic model validation
     try:
         StandardEnvelope.model_validate(envelope)
     except Exception as exc:
         errors.append(str(exc))
-        return False, errors
-    return True, errors
+    # Additional manual field checks
+    required_keys = ["status", "result", "card", "metrics"]
+    for key in required_keys:
+        if key not in envelope:
+            errors.append(f"Missing required field '{key}' in envelope")
+    # Ensure metrics is a dictionary
+    if "metrics" in envelope and not isinstance(envelope.get("metrics"), dict):
+        errors.append("'metrics' field must be a dictionary")
+    # Ensure errors and validations are lists if present
+    for list_key in ["errors", "validations"]:
+        if list_key in envelope and not isinstance(envelope.get(list_key), list):
+            errors.append(f"'{list_key}' field must be a list")
+    return (len(errors) == 0), errors

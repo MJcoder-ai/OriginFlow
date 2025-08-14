@@ -7,6 +7,6 @@ top-level ``domain_packs`` directory and are organised by domain and
 version (e.g. ``domain_packs/solar/v1``).
 """
 
-from .domain_pack_loader import load_domain_pack  # noqa: F401
+from .domain_pack_loader import load_domain_pack, available_packs  # noqa: F401
 
-__all__ = ["load_domain_pack"]
+__all__ = ["load_domain_pack", "available_packs"]
