@@ -21,7 +21,8 @@ components = pack["components"]
 from __future__ import annotations
 
 import importlib
-from typing import Any, Dict
+from typing import Any, Dict, List
+import os
 
 
 def load_domain_pack(domain: str, version: str = "v1") -> Dict[str, Any]:
@@ -48,3 +49,36 @@ def load_domain_pack(domain: str, version: str = "v1") -> Dict[str, Any]:
             f"Domain pack adapter '{module_name}' does not define 'load_pack'"
         )
     return adapter_module.load_pack()
+
+
+def available_packs() -> Dict[str, List[str]]:
+    """Return a mapping of available domain packs and versions.
+
+    This helper inspects the ``domain_packs`` directory and lists
+    all domain names and their version subdirectories that contain an
+    ``adapter.py`` module.  Use this function to discover which
+    domain packs can be loaded via ``load_domain_pack``.
+
+    Returns:
+        A dictionary where each key is a domain name and the value is
+        a list of available version strings.
+    """
+    packs: Dict[str, List[str]] = {}
+    base_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "domain_packs")
+    try:
+        for domain_name in os.listdir(base_dir):
+            domain_path = os.path.join(base_dir, domain_name)
+            if not os.path.isdir(domain_path) or domain_name.startswith("__"):
+                continue
+            versions: List[str] = []
+            for version in os.listdir(domain_path):
+                version_path = os.path.join(domain_path, version)
+                adapter_path = os.path.join(version_path, "adapter.py")
+                if os.path.isdir(version_path) and os.path.isfile(adapter_path):
+                    versions.append(version)
+            if versions:
+                packs[domain_name] = sorted(versions)
+    except FileNotFoundError:
+        # If the domain_packs directory is missing, return empty dict
+        return {}
+    return packs

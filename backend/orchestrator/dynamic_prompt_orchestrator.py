@@ -12,15 +12,18 @@ The orchestrator executes a deterministic sequence of layers:
     8. Inter‑agent notifications and consensus.
     9. Learning, calibration and telemetry.
 
-During Sprints 1–2 only the first six steps were implemented in a
-skeletal manner.  Subsequent Sprint 3–4 introduced domain packs
-and agent templates for planning, PV design and component
-selection.  In Sprint 5–6 the orchestrator integrates
-**consensus**, **learning** and **observability**: proposals are
-aggregated via a ``ConsensusEngine``, outcomes are recorded by a
-``LearningAgent`` and execution is instrumented with a ``Tracer``
-and ``MetricsCollector``.  The orchestrator now returns rich
-observability data alongside results.
+    During Sprints 1–2 only the first six steps were implemented in a
+    skeletal manner.  Subsequent Sprint 3–4 introduced domain packs
+    and agent templates for planning, PV design and component
+    selection.  In Sprint 5–6 the orchestrator integrates
+    **consensus**, **learning** and **observability**: proposals are
+    aggregated via a ``ConsensusEngine``, outcomes are recorded by a
+    ``LearningAgent`` and execution is instrumented with a ``Tracer``
+    and ``MetricsCollector``.  Sprint 7–8 hardens the system with
+    improved error handling, validation and resettable metrics, and
+    exposes a helper to discover available domain packs.  The
+    orchestrator now returns rich observability data alongside
+    results and degrades gracefully on failure.
 """
 from __future__ import annotations
 
@@ -140,20 +143,43 @@ class DynamicPromptOrchestratorV2:
         # command.  If the user requests a design, invoke the
         # PVDesignTemplate.  If the user requests component selection,
         # invoke the ComponentSelectorTemplate.  Otherwise invoke
-        # PlannerTemplate to produce a task plan.
-        if cmd_lower.startswith("design"):
-            template = PVDesignTemplate(domain="solar", version="v1")
-            template_output = await template.run(contract, policy)
-        elif "component" in cmd_lower or "select" in cmd_lower:
-            template = ComponentSelectorTemplate(domain="solar", version="v1")
-            template_output = await template.run(contract, policy)
-        else:
-            template = PlannerTemplate()
-            template_output = await template.run(contract, policy)
+        # PlannerTemplate to produce a task plan.  Template execution
+        # may raise exceptions; wrap in try/except to gracefully
+        # degrade the response.
+        try:
+            if cmd_lower.startswith("design"):
+                template = PVDesignTemplate(domain="solar", version="v1")
+                template_output = await template.run(contract, policy)
+            elif "component" in cmd_lower or "select" in cmd_lower:
+                template = ComponentSelectorTemplate(domain="solar", version="v1")
+                template_output = await template.run(contract, policy)
+            else:
+                template = PlannerTemplate()
+                template_output = await template.run(contract, policy)
+        except Exception as exc:  # pragma: no cover - catch unexpected errors
+            template_output = {
+                "status": "error",
+                "result": None,
+                "card": {"template": "unknown", "confidence": 0.0},
+                "metrics": {},
+                "errors": [f"Template execution error: {exc}"],
+                "validations": [],
+            }
 
         # Step 7: Validation and recovery is handled within each template via
         # the validator and recovery utilities.  Results returned here
         # should already conform to the standard envelope.
+
+        # For consensus, enrich the template output with numeric fields
+        # if they are absent.  Confidence is derived from the card and
+        # used to populate expertise and confidence weights.
+        conf = 0.5
+        if isinstance(template_output.get("card"), dict):
+            conf = float(template_output["card"].get("confidence", 0.5))
+        template_output.setdefault("expertise", conf)
+        template_output.setdefault("confidence", conf)
+        template_output.setdefault("preference", 1.0)
+        template_output.setdefault("risk", 0.0)
 
         # Step 8: Inter‑agent notifications and consensus.  Publish the
         # completion event to the bus and compute consensus over
@@ -206,5 +232,11 @@ class DynamicPromptOrchestratorV2:
             "metrics": final_metrics,
             "errors": consensus_choice.get("errors"),
             "validations": consensus_choice.get("validations"),
+            "next_actions": consensus_choice.get("next_actions", []),
         }
+
+        # Reset metrics collector for subsequent runs to avoid
+        # accumulating cross-session data.  Observability spans are
+        # similarly cleared when collected.
+        self.metrics = MetricsCollector()
         return envelope

@@ -26,10 +26,18 @@ def recover(out: Optional[Dict[str, Any]], valid: bool, agent: str) -> Dict[str,
     """
     if valid:
         return out or {}
+    # When validation fails, construct a minimal envelope preserving any
+    # available validations from the original output.  Metrics are
+    # omitted since the result is degraded.  Include a next_actions
+    # list to guide the caller.
     return {
         "status": "error",
         "result": None,
         "card": {"template": agent, "confidence": 0.0},
-        "errors": [f"Output from {agent} failed validation, returned degraded response."],
+        "metrics": {},
+        "validations": (out.get("validations", []) if out else []),
+        "errors": [
+            f"Output from {agent} failed validation, returned degraded response."
+        ],
         "next_actions": ["Review input requirements", "Retry operation"],
     }
