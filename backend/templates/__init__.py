@@ -14,11 +14,15 @@ to demonstrate domain-pack integration and component recommendation.
 from .agent_template import AgentTemplate  # noqa: F401
 from .planner_template import PlannerTemplate  # noqa: F401
 from .pv_design_template import PVDesignTemplate  # noqa: F401
-from .component_selector_template import ComponentSelectorTemplate  # noqa: F401
+from .component_selector_template import (
+    ComponentSelectorTemplate,  # noqa: F401
+)
+from .bom_template import BillOfMaterialsTemplate  # noqa: F401
 
 __all__ = [
     "AgentTemplate",
     "PlannerTemplate",
     "PVDesignTemplate",
     "ComponentSelectorTemplate",
+    "BillOfMaterialsTemplate",
 ]
