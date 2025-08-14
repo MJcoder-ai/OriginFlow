@@ -10,7 +10,7 @@ preferences, technical constraints, pricing and risk factors.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 from backend.domain import load_domain_pack
 from backend.models.context_contract import ContextContract
