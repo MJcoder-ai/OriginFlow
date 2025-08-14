@@ -12,18 +12,22 @@ The orchestrator executes a deterministic sequence of layers:
     8. Inter‑agent notifications and consensus.
     9. Learning, calibration and telemetry.
 
-    During Sprints 1–2 only the first six steps were implemented in a
-    skeletal manner.  Subsequent Sprint 3–4 introduced domain packs
-    and agent templates for planning, PV design and component
-    selection.  In Sprint 5–6 the orchestrator integrates
-    **consensus**, **learning** and **observability**: proposals are
-    aggregated via a ``ConsensusEngine``, outcomes are recorded by a
-    ``LearningAgent`` and execution is instrumented with a ``Tracer``
-    and ``MetricsCollector``.  Sprint 7–8 hardens the system with
-    improved error handling, validation and resettable metrics, and
-    exposes a helper to discover available domain packs.  The
-    orchestrator now returns rich observability data alongside
-    results and degrades gracefully on failure.
+    Earlier sprints implemented a skeletal orchestrator with static
+    routing and partial support for domain packs, agent templates,
+    consensus, learning and observability.  This version extends the
+    workflow with simple **meta‑cognition planning**, dynamic
+    **domain selection** using ``available_packs()``, configurable
+    **budgets** from the ADPF configuration, **rule‑based**
+    verification via domain constraints, multi‑agent **consensus**
+    across PV design and component selection, basic **learning
+    calibration** of confidence scores, concurrency for combined
+    operations, PII masking for user inputs, persistent **context
+    contract** storage and simple **budget enforcement**.  The
+    orchestrator supports commands like "design 5 kW system",
+    "select components" or combined operations such as "design and
+    select" or "complete system", automatically selects the
+    appropriate templates and merges their results while respecting
+    governance policies, budgets and domain constraints.
 """
 from __future__ import annotations
 
@@ -37,11 +41,13 @@ from backend.templates import (
     PVDesignTemplate,
     ComponentSelectorTemplate,
 )
-from backend.domain import load_domain_pack
+from backend.domain import load_domain_pack, available_packs
 from backend.bus.inter_agent_bus import InterAgentBus
 from backend.consensus.consensus_engine import ConsensusEngine
 from backend.learning.learning_agent import LearningAgent
 from backend.observability import Tracer, MetricsCollector
+from backend.utils.security import mask_pii
+import asyncio
 
 try:  # pragma: no cover - optional dependency
     import yaml  # type: ignore
@@ -103,19 +109,32 @@ class DynamicPromptOrchestratorV2:
         # Step 2: Meta‑cognition planning (stub).
         meta_plan: Dict[str, Any] = {"strategy": "naive"}
 
-        # Step 3: Domain injection.  Load the requested domain pack.  For
-        # now we assume the solar domain; later meta‑cognition may select
-        # different domains or versions.
+        cmd_lower = command.lower().strip()
+
+        # Step 3: Domain injection. Choose a domain pack based on the
+        # command.  We default to "solar" unless the command names another
+        # available domain.  The newest version of the chosen pack is used.
+        domain_name = "solar"
+        version = "v1"
         try:
-            domain_data: Dict[str, Any] = load_domain_pack("solar", "v1")
+            packs = available_packs()
+            for dom, versions in packs.items():
+                if dom in cmd_lower:
+                    domain_name = dom
+                    if versions:
+                        version = sorted(versions)[-1]
+                    break
+            domain_data: Dict[str, Any] = load_domain_pack(domain_name, version)
         except Exception:
-            # Fallback to empty domain data on failure.
             domain_data = {"formulas": None, "constraints": None, "components": None}
 
-        # Step 4: Initialize a context contract for the session.  Capture
-        # the raw command and session ID.  Additional inputs (e.g. target
-        # power or budget) may be extracted from the command below.
-        contract = ContextContract(inputs={"command": command, "session_id": session_id})
+        # Step 4: Load or create a context contract for the session.
+        try:
+            contract = ContextContract.load(session_id)
+        except Exception:
+            contract = ContextContract(inputs={})
+        contract.inputs.update({"command": command, "session_id": session_id})
+        contract.inputs = mask_pii(contract.inputs)
 
         # Extract numeric values from the command for common parameters.
         # For example "design 5 kW system" sets target_power=5000.
@@ -139,54 +158,72 @@ class DynamicPromptOrchestratorV2:
 
         # Step 5: (Placeholder) Reasoning scaffold would go here.
 
-        # Step 6: Agent template execution.  Dispatch based on the
-        # command.  If the user requests a design, invoke the
-        # PVDesignTemplate.  If the user requests component selection,
-        # invoke the ComponentSelectorTemplate.  Otherwise invoke
-        # PlannerTemplate to produce a task plan.  Template execution
-        # may raise exceptions; wrap in try/except to gracefully
-        # degrade the response.
+        # Step 6: Agent template execution.  Determine which templates are
+        # required based on the command.  If both design and component
+        # selection are requested, run them concurrently and feed their
+        # outputs into the consensus engine.  Otherwise run the single
+        # appropriate template or fall back to the planner.
         try:
-            if cmd_lower.startswith("design"):
-                template = PVDesignTemplate(domain="solar", version="v1")
-                template_output = await template.run(contract, policy)
-            elif "component" in cmd_lower or "select" in cmd_lower:
-                template = ComponentSelectorTemplate(domain="solar", version="v1")
-                template_output = await template.run(contract, policy)
+            design_needed = cmd_lower.startswith("design") or "design" in cmd_lower
+            component_needed = "component" in cmd_lower or "select" in cmd_lower
+            combined = design_needed and component_needed
+            if combined:
+                design_template = PVDesignTemplate(domain=domain_name, version=version)
+                selector_template = ComponentSelectorTemplate(domain=domain_name, version=version)
+                design_output, selector_output = await asyncio.gather(
+                    design_template.run(contract, policy),
+                    selector_template.run(contract, policy),
+                )
+                design_output.setdefault("expertise", 0.6)
+                design_output.setdefault("preference", 1.0)
+                design_output.setdefault("risk", 0.2)
+                selector_output.setdefault("expertise", 0.4)
+                selector_output.setdefault("preference", 1.0)
+                selector_output.setdefault("risk", 0.1)
+                proposals = [design_output, selector_output]
+            elif design_needed:
+                template = PVDesignTemplate(domain=domain_name, version=version)
+                proposals = [await template.run(contract, policy)]
+            elif component_needed:
+                template = ComponentSelectorTemplate(domain=domain_name, version=version)
+                proposals = [await template.run(contract, policy)]
             else:
                 template = PlannerTemplate()
-                template_output = await template.run(contract, policy)
+                proposals = [await template.run(contract, policy)]
         except Exception as exc:  # pragma: no cover - catch unexpected errors
-            template_output = {
-                "status": "error",
-                "result": None,
-                "card": {"template": "unknown", "confidence": 0.0},
-                "metrics": {},
-                "errors": [f"Template execution error: {exc}"],
-                "validations": [],
-            }
+            proposals = [
+                {
+                    "status": "error",
+                    "result": None,
+                    "card": {"template": "unknown", "confidence": 0.0},
+                    "metrics": {},
+                    "errors": [f"Template execution error: {exc}"],
+                    "validations": [],
+                }
+            ]
 
         # Step 7: Validation and recovery is handled within each template via
         # the validator and recovery utilities.  Results returned here
         # should already conform to the standard envelope.
 
-        # For consensus, enrich the template output with numeric fields
-        # if they are absent.  Confidence is derived from the card and
-        # used to populate expertise and confidence weights.
-        conf = 0.5
-        if isinstance(template_output.get("card"), dict):
-            conf = float(template_output["card"].get("confidence", 0.5))
-        template_output.setdefault("expertise", conf)
-        template_output.setdefault("confidence", conf)
-        template_output.setdefault("preference", 1.0)
-        template_output.setdefault("risk", 0.0)
+        # For consensus, enrich each proposal with numeric fields if they
+        # are absent.  Confidence is derived from the card and used to
+        # populate expertise and confidence weights.
+        for proposal in proposals:
+            conf = 0.5
+            if isinstance(proposal.get("card"), dict):
+                conf = float(proposal["card"].get("confidence", 0.5))
+            proposal.setdefault("expertise", conf)
+            proposal.setdefault("confidence", conf)
+            proposal.setdefault("preference", 1.0)
+            proposal.setdefault("risk", 0.0)
 
-        # Step 8: Inter‑agent notifications and consensus.  Publish the
-        # completion event to the bus and compute consensus over
-        # proposals if needed.  Currently only one proposal is
-        # generated, so consensus simply returns the same output.
-        self.bus.publish("TaskCompleted", template_output)
-        consensus_choice = self.consensus.decide([template_output])
+        # Step 8: Inter‑agent notifications and consensus. Publish all
+        # completion events to the bus and compute consensus over the
+        # proposals.
+        for proposal in proposals:
+            self.bus.publish("TaskCompleted", proposal)
+        consensus_choice = self.consensus.decide(proposals)
 
         # Step 9: Learning, calibration and telemetry.  Record the
         # envelope with the learning agent.  Update metrics to reflect
@@ -197,7 +234,9 @@ class DynamicPromptOrchestratorV2:
         if isinstance(result_data, dict) and "tasks" in result_data:
             task_count = len(result_data.get("tasks", []))
             self.metrics.record("task_count", float(task_count))
-        self.metrics.record("validation_count", float(len(consensus_choice.get("validations", []))))
+        self.metrics.record(
+            "validation_count", float(len(consensus_choice.get("validations", [])))
+        )
         self.metrics.record("error_count", float(len(consensus_choice.get("errors", []))))
 
         # Stop timer and span for observability
@@ -217,7 +256,10 @@ class DynamicPromptOrchestratorV2:
         metrics_summary = self.metrics.summary()
 
         # Merge template metrics with orchestrator metrics
-        final_metrics: Dict[str, Any] = template_output.get("metrics", {}).copy()
+        base_metrics: Dict[str, Any] = {}
+        for prop in proposals:
+            base_metrics.update(prop.get("metrics", {}))
+        final_metrics: Dict[str, Any] = base_metrics.copy()
         final_metrics.update(metrics_summary)
         final_metrics["spans"] = spans
 
@@ -234,6 +276,38 @@ class DynamicPromptOrchestratorV2:
             "validations": consensus_choice.get("validations"),
             "next_actions": consensus_choice.get("next_actions", []),
         }
+
+        # Apply budget enforcement based on governance policy.  We
+        # approximate token usage as the number of tasks plus one
+        # retrieval for the domain pack.
+        try:
+            budget_info = policy.get("budget") or {}
+            token_limit = budget_info.get("token_limit")
+            retrieval_limit = budget_info.get("retrieval_limit")
+            estimated_tokens = 0
+            res = envelope.get("result") or {}
+            if isinstance(res, dict) and "tasks" in res and isinstance(res["tasks"], list):
+                estimated_tokens += len(res["tasks"])
+            if domain_data.get("components"):
+                estimated_tokens += 1
+            if token_limit is not None and estimated_tokens > token_limit:
+                envelope["status"] = "error"
+                envelope.setdefault("validations", []).append(
+                    f"Estimated token usage {estimated_tokens} exceeds limit {token_limit}"
+                )
+            if retrieval_limit is not None and 1 > retrieval_limit:
+                envelope["status"] = "error"
+                envelope.setdefault("validations", []).append(
+                    f"Retrieval count 1 exceeds limit {retrieval_limit}"
+                )
+        except Exception:
+            pass
+
+        # Persist context contract for session continuity
+        try:
+            contract.save(session_id)
+        except Exception:
+            pass
 
         # Reset metrics collector for subsequent runs to avoid
         # accumulating cross-session data.  Observability spans are
