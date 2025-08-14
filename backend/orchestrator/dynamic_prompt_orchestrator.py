@@ -100,7 +100,48 @@ class DynamicPromptOrchestratorV2:
         self.metrics = MetricsCollector()
 
     async def run(self, command: str, session_id: str) -> Dict[str, Any]:
-        """Execute the layered workflow for a user command."""
+        """Execute the orchestrator workflow.
+
+        This method processes a raw user command through the full ADPF 2.1
+        pipeline.  It enforces governance policies (PII masking, budget
+        limits, restricted topics), performs meta‑cognition planning to
+        select an appropriate domain pack and budget tier, loads or
+        creates a context contract via the ODL graph service, parses
+        numeric values such as target power, energy capacity and budget
+        from the command, and attaches the chosen budget policy to the
+        governance policy.  Based on keywords in the command and any
+        implicit dependencies, it executes one or more agent templates
+        concurrently—PV design, battery design, component selection,
+        wiring, structural assessment, bill of materials and financial
+        analysis—using ``asyncio.gather``.  For dependent tasks such as
+        wiring and structural assessment the orchestrator automatically
+        schedules the necessary design steps if they were not explicitly
+        requested.
+
+        Each template returns a standard envelope with result and
+        validation information.  The orchestrator publishes these
+        proposals to an inter‑agent bus, aggregates them via a weighted
+        consensus engine, merges their result objects into a unified
+        ``result`` and stores each result as a patch in the ODL
+        service.  It calibrates confidence scores using a learning
+        agent, records telemetry metrics and tracing spans, enforces
+        budget limits, surfaces validation messages and next‑action
+        suggestions, persists the updated context contract for session
+        continuity and finally resets its metrics collector for the
+        next run.
+
+        Args:
+            command: The raw user command (e.g. ``"design 5 kW and select components"``).
+            session_id: Unique identifier for the current design session.
+
+        Returns:
+            A dictionary conforming to the ``StandardEnvelope`` schema,
+            containing keys such as ``status``, ``result``, ``patch``,
+            ``card``, ``metrics``, ``errors`` and ``validations``.  The
+            ``result`` field includes merged outputs from all executed
+            templates; the ``patch`` mirrors the result for ODL graph
+            consumption.
+        """
         # Start a root span and timer for observability.  We record
         # attributes such as the command and session for later analysis.
         root_span = self.tracer.start_span("orchestrator.run", command=command, session=session_id)
