@@ -7,7 +7,6 @@
 import { create } from 'zustand';
 import { api } from './services/api';
 import { listFiles } from './services/fileApi';
-import { API_BASE_URL } from './config';
 import { AiAction } from './types/ai';
 
 export interface UploadEntry {
@@ -650,22 +649,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     
     try {
-      const response = await fetch('/api/v1/odl/sessions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to create ODL session: ${response.status} ${errorText}`);
-      }
-      
-      const data = await response.json();
+      const data = await api.createOdlSession();
       get().setCurrentSessionId(data.session_id);
       get().addStatusMessage('ODL session created', 'success');
       return data.session_id;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating ODL session:', error);
       get().addStatusMessage(`Failed to create ODL session: ${error.message}`, 'error');
       return null;
