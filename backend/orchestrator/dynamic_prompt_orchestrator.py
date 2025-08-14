@@ -28,6 +28,19 @@ The orchestrator executes a deterministic sequence of layers:
     select" or "complete system", automatically selects the
     appropriate templates and merges their results while respecting
     governance policies, budgets and domain constraints.
+
+      • **Automatic dependency resolution**: wiring, structural,
+        bill of materials and financial analysis rely on design
+        outputs.  If the user requests these operations without
+        explicitly running a design, the orchestrator automatically
+        executes the required PV or battery design templates before
+        proceeding.  This ensures that dependent tasks have the
+        necessary inputs and prevents degraded outputs.
+      • **Roof area extraction**: the orchestrator parses phrases
+        like "roof area 50 m2" or "roof 50 sqm" from the command and
+        stores the numeric value in ``contract.inputs['roof_area']``.
+        This supports structural assessments without requiring
+        separate prompts for roof area.
 """
 from __future__ import annotations
 
@@ -107,8 +120,8 @@ class DynamicPromptOrchestratorV2:
         limits, restricted topics), performs meta‑cognition planning to
         select an appropriate domain pack and budget tier, loads or
         creates a context contract via the ODL graph service, parses
-        numeric values such as target power, energy capacity and budget
-        from the command, and attaches the chosen budget policy to the
+        numeric values such as target power, energy capacity, roof area and
+        budget from the command, and attaches the chosen budget policy to the
         governance policy.  Based on keywords in the command and any
         implicit dependencies, it executes one or more agent templates
         concurrently—PV design, battery design, component selection,
@@ -192,11 +205,32 @@ class DynamicPromptOrchestratorV2:
                 contract.inputs["target_power"] = kw_value * 1000
             except Exception:
                 pass
-        bm = re.search(r"[\$\u00a3](\d+(?:\.\d+)?)", cmd_lower)
+
+        # Parse budget numeric amounts from currency symbols.  If the
+        # command contains a number prefixed by $ or £, store it as
+        # ``budget``.  This is separate from the budget tier (economy,
+        # premium) selected by meta‑cognition.
+        bm = re.search(r"[\$£](\d+(?:\.\d+)?)", cmd_lower)
         if bm:
             try:
                 budget_val = float(bm.group(1))
                 contract.inputs["budget"] = budget_val
+            except Exception:
+                pass
+
+        # Extract roof area if specified.  Accept patterns like
+        # "roof area 50 m2", "roof 50 sqm" or "roof area: 100".
+        # Units such as "m2", "sqm", "square meters" or "square metres"
+        # are recognised but optional; the number is interpreted as
+        # square meters by default.  If parsing fails no value is set.
+        m_area = re.search(
+            r"roof\s*(?:area)?\s*(\d+(?:\.\d+)?)\s*(?:sqm|m2|square\s+meters|square\s+metres)?",
+            cmd_lower,
+        )
+        if m_area:
+            try:
+                area_val = float(m_area.group(1))
+                contract.inputs["roof_area"] = area_val
             except Exception:
                 pass
 

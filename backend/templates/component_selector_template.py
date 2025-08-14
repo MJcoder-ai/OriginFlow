@@ -1,12 +1,26 @@
 """Implementation of the component selection template.
 
-The ``ComponentSelectorTemplate`` recommends specific photovoltaic
-modules and inverters based on the user's requirements and the
-available component catalog.  In Sprint 3–4 this template selects
-components using a simple heuristic: highest efficiency panels and
-highest capacity inverters within basic budget considerations.  Later
-sprints will incorporate more sophisticated scoring based on user
-preferences, technical constraints, pricing and risk factors.
+The ``ComponentSelectorTemplate`` recommends components from the
+domain catalog based on simple heuristics.  When operating in the
+solar domain it returns photovoltaic modules (panels) and inverters,
+ranked by their efficiency‑to‑price and capacity‑to‑price ratios
+respectively.  When operating in the HVAC domain it recommends HVAC
+units ranked by their capacity (kW) to price ratio.  The template
+selects up to three top candidates of each type.
+
+When a target power is specified in the context contract (via
+``contract.inputs['target_power']``) the template estimates how many
+units of each recommended component would be required to meet that
+target.  It also computes the approximate cost by multiplying the
+unit price by the recommended quantity.  These quantities and
+estimated costs are included in the recommendation entries.  If no
+target power is provided the quantities are omitted.
+
+A user‑supplied budget is taken into account by comparing the cost of
+the cheapest compatible configuration against the budget and
+recording a validation warning if the budget may be insufficient.
+Future iterations will incorporate more sophisticated scoring based on
+user preferences, technical constraints, pricing and risk factors.
 """
 from __future__ import annotations
 
