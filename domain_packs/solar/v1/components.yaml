@@ -1,0 +1,27 @@
+# Sample component catalog for the solar domain.
+
+panels:
+  - id: P1
+    name: "Standard 400W Panel"
+    power: 400
+    area: 1.8
+    efficiency: 0.20
+    price: 200
+  - id: P2
+    name: "High-Efficiency 450W Panel"
+    power: 450
+    area: 1.9
+    efficiency: 0.22
+    price: 250
+
+inverters:
+  - id: I1
+    name: "5kW Inverter"
+    capacity: 5000
+    efficiency: 0.96
+    price: 1000
+  - id: I2
+    name: "10kW Inverter"
+    capacity: 10000
+    efficiency: 0.97
+    price: 1800

@@ -131,5 +131,6 @@ class PlannerTemplate(AgentTemplate):
             "result": result,
             "card": card,
             "metrics": {},
+            "validations": [],
             "errors": errors,
         }
