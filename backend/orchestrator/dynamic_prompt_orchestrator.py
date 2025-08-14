@@ -5,7 +5,7 @@ The orchestrator executes a deterministic sequence of layers:
     1. Governance enforcement.
     2. Meta‑cognition planning.
     3. Domain knowledge injection.
-    4. Context contract initialization.
+    4. Context contract initialization via ODL graph service.
     5. Reasoning scaffold (placeholder).
     6. Agent template execution (e.g. planning, design, component selection).
     7. Validation and recovery (ensure schema compliance).
@@ -35,13 +35,17 @@ import os
 from typing import Any, Dict, Optional
 
 from backend.governance.governance import Governance
-from backend.models.context_contract import ContextContract
 from backend.templates import (
     PlannerTemplate,
     PVDesignTemplate,
     ComponentSelectorTemplate,
 )
 from backend.domain import load_domain_pack, available_packs
+from backend.odl.graph_service import (
+    get_contract as odl_get_contract,
+    save_contract as odl_save_contract,
+    add_patch as odl_add_patch,
+)
 from backend.bus.inter_agent_bus import InterAgentBus
 from backend.consensus.consensus_engine import ConsensusEngine
 from backend.learning.learning_agent import LearningAgent
@@ -128,11 +132,10 @@ class DynamicPromptOrchestratorV2:
         except Exception:
             domain_data = {"formulas": None, "constraints": None, "components": None}
 
-        # Step 4: Load or create a context contract for the session.
-        try:
-            contract = ContextContract.load(session_id)
-        except Exception:
-            contract = ContextContract(inputs={})
+        # Step 4: Load or create a context contract for the session using the
+        # ODL graph service.  The service returns a cached contract if one
+        # exists in memory or on disk; otherwise a new contract is created.
+        contract = odl_get_contract(session_id)
         contract.inputs.update({"command": command, "session_id": session_id})
         contract.inputs = mask_pii(contract.inputs)
 
@@ -225,6 +228,15 @@ class DynamicPromptOrchestratorV2:
             self.bus.publish("TaskCompleted", proposal)
         consensus_choice = self.consensus.decide(proposals)
 
+        # Add each proposal's result as a patch in the ODL graph service.
+        for prop in proposals:
+            patch_data = prop.get("result") or {}
+            if isinstance(patch_data, dict):
+                try:
+                    odl_add_patch(session_id, patch_data)
+                except Exception:
+                    pass
+
         # Step 9: Learning, calibration and telemetry.  Record the
         # envelope with the learning agent.  Update metrics to reflect
         # counts of tasks, errors and validations.
@@ -303,9 +315,9 @@ class DynamicPromptOrchestratorV2:
         except Exception:
             pass
 
-        # Persist context contract for session continuity
+        # Persist context contract to the ODL graph service for session continuity
         try:
-            contract.save(session_id)
+            odl_save_contract(session_id, contract)
         except Exception:
             pass
 
