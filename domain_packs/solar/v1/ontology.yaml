@@ -1,0 +1,15 @@
+# Ontology definitions for the solar domain.
+entities:
+  # Primary entities involved in a photovoltaic system.
+  - module
+  - inverter
+  - mounting_structure
+relations:
+  # Modules (panels) are connected electrically to inverters.
+  - name: connected_to
+    from: module
+    to: inverter
+  # Modules are mechanically mounted on a structure (roof or ground).
+  - name: mounted_on
+    from: module
+    to: mounting_structure

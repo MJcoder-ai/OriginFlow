@@ -1,0 +1,25 @@
+# Regulatory and physical constraints for PV system design.
+constraints:
+  # Overcurrent protection requirement from NEC 690.9: conductors must
+  # withstand 125% of the maximum current.  See National Electrical
+  # Code (NEC) Article 690 for details.
+  - id: NEC-690.9
+    description: Overcurrent protection for PV source circuits
+    check: conductor_ampacity >= 1.25 * max_current
+    severity: critical
+
+  # Maximum allowable voltage for residential PV systems.  Many
+  # jurisdictions cap PV string voltages at 600 VDC for safety.
+  - id: NEC-690.8
+    description: Maximum PV source circuit voltage
+    check: pv_voltage <= 600
+    severity: high
+
+  # Example constraint on roof loading: total panel area must not
+  # exceed the available roof area.  Hard constraints cannot be
+  # violated.
+  - id: STRUCTURAL-ROOF-AREA
+    description: Roof area utilisation must be within limits
+    check: panel_count * panel_area <= roof_area
+    severity: high
+    hard: true
