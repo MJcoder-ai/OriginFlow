@@ -174,6 +174,118 @@ PLACEHOLDER_COMPONENT_TYPES: Dict[str, PlaceholderComponent] = {
             "approved_protocols": ["WiFi", "Ethernet", "Cellular", "Zigbee"],
         }
     ),
+    # Electrical protection devices
+    "generic_mcb": PlaceholderComponent(
+        type="generic_mcb",
+        default_attributes={
+            "rating": "16A",
+            "poles": 1,
+            "curve": "B",
+            "phase": "AC",
+        },
+        replacement_categories=["MCB", "Circuit Breaker"],
+    ),
+    "generic_rccb": PlaceholderComponent(
+        type="generic_rccb",
+        default_attributes={
+            "rating": "30mA",
+            "poles": 2,
+            "phase": "AC",
+        },
+        replacement_categories=["RCCB", "Residual Current Device"],
+    ),
+    "generic_spd": PlaceholderComponent(
+        type="generic_spd",
+        default_attributes={
+            "rating": "275V",
+            "type": "II",
+        },
+        replacement_categories=["SPD", "Surge Protector", "Lightning Arrester"],
+    ),
+    "generic_ac_isolator": PlaceholderComponent(
+        type="generic_ac_isolator",
+        default_attributes={
+            "rating": "20A",
+            "poles": 2,
+            "phase": "AC",
+        },
+        replacement_categories=["AC Isolator", "Disconnect Switch"],
+    ),
+    "generic_dc_combiner": PlaceholderComponent(
+        type="generic_dc_combiner",
+        default_attributes={
+            "strings": 2,
+            "voltage": "1000V",
+        },
+        replacement_categories=["DC Combiner Box", "String Combiner"],
+    ),
+    # Structural and mounting accessories
+    "generic_mounting_rail": PlaceholderComponent(
+        type="generic_mounting_rail",
+        default_attributes={
+            "length_m": 2.0,
+            "material": "Aluminium",
+            "profile": "40x40",
+        },
+        replacement_categories=["Mounting Rail", "DIN Rail", "PV Rail"],
+    ),
+    "generic_panel_clamp": PlaceholderComponent(
+        type="generic_panel_clamp",
+        default_attributes={
+            "type": "mid",
+            "material": "Aluminium",
+        },
+        replacement_categories=["Panel Clamp", "Mid Clamp", "End Clamp"],
+    ),
+    "generic_mcb_busbar": PlaceholderComponent(
+        type="generic_mcb_busbar",
+        default_attributes={
+            "poles": 4,
+            "length_m": 0.5,
+        },
+        replacement_categories=["Busbar", "MCB Busbar"],
+    ),
+    # Auxiliary and miscellaneous components
+    "generic_optimiser": PlaceholderComponent(
+        type="generic_optimiser",
+        default_attributes={
+            "power": "350W",
+            "voltage": "60V",
+        },
+        replacement_categories=["Optimiser", "DC Optimiser"],
+    ),
+    "generic_rapid_shutdown": PlaceholderComponent(
+        type="generic_rapid_shutdown",
+        default_attributes={
+            "activation_method": "manual",
+            "voltage": "600V",
+        },
+        replacement_categories=["Rapid Shutdown", "RSD Device"],
+    ),
+    "generic_distribution_board": PlaceholderComponent(
+        type="generic_distribution_board",
+        default_attributes={
+            "rating": "63A",
+            "modules": 4,
+        },
+        replacement_categories=["Distribution Board", "Panel Board"],
+    ),
+    "generic_cable_gland": PlaceholderComponent(
+        type="generic_cable_gland",
+        default_attributes={
+            "size": "M32",
+            "material": "Nylon",
+        },
+        replacement_categories=["Cable Gland", "Conduit Gland"],
+    ),
+    "generic_battery_fuse": PlaceholderComponent(
+        type="generic_battery_fuse",
+        default_attributes={
+            "rating": "125A",
+            "voltage": "600V",
+        },
+        replacement_categories=["Fuse", "Battery Fuse"],
+    ),
 }
 
 
@@ -337,3 +449,8 @@ placeholder_service = PlaceholderComponentService()
 def get_placeholder_service() -> PlaceholderComponentService:
     """Get the global placeholder component service instance."""
     return placeholder_service
+
+
+def get_placeholder_catalog() -> Dict[str, PlaceholderComponent]:
+    """Return a copy of the placeholder component catalogue."""
+    return placeholder_service.get_all_placeholder_types()
