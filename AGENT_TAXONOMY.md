@@ -70,6 +70,14 @@ To enable a plan–act loop across multiple engineering disciplines, we introduc
 
 Each ODL domain agent implements a unified `execute(task_id, graph)` method and returns a `GraphPatch` plus an optional `DesignCard` summarising its recommendation. The patch contains lists of nodes and edges to add or remove; cards supply user‑friendly explanations and actions. In this release these agents are stubs—returning empty patches—to illustrate the API shape. Future implementations will encode detailed domain knowledge and integrate with rule engines and databases.
 
+#### Category: Domain Agents
+
+- PVDesignAgent — generates PV designs and selects components.
+- StructuralAgent — designs mounting structures.
+- WiringAgent — sizes wiring and protective devices.
+- BatteryAgent — sizes and places battery storage modules.
+- MonitoringAgent — adds monitoring devices and telemetry links.
+
 ---
 
 ## **Enterprise Roadmap: Phase 2-4 (24 Missing Agents)**

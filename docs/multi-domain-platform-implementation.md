@@ -28,6 +28,7 @@ This document outlines the successful implementation of OriginFlow's transformat
 7. **Phase 7**: ADPF Integration ✅
 8. **Phase 8**: Governance & Safety Policies ✅
 9. **Phase 9**: Compliance & Rule Engine ✅
+10. **Phase 10**: Extended Multi‑Domain Support ✅
 
 ## Architecture Components
 
@@ -380,3 +381,26 @@ agent-driven validation.
   components via a validation action.  This helps catch incomplete designs
   early and lays the groundwork for more sophisticated cross‑layer
   consistency checks in future phases.
+
+### Extended Multi‑Domain Support (Phase 10)
+
+Phase 10 expands OriginFlow beyond the solar domain by introducing new domain
+agents for battery storage and system monitoring.  The PlannerAgent now emits
+``generate_battery`` and ``generate_monitoring`` tasks when a PV design
+requires energy storage or telemetry.  The new agents operate as follows:
+
+- **BatteryAgent**: Automatically sizes and places placeholder battery
+  modules in the design.  It examines the current graph, locates inverters,
+  creates generic battery nodes and connects them via electrical links.  The
+  agent produces a design card summarising the number of modules added and
+  recommended next steps.
+- **MonitoringAgent**: Adds placeholder monitoring devices to instrument
+  inverters and batteries.  For each component requiring telemetry, it
+  creates a generic monitoring node and connects it with communication links.
+  If no specific targets exist, it attaches a device to the system root.
+  The resulting card outlines the instrumented components and follow‑on
+  actions.
+
+Both agents return ADPF‑compliant envelopes and are registered with risk
+classes (medium for battery, low for monitoring) to allow the governance
+layer to gate their actions appropriately.

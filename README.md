@@ -17,6 +17,7 @@ Recent updates introduce a **Multi-Domain Platform** with placeholder component 
   - **Version Control**: Complete graph versioning with patch history and revert capabilities
   - **Enhanced APIs**: 15+ new endpoints for ODL session management, component selection, and analysis
   - **Governance & Safety Policies**: Risk-based auto‑approval based on agent classifications and confidence scores, ensuring high‑risk actions always require human review
+  - **Extended Multi‑Domain Support**: Battery and monitoring agents automatically design energy storage and telemetry systems, deepening the placeholder‑first multi‑domain framework
   - **Compliance & Rule Engine**: Enhanced rule engine with validation of installed wires and fuses; cross-layer validation agent now checks for unconnected components
   - **ADPF Integration**: All AI agents return results in a standard JSON envelope with meta-cognitive reasoning (`thought`), structured output and status.  See `backend/utils/adpf.py` for details.
 

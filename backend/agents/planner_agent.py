@@ -15,13 +15,14 @@ from collections import Counter
 # task id when a mapping is not provided.
 TASK_TITLES: Dict[str, str] = {
     "gather_requirements": "Gather requirements",
-    "generate_design": "Generate design",
-    "generate_structural": "Generate structural design", 
-    "generate_wiring": "Generate wiring",
+    "generate_design": "Generate PV design",
+    "generate_structural": "Generate mounting structure",
+    "generate_wiring": "Generate wiring design",
+    "wiring": "Generate wiring design",
     "populate_real_components": "Select real components",
-    "generate_battery": "Design battery system",
-    "generate_monitoring": "Add monitoring system",
-    "refine_validate": "Refine and validate",
+    "generate_battery": "Generate battery design",
+    "generate_monitoring": "Generate monitoring design",
+    "refine_validate": "Refine and validate design",
 }
 
 

@@ -24,4 +24,6 @@ from . import link_agent  # noqa: F401
 from . import layout_agent  # noqa: F401
 from . import auditor_agent  # noqa: F401
 from . import bom_agent  # noqa: F401
+from . import battery_agent  # noqa: F401
+from . import monitoring_agent  # noqa: F401
 
