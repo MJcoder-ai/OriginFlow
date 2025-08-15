@@ -54,6 +54,7 @@ from backend.templates import (
     ComponentSelectorTemplate,
 )
 from backend.domain import load_domain_pack, available_packs
+from backend.meta.meta_cognition import plan_strategy
 from backend.odl.graph_service import (
     get_contract as odl_get_contract,
     save_contract as odl_save_contract,
@@ -164,24 +165,16 @@ class DynamicPromptOrchestratorV2:
         # ``task`` argument may be a richer object describing the command.
         policy = Governance.enforce(task={"requires_citations": False}, session=session_id)
 
-        # Step 2: Meta‑cognition planning (stub).
-        meta_plan: Dict[str, Any] = {"strategy": "naive"}
+        # Step 2: Meta‑cognition planning.  Determine the domain pack and
+        # version to use based on the user command, falling back to the
+        # default solar domain if necessary.
+        packs = available_packs()
+        meta_plan: Dict[str, Any] = plan_strategy(command, packs)
 
-        cmd_lower = command.lower().strip()
-
-        # Step 3: Domain injection. Choose a domain pack based on the
-        # command.  We default to "solar" unless the command names another
-        # available domain.  The newest version of the chosen pack is used.
-        domain_name = "solar"
-        version = "v1"
+        # Step 3: Domain injection using the selected domain and version.
+        domain_name = meta_plan.get("domain", "solar")
+        version = meta_plan.get("version", "v1")
         try:
-            packs = available_packs()
-            for dom, versions in packs.items():
-                if dom in cmd_lower:
-                    domain_name = dom
-                    if versions:
-                        version = sorted(versions)[-1]
-                    break
             domain_data: Dict[str, Any] = load_domain_pack(domain_name, version)
         except Exception:
             domain_data = {"formulas": None, "constraints": None, "components": None}
