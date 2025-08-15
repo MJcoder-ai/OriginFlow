@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List
 
 from backend.utils.retry_manager import retry_manager
+from backend.utils.schema_enforcer import validate_envelope
 
 
 class AgentBase(ABC):
@@ -37,6 +38,25 @@ class AgentBase(ABC):
         try:
             result = await self.execute(session_id, tid, **kwargs)
             if isinstance(result, dict):
+                try:
+                    validate_envelope(result)
+                except Exception as exc:
+                    response = wrap_response(
+                        thought=f"Invalid envelope returned by agent '{self.name}' for task '{tid}'",
+                        card={
+                            "title": f"{self.name.replace('_', ' ').title()}",
+                            "body": str(exc),
+                        },
+                        patch=None,
+                        status="blocked",
+                    )
+                    retry_manager.register_blocked_task(
+                        session_id=session_id,
+                        agent_name=self.name,
+                        task_id=tid,
+                        context=kwargs,
+                    )
+                    return response
                 status = result.get("status") or result.get("output", {}).get("status")
                 if status == "blocked":
                     retry_manager.register_blocked_task(
