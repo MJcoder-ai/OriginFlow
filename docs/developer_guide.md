@@ -53,7 +53,11 @@ agents.
 
 Use the `RetryManager` to re‑execute blocked tasks. Agents should return
 `status="blocked"` with a helpful message when required context is
-missing.
+missing.  The `PlannerOrchestrator` automatically invokes the retry
+manager at the start and end of each `run_workflow` call, so blocked
+tasks are re‑executed when new context (such as user input or another
+agent’s output) becomes available.  If needed, you can still call
+`resolve_blocked_tasks(session_id)` manually for ad‑hoc retries.
 
 ## 6. Write Tests
 

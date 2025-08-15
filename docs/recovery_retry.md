@@ -13,13 +13,20 @@ central component responsible for tracking blocked tasks.  When an
 agent returns an ADPF envelope with `status='blocked'`, the task is
 registered with the retry manager along with its agent name, task
 identifier and context.  A per‑session queue stores blocked tasks
-until they can be retried.
+until they can be retried.  The `PlannerOrchestrator` automatically
+invokes the retry manager at the beginning and end of every
+`run_workflow` call, so previously blocked tasks are re‑executed
+whenever new context becomes available.  You can still call
+`retry_manager.resolve_blocked_tasks(session_id)` directly if you
+need to trigger retries outside of the orchestrator.
 
-To attempt resolution, call `retry_manager.resolve_blocked_tasks(session_id)`.
-This iterates through the queued tasks for the session, invoking each
-agent’s `safe_execute` method.  Tasks that succeed (i.e. return a
-status other than `blocked`) are removed from the queue.  Remaining
-tasks stay in the queue for future attempts.
+To attempt resolution manually, call
+`retry_manager.resolve_blocked_tasks(session_id)`.  This iterates
+through the queued tasks for the session, invoking each agent’s
+`safe_execute` method.  Tasks that succeed (i.e. return a status
+other than `blocked`) are removed from the queue.  Remaining tasks
+stay in the queue for future attempts.  The orchestrator’s
+automatic retry mechanism uses exactly the same logic.
 
 ## AgentBase & safe_execute
 
@@ -60,6 +67,11 @@ retry manager.  After the user uploads the datasheet, calling
 `retry_manager.resolve_blocked_tasks(session_id)` will re‑execute the
 task.  If the datasheet is available, the agent completes and the
 task is removed from the blocked queue.
+
+When using the `PlannerOrchestrator`, you typically do not need to
+call `resolve_blocked_tasks` yourself.  The orchestrator automatically
+invokes this method at the start and end of each workflow run, so
+blocked tasks are re‑executed whenever new context becomes available.
 
 ## Future Work
 
