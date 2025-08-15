@@ -26,6 +26,7 @@ from .auditor_agent import AuditorAgent  # noqa: F401
 from .bom_agent import BomAgent  # noqa: F401
 from .battery_agent import BatteryAgent  # noqa: F401
 from .monitoring_agent import MonitoringAgent  # noqa: F401
+from .network_validation_agent import NetworkValidationAgent  # noqa: F401
 from .meta_cognition_agent import MetaCognitionAgent  # noqa: F401
 from .consensus_agent import ConsensusAgent  # noqa: F401
 
@@ -47,6 +48,7 @@ __all__ = [
     "BomAgent",
     "BatteryAgent",
     "MonitoringAgent",
+    "NetworkValidationAgent",
     "MetaCognitionAgent",
     "ConsensusAgent",
 ]
