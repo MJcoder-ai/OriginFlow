@@ -13,7 +13,11 @@ os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///./test.db")
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 
 from backend.services import odl_graph_service  # noqa: E402
-from backend.services.odl_graph_service import get_patch_diff, revert_to_version  # noqa: E402
+from backend.services.odl_graph_service import (
+    DesignConflictError,
+    get_patch_diff,
+    revert_to_version,
+)  # noqa: E402
 
 
 @pytest.mark.asyncio
@@ -22,14 +26,12 @@ async def test_version_conflict_detection():
     await odl_graph_service.create_graph(session_id)
 
     patch = {"add_nodes": [{"id": "n1", "data": {}}], "version": 0}
-    success, _ = await odl_graph_service.apply_patch(session_id, patch)
-    assert success
+    await odl_graph_service.apply_patch(session_id, patch)
 
     # Reapply with stale version
     patch2 = {"add_nodes": [{"id": "n2", "data": {}}], "version": 0}
-    success, err = await odl_graph_service.apply_patch(session_id, patch2)
-    assert not success
-    assert "Version conflict" in err
+    with pytest.raises(DesignConflictError):
+        await odl_graph_service.apply_patch(session_id, patch2)
 
 
 @pytest.mark.asyncio

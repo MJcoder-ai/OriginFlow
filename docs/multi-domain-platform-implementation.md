@@ -30,6 +30,7 @@ This document outlines the successful implementation of OriginFlow's transformat
 9. **Phase 9**: Compliance & Rule Engine ✅
 10. **Phase 10**: Extended Multi‑Domain Support ✅
 11. **Phase 11**: Observability & Learning ✅
+12. **Phase 12**: Error Handling & Concurrency ✅
 
 ## Architecture Components
 
@@ -430,3 +431,32 @@ This phase does not yet include a full ML‑powered feedback loop, but lays
 the foundation for adaptive learning by exposing rich telemetry that can be
 consumed by future calibrators.  Subsequent releases will add retrieval‑
 augmented feedback and dynamic adjustment of agent confidence thresholds.
+
+### Error Handling & Concurrency (Phase 12)
+
+The final phase in the Phase 1 roadmap addresses robustness in the face of
+failures and concurrent access:
+
+- **Custom error types**: A new `backend/utils/errors.py` defines
+  `InvalidPatchError`, `DesignConflictError` and `SessionNotFoundError`,
+  enabling agents and services to distinguish between invalid inputs,
+  conflicting updates and missing sessions.
+- **Optimistic concurrency & idempotency**: The graph service now uses per‑session
+  locks (`asyncio.Lock`) to prevent concurrent writes from clobbering each
+  other.  Patch application skips duplicate nodes/edges and validates
+  removals, ensuring idempotent updates and raising descriptive errors on
+  conflicts.
+- **Safe agent execution**: `AgentBase` provides a `safe_execute` wrapper that
+  catches both custom and unexpected errors.  Agents that call `safe_execute`
+  return a structured ADPF envelope with an error message and a `blocked`
+  status rather than propagating exceptions.
+- **Unified error responses**: The AI orchestrators continue to operate on
+  validated actions even if some agents fail, and error messages surface
+  through design cards rather than HTTP errors.  This improves user
+  experience and prevents the system from stalling when a single agent
+  misbehaves.
+
+These improvements harden the OriginFlow backend against runtime errors and
+race conditions, paving the way for further concurrency enhancements in
+future releases (e.g. using a workflow engine like Temporal or a saga
+pattern for rollback).
