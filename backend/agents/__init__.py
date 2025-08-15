@@ -26,4 +26,6 @@ from . import auditor_agent  # noqa: F401
 from . import bom_agent  # noqa: F401
 from . import battery_agent  # noqa: F401
 from . import monitoring_agent  # noqa: F401
+from . import meta_cognition_agent  # noqa: F401
+from . import consensus_agent  # noqa: F401
 
