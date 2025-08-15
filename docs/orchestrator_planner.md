@@ -1,7 +1,11 @@
 # Planner Orchestrator
 
 The `PlannerOrchestrator` combines the dynamic task planner with
-registered domain agents.  It executes tasks sequentially and returns a
+registered domain agents.  It executes *every* task through the
+`WorkflowEngine`, which applies each agent's graph patch atomically as
+part of a saga transaction.  Beginning in Phase 13 there is no fallback
+to plain sequential execution: if any step fails, previously applied
+patches are rolled back automatically.  The orchestrator still returns a
 list of ADPF envelopes representing the outputs from each agent.
 
 ## Usage
@@ -25,6 +29,6 @@ strategies, consult the developer onboarding guide
 (`docs/developer_guide.md`).  The guide explains how tasks are mapped to
 agents, how to register new tasks in `TaskAgentMapping`, and how the
 orchestrator invokes agents via `safe_execute`.  It also provides tips
-on integrating the saga workflow engine and recovery mechanisms into
-more advanced planning logic.
+on composing custom saga compensation behaviour and recovery mechanisms
+for more advanced planning logic.
 
