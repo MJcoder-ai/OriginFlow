@@ -1,32 +1,24 @@
 """Planner orchestrator service.
 
 This module defines an asynchronous orchestrator that sequences design
-tasks across multiple domain agents.  It integrates with the agent
-registry to dispatch tasks to the correct agent, automatically
-invokes meta‑cognition for blocked tasks, aggregates competing outputs
-using the consensus agent, registers blocked tasks for retry, and
-applies patches to the design graph.  Beginning with Phase 13, the
-orchestrator executes *all* tasks using a saga‑style workflow engine.
-There is no fallback to sequential execution; instead, every task
-produces a graph patch that participates in a consistent, atomic
-transaction.  Compensation functions may be provided to customise
-rollback behaviour for specific tasks.
+tasks across multiple domain agents. It integrates with the agent
+registry to dispatch tasks to the correct agent, automatically invokes
+meta‑cognition for blocked tasks, aggregates competing outputs using the
+consensus agent, registers blocked tasks for retry, and applies patches
+to the design graph via a saga‑style workflow engine. When no tasks are
+provided by the caller, the orchestrator invokes the ``DynamicPlanner``
+to generate an appropriate task list based on the current state of the
+ODL graph. Thus, dynamic planning is fully integrated: the orchestrator
+decides which tasks to run if none are specified, ensuring that essential
+steps (network, site, battery, monitoring and validation) are always
+executed in the correct order.
 
-Key features:
-    * **Saga integration** – Tasks are always executed inside a saga via
-      the ``WorkflowEngine``.  Each agent’s patch is applied to the
-      design graph; if any step fails, the engine automatically rolls
-      back previously applied patches using compensating transactions.
-      Custom compensation functions can be supplied on a per‑task basis
-      to override the default behaviour of calling ``patch.reverse()``.
-      This ensures atomic multi‑step operations without relying on
-      distributed transactions.
-
-While still minimal and not yet dynamically planning tasks based on the
-design state, this orchestrator demonstrates how OriginFlow can
-coordinate complex, multi‑agent workflows with compensation, rollback,
-confidence calibration, and automated retry.  Future enhancements could
-incorporate dynamic task planning and more sophisticated policy checks.
+All tasks are executed using a saga engine: every agent’s patch is
+applied atomically, and compensating patches are used to roll back
+changes if a failure occurs. Compensation functions may be provided to
+override the default reversal logic. The orchestrator also integrates
+confidence calibration, schema enforcement, and automated recovery and
+retry, making it a robust coordinator for multi‑domain design workflows.
 """
 
 from __future__ import annotations
