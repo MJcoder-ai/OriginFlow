@@ -1,19 +1,29 @@
-"""Deterministic rule engine for safety-critical sizing calculations.
+"""Deterministic rule engine for electrical, conduit and structural sizing.
 
-The rule engine encapsulates deterministic formulas and lookup tables for
-engineering design.  In Phase\u00a02 we implement a simple wire-sizing
-calculator based on load (kilowatts), distance (metres) and nominal
-voltage.  Future expansions will include pipe and duct sizing for
-water pumping and HVAC domains.
+This module defines simple deterministic functions for sizing electrical
+conductors, protective devices (fuses), conduits and structural mounts, as
+well as validation helpers to check installed components against recommended
+standards.  It deliberately avoids any AI/ML models, instead relying on
+published tables, empirical formulas and basic physics.
 
-This module deliberately avoids using AI models; all calculations are
-transparent and verifiable against published standards.  If you need to
-extend the sizing tables, consider adding new methods or loading data
-from external CSV files.
+The initial implementation covers:
+
+* **Wire sizing** – compute gauge, cross\u2011section and fuse ratings for a given
+  load and distance, and validate installed wires and fuses.
+* **Conduit sizing** – calculate the required conduit cross\u2011section and
+  diameter based on the total cross\u2011section of conductors and a fill factor,
+  and validate installed conduits against recommended fill ratios.
+* **Structural mount sizing** – estimate required load capacity for mounting
+  structures based on the number of panels, panel weight and wind load
+  factors, and validate installed mounts against these requirements.
+
+Future expansions may include pipe/duct sizing for plumbing, battery pack
+configuration, lightning protection and other deterministic engineering checks.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import List
 
 
 @dataclass
@@ -154,6 +164,206 @@ class RuleEngine:
             is_cross_section_compliant=is_cross_section_ok,
             is_fuse_rating_compliant=is_fuse_ok,
             is_voltage_drop_within_limit=is_v_drop_ok,
+        )
+
+    # ------------------------------------------------------------------
+    # Conduit sizing and validation
+
+    @dataclass
+    class ConduitSizingResult:
+        """Result of sizing a conduit for a set of conductors."""
+
+        num_conductors: int
+        total_cross_section_mm2: float
+        recommended_conduit_cross_section_mm2: float
+        recommended_conduit_diameter_mm: float
+
+    @dataclass
+    class ConduitValidation:
+        """Result of validating an existing conduit against recommended sizing."""
+
+        installed_conduit_cross_section_mm2: float
+        installed_conduit_diameter_mm: float
+        recommended_conduit_cross_section_mm2: float
+        recommended_conduit_diameter_mm: float
+        fill_ratio: float
+        is_conduit_size_compliant: bool
+
+    def size_conduit(
+        self,
+        *,
+        cross_sections_mm2: List[float],
+        fill_factor: float = 0.4,
+    ) -> "RuleEngine.ConduitSizingResult":
+        """Compute recommended conduit size based on conductor cross-sections.
+
+        Conduit sizing follows typical electrical code requirements where the
+        sum of conductor areas must not exceed a certain percentage of the
+        conduit’s internal area (fill factor).  Given a list of conductor
+        cross-section areas (in mm²), this function calculates the total area,
+        divides by the fill factor to obtain the minimum conduit cross-section,
+        and converts that area to an approximate circular diameter.
+
+        Args:
+            cross_sections_mm2: List of cross-sectional areas for each conductor.
+            fill_factor: Maximum allowable fill ratio (default 40%).
+
+        Returns:
+            A ``ConduitSizingResult`` with the recommended cross-section and
+            diameter.
+        """
+        import math
+
+        total_area = sum(cross_sections_mm2)
+        if total_area <= 0.0:
+            # Avoid division by zero; recommend a nominal 20 mm conduit.
+            return self.ConduitSizingResult(
+                num_conductors=len(cross_sections_mm2),
+                total_cross_section_mm2=0.0,
+                recommended_conduit_cross_section_mm2=100.0,
+                recommended_conduit_diameter_mm=20.0,
+            )
+        recommended_area = total_area / fill_factor
+        # area = π * (d/2)^2 → d = 2 * sqrt(area/π)
+        recommended_diameter = 2.0 * math.sqrt(recommended_area / math.pi)
+        return self.ConduitSizingResult(
+            num_conductors=len(cross_sections_mm2),
+            total_cross_section_mm2=total_area,
+            recommended_conduit_cross_section_mm2=recommended_area,
+            recommended_conduit_diameter_mm=recommended_diameter,
+        )
+
+    def validate_conduit(
+        self,
+        *,
+        installed_cross_section_mm2: float,
+        installed_diameter_mm: float,
+        cross_sections_mm2: List[float],
+        fill_factor: float = 0.4,
+    ) -> "RuleEngine.ConduitValidation":
+        """Validate an installed conduit size against recommended sizing.
+
+        This function computes the recommended conduit size based on the
+        provided conductor cross-sections and compares it to the installed
+        conduit’s cross-section.  Compliance is determined by whether the fill
+        ratio (total conductor area divided by installed conduit area) is
+        within the allowable fill factor.  The diameter check is advisory.
+
+        Args:
+            installed_cross_section_mm2: Cross-sectional area of the installed conduit.
+            installed_diameter_mm: Internal diameter of the installed conduit.
+            cross_sections_mm2: List of conductor cross-sectional areas.
+            fill_factor: Maximum allowable fill ratio (default 40%).
+
+        Returns:
+            A ``ConduitValidation`` summarising the comparison and compliance.
+        """
+        # Compute recommended sizing
+        rec = self.size_conduit(
+            cross_sections_mm2=cross_sections_mm2, fill_factor=fill_factor
+        )
+        total_area = rec.total_cross_section_mm2
+        # Avoid divide-by-zero if installed size is zero
+        if installed_cross_section_mm2 <= 0.0:
+            fill_ratio = float("inf")
+            is_compliant = False
+        else:
+            fill_ratio = total_area / installed_cross_section_mm2
+            is_compliant = fill_ratio <= fill_factor
+        return self.ConduitValidation(
+            installed_conduit_cross_section_mm2=installed_cross_section_mm2,
+            installed_conduit_diameter_mm=installed_diameter_mm,
+            recommended_conduit_cross_section_mm2=rec.recommended_conduit_cross_section_mm2,
+            recommended_conduit_diameter_mm=rec.recommended_conduit_diameter_mm,
+            fill_ratio=fill_ratio,
+            is_conduit_size_compliant=is_compliant,
+        )
+
+    # ------------------------------------------------------------------
+    # Structural mount sizing and validation
+
+    @dataclass
+    class MountLoadSizingResult:
+        """Result of sizing mount load capacity for a set of panels."""
+
+        num_panels: int
+        total_weight_kg: float
+        wind_load_factor: float
+        recommended_mount_capacity_kg: float
+
+    @dataclass
+    class MountValidation:
+        """Result of validating an existing mount against recommended capacity."""
+
+        installed_mount_capacity_kg: float
+        recommended_mount_capacity_kg: float
+        is_mount_capacity_compliant: bool
+
+    def size_mount_load(
+        self,
+        *,
+        num_panels: int,
+        panel_weight_kg: float = 20.0,
+        wind_load_factor: float = 1.3,
+    ) -> "RuleEngine.MountLoadSizingResult":
+        """Estimate required mount load capacity for PV panels.
+
+        This function calculates the total static weight of all panels and
+        applies a wind load factor to determine the minimum load capacity
+        required for structural mounts.  Default values assume 20\u00a0kg per
+        panel and a 30% increase due to wind.
+
+        Args:
+            num_panels: Number of panels to be mounted.
+            panel_weight_kg: Weight of each panel in kilograms (default 20\u00a0kg).
+            wind_load_factor: Multiplicative factor to account for wind loads
+                (default 1.3 \u2192 30% increase).
+
+        Returns:
+            A ``MountLoadSizingResult`` containing the recommended mount capacity.
+        """
+        total_weight = num_panels * panel_weight_kg
+        recommended_capacity = total_weight * wind_load_factor
+        return self.MountLoadSizingResult(
+            num_panels=num_panels,
+            total_weight_kg=total_weight,
+            wind_load_factor=wind_load_factor,
+            recommended_mount_capacity_kg=recommended_capacity,
+        )
+
+    def validate_mount(
+        self,
+        *,
+        installed_capacity_kg: float,
+        num_panels: int,
+        panel_weight_kg: float = 20.0,
+        wind_load_factor: float = 1.3,
+    ) -> "RuleEngine.MountValidation":
+        """Validate an installed mount against recommended load capacity.
+
+        This function calculates the recommended mount capacity for the given
+        number of panels and compares it to the installed mount’s load
+        rating.  It returns a ``MountValidation`` with a compliance flag.
+
+        Args:
+            installed_capacity_kg: Load rating of the installed mounting system.
+            num_panels: Number of panels supported by the mount.
+            panel_weight_kg: Weight of each panel (default 20\u00a0kg).
+            wind_load_factor: Wind load factor (default 1.3).
+
+        Returns:
+            A ``MountValidation`` summarising the comparison and compliance.
+        """
+        rec = self.size_mount_load(
+            num_panels=num_panels,
+            panel_weight_kg=panel_weight_kg,
+            wind_load_factor=wind_load_factor,
+        )
+        is_compliant = installed_capacity_kg >= rec.recommended_mount_capacity_kg
+        return self.MountValidation(
+            installed_mount_capacity_kg=installed_capacity_kg,
+            recommended_mount_capacity_kg=rec.recommended_mount_capacity_kg,
+            is_mount_capacity_compliant=is_compliant,
         )
 
 

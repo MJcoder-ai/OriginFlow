@@ -21,6 +21,7 @@ Recent updates introduce a **Multi-Domain Platform** with placeholder component 
   - **Observability & Learning**: Lightweight telemetry helpers and instrumented orchestrators provide visibility into latency and approval rates, laying the groundwork for continuous confidence calibration and adaptive learning
   - **Error Handling & Concurrency**: Custom exception types, idempotent graph updates with per‑session locks, and safe agent wrappers ensure robustness in the face of failures and concurrent access
   - **Sagas & Workflow Engine**: A lightweight saga engine orchestrates multi‑step design workflows, automatically rolling back applied patches on failure, and prepares the system for integration with Temporal.io or similar workflow orchestrators
+  - **Enhanced Rule Engine**: Deterministic sizing extended to conduits and structural mounts; new functions compute recommended conduit cross‑sections and mount load capacities and validate installed components for NEC/IEC compliance
   - **Compliance & Rule Engine**: Enhanced rule engine with validation of installed wires and fuses; cross-layer validation agent now checks for unconnected components
   - **ADPF Integration**: All AI agents return results in a standard JSON envelope with meta-cognitive reasoning (`thought`), structured output and status.  See `backend/utils/adpf.py` for details.
 
