@@ -26,6 +26,7 @@ This document outlines the successful implementation of OriginFlow's transformat
 5. **Phase 5**: Frontend Enhancements ✅
 6. **Phase 6**: Documentation & Guidelines ✅
 7. **Phase 7**: ADPF Integration ✅
+8. **Phase 8**: Governance & Safety Policies ✅
 
 ## Architecture Components
 
@@ -130,6 +131,18 @@ As part of adopting the **Advanced Dynamic Prompting Framework (ADPF)**, all AI 
 - **warnings** – optional list of warnings.
 
 This change provides traceability and meta‑cognitive context for every AI action, making it easier for downstream components (UI, orchestrator or other agents) to interpret agent outputs.  A new helper function `wrap_response` in `backend/utils/adpf.py` centralises envelope creation and should be used by all agents.
+
+### Governance & Safety Policies (Phase 8)
+
+As part of the move toward enterprise‑grade robustness, OriginFlow now enforces **risk‑based governance** for all AI actions.  Every agent declares its ``risk_class`` (``low``, ``medium`` or ``high``) in the registry via `register_spec`.  A new policy engine (`backend/policy/risk_policy.py`) consults these classes together with the confidence scores assigned by the learning system to decide whether each action may be automatically executed or must be deferred for user review.
+
+The high‑level rules are:
+
+- **Low‑risk actions**: Always auto‑approved (e.g. generating placeholder design scaffolds).
+- **Medium‑risk actions**: Auto‑approved only if confidence is ≥ 0.75; otherwise they require explicit user approval.
+- **High‑risk actions**: Never auto‑approved; they always require manual confirmation.
+
+The AI orchestrators (`AiOrchestrator` and `AnalyzeOrchestrator`) apply this policy per action, setting an `auto_approved` flag accordingly.  The frontend surface highlights actions requiring attention and prevents accidental execution of high‑risk operations.  These governance policies lay the groundwork for future safety rules such as budget limits, restricted topics and regulatory compliance checks.
 
 ### 2. Component-First Design Flow
 
