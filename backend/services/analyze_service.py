@@ -33,29 +33,29 @@ class AnalyzeOrchestrator(AiOrchestrator):
         except Exception:
             pass
         
-        # Confidence-driven autonomy (gated by env flag)
+        # Apply risk- and confidence-driven autonomy (gated by env flag)
         import logging
         logger = logging.getLogger(__name__)
         AI_AUTO_APPROVE = os.getenv("AI_AUTO_APPROVE", "false").lower() == "true"
         if AI_AUTO_APPROVE:
-            logger.info(f"Applying confidence-driven autonomy to {len(actions)} actions")
+            logger.info(f"Applying risk-based autonomy to {len(actions)} actions")
+            # Import here to avoid circular dependencies at module load time
+            from backend.policy.risk_policy import RiskPolicy  # type: ignore
             for action in actions:
-                # Set confidence threshold based on action type risk level
-                confidence_threshold = self._get_confidence_threshold(action.action)
-                action_type = action.action.value if hasattr(action.action, 'value') else str(action.action)
-
-                logger.info(f"Action {action_type}: confidence={action.confidence}, threshold={confidence_threshold}")
-
-                if action.confidence and action.confidence >= confidence_threshold:
-                    # High confidence: mark as auto-approved
-                    action.auto_approved = True
-                    logger.info(f"AUTO-APPROVED: {action_type} (confidence {action.confidence} >= {confidence_threshold})")
-                else:
-                    # Low confidence: requires human approval
-                    action.auto_approved = False
-                    logger.info(f"MANUAL APPROVAL: {action_type} (confidence {action.confidence} < {confidence_threshold})")
+                # Use the risk policy to determine auto-approval; since AnalyzeOrchestrator
+                # does not propagate agent names, we default to a synthetic "analyze_agent".
+                auto = RiskPolicy.is_auto_approved(
+                    agent_name="analyze_agent",
+                    action_type=action.action,
+                    confidence=action.confidence,
+                )
+                action.auto_approved = bool(auto)
+                logger.info(
+                    f"{'AUTO-APPROVED' if auto else 'MANUAL APPROVAL'}: "
+                    f"{action.action} (confidence {action.confidence})"
+                )
         else:
-            logger.info("Confidence-driven autonomy disabled; routing all actions to human review")
+            logger.info("Risk-based autonomy disabled; routing all actions to human review")
             for action in actions:
                 action.auto_approved = False
         

@@ -21,6 +21,7 @@ from backend.schemas.design_context import RequestContext, DesignSnapshot
 from backend.policy.capabilities import ACTION_REQUIRED_SCOPES
 from backend.services.ai_clients import get_openai_client
 from backend.utils.logging import get_logger
+from backend.policy.risk_policy import RiskPolicy
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -89,14 +90,22 @@ class AiOrchestrator:
             AiActionType.remove_link: 0.4,
         }
         for action in raw:
+            # Extract the originating agent name (set by RouterAgent) and validate schema
             agent_name = action.pop("agent_name", "unknown")
             try:
                 obj = AiAction.model_validate(action)
             except Exception as exc:  # pragma: no cover - defensive
                 raise HTTPException(422, f"Invalid action schema: {exc}") from exc
+
+            # Enforce capability checks: ensure the producing agent has
+            # permission to perform this action type.
             _check_capabilities(agent_name, obj)
+
+            # Assign a default confidence score if none exists.  The learning
+            # agent may adjust this value based on historical approvals.
             obj.confidence = _CONFIDENCE_MAP.get(obj.action, 0.5)
 
+            # Validate payloads for component and link operations
             if obj.action == AiActionType.add_component:
                 ComponentCreate(**obj.payload)
             elif obj.action == AiActionType.add_link:
@@ -105,6 +114,17 @@ class AiOrchestrator:
                 PositionPayload(**obj.payload)
             elif obj.action == AiActionType.report:
                 BomReportPayload(**obj.payload)
+
+            # Apply risk-based governance: decide whether this action should
+            # be auto-approved based on the agent's risk class and current
+            # confidence.  The result is stored on the action for downstream
+            # consumers (e.g. UI) to display approval status.
+            obj.auto_approved = RiskPolicy.is_auto_approved(
+                agent_name=agent_name,
+                action_type=obj.action,
+                confidence=obj.confidence,
+            )
+
             validated.append(obj)
 
         # Apply learning-based confidence adjustments.  If historical data
@@ -124,12 +144,11 @@ class AiOrchestrator:
             # back to heuristic values without crashing.
             pass
 
-        # In the plan–act model all actions are auto-approved.  Set the flag
-        # uniformly and emit tracing events (best effort) before returning.
-        for action in validated:
-            action.auto_approved = True
-        auto_count = len(validated)
-
+        # auto_count reflects the number of actions that passed risk-based
+        # auto-approval.  Manual approvals will be needed for the remainder.
+        auto_count = sum(
+            1 for action in validated if getattr(action, "auto_approved", False)
+        )
         try:  # Emit trace events; ignore any errors
             from backend.services.tracing import emit_event  # type: ignore
             from backend.database.session import SessionMaker  # type: ignore
@@ -153,7 +172,7 @@ class AiOrchestrator:
                             "action": act.action.value,
                             "payload": act.payload,
                             "confidence": act.confidence,
-                            "auto_approved": True,
+                            "auto_approved": act.auto_approved,
                         },
                         prev_sha=prev_sha,
                     )
@@ -171,7 +190,10 @@ class AiOrchestrator:
                         tenant_id="tenant_default",
                         project_id=None,
                         kind="conversation",
-                        tags={"auto_approved": auto_count, "pending": 0},
+                        tags={
+                            "auto_approved": auto_count,
+                            "pending": len(validated) - auto_count,
+                        },
                         trace_id=ctx.trace_id,
                     )
                 )

@@ -16,6 +16,7 @@ Recent updates introduce a **Multi-Domain Platform** with placeholder component 
   - **Requirements Management**: Comprehensive form-based requirement collection and validation
   - **Version Control**: Complete graph versioning with patch history and revert capabilities
   - **Enhanced APIs**: 15+ new endpoints for ODL session management, component selection, and analysis
+  - **Governance & Safety Policies**: Risk-based auto‑approval based on agent classifications and confidence scores, ensuring high‑risk actions always require human review
   - **ADPF Integration**: All AI agents return results in a standard JSON envelope with meta-cognitive reasoning (`thought`), structured output and status.  See `backend/utils/adpf.py` for details.
 
 ### Planner and Domain Agents
