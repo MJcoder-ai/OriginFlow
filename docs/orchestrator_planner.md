@@ -22,6 +22,25 @@ This will invoke the appropriate agents (`NetworkAgent` and
 return a list of ADPF envelopes.  To aggregate competing outputs using
 consensus, set `use_consensus=True`.
 
+### Features
+
+* **Confidence calibration** – Each agent response is assigned a base
+  confidence according to its risk class (e.g. low, medium or high).
+  This base value is then passed through the `ConfidenceCalibrator` to
+  incorporate historical user feedback.  The orchestrator stores both
+  the calibrated confidence and a **dynamic threshold** in the design
+  card; downstream UIs or policy engines can use these values to decide
+  whether to auto‑approve actions.  The consensus agent extracts and
+  calibrates each candidate’s confidence when ranking competing
+  proposals, so designs that have historically been approved are more
+  likely to be selected.
+* **Schema enforcement** – Every agent response is validated against
+  the ADPF envelope schema.  `safe_execute` performs initial
+  validation, and after calibration or other modifications, the
+  orchestrator re‑validates the envelope to ensure it still conforms to
+  the contract.  If validation fails at any stage, a blocked response is
+  returned, preventing malformed data from entering the workflow.
+
 ### Developer Guidance
 
 If you plan to customise the orchestrator or develop new planning
