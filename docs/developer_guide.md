@@ -37,6 +37,29 @@ agents.
 3. Document the agent's behaviour and inputs/outputs in an appropriate
    doc file.
 
+### Validation Agents
+
+In addition to design agents that modify the ODL graph, you can create
+validation agents that inspect the current design and report issues
+without making changes.  For example:
+
+- **CrossLayerValidationAgent** – Ensures that all components are
+  properly connected.  It identifies isolated nodes, verifies that
+  battery modules are connected to inverters or the system root,
+  checks that monitoring devices are attached via communication
+  links, and compares the number of batteries and inverters to
+  recommend a balanced one‑to‑one ratio.  Any issues are
+  aggregated into an ``issues`` list in the returned card.
+- **NetworkValidationAgent** – Verifies that all inverters and
+  monitoring devices are connected to network devices.  It
+  constructs a connectivity graph of communication links and reports
+  missing network paths or absent network devices.
+
+Validation agents typically return a design card with an ``issues`` list
+and ``status='complete'``.  When registering a validation agent,
+assign a low risk class and a capability of ``report`` via
+`register_spec`.
+
 ## 4. Enforce Contracts and Calibration
 
 1. Wrap agent execution with `safe_execute` so envelopes are validated
