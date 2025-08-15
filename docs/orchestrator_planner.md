@@ -8,6 +8,16 @@ to plain sequential execution: if any step fails, previously applied
 patches are rolled back automatically.  The orchestrator still returns a
 list of ADPF envelopes representing the outputs from each agent.
 
+* **Recovery & retry** – Because agents are invoked through
+  `safe_execute`, any blocked tasks are stored in the global
+  `RetryManager`.  The orchestrator automatically calls
+  `retry_manager.resolve_blocked_tasks(session_id)` at the beginning and
+  end of every workflow run, so previously blocked tasks are
+  re‑executed as soon as the user provides missing information or
+  another agent completes its work.  You can still call
+  `resolve_blocked_tasks` manually, but in most cases the orchestrator
+  handles retries on your behalf.
+
 ## Usage
 
 ```python
