@@ -51,7 +51,9 @@ without making changes.  For example:
   recommend a balanced one‑to‑one ratio.  Any issues are
   aggregated into an ``issues`` list in the returned card.
 - **NetworkValidationAgent** – Verifies that all inverters and
-  monitoring devices are connected to network devices.  It
+  monitoring devices are connected to network devices.  It recognises
+  both domain‑specific types (`network`, `monitoring`) and their
+  generic placeholders (`generic_network`, `generic_monitoring`),
   constructs a connectivity graph of communication links and reports
   missing network paths or absent network devices.
 

@@ -78,6 +78,12 @@ from backend.agents.meta_cognition_agent import MetaCognitionAgent  # noqa: E402
 from backend.agents.consensus_agent import ConsensusAgent  # noqa: E402
 from backend.agents.network_agent import NetworkAgent  # import network agent for task mapping and specs  # noqa: E402
 from backend.agents.site_planning_agent import SitePlanningAgent  # import site planning agent for task mapping and specs  # noqa: E402
+from backend.agents.cross_layer_validation_agent import (
+    CrossLayerValidationAgent,
+)  # noqa: E402
+from backend.agents.network_validation_agent import (
+    NetworkValidationAgent,
+)  # noqa: E402
 from backend.schemas.ai import AiActionType  # noqa: E402
 
 
@@ -190,6 +196,20 @@ class AgentRegistry:
                 description="Generate site layout and planning considerations",
                 domain="site",
                 prerequisites=["generate_design"],
+            ),
+            TaskAgentMapping(
+                task_id="validate_design",
+                agent_class=CrossLayerValidationAgent,
+                description="Validate cross-layer connections and component dependencies",
+                domain="validation",
+                prerequisites=["generate_design"],
+            ),
+            TaskAgentMapping(
+                task_id="validate_network",
+                agent_class=NetworkValidationAgent,
+                description="Verify network connectivity for inverters and monitoring devices",
+                domain="validation",
+                prerequisites=["generate_network", "generate_monitoring"],
             ),
             TaskAgentMapping(
                 task_id="refine_validate",

@@ -45,6 +45,31 @@ load and code compliance checks, structural load verifications and
 required monitoring for critical components.  See the developer
 onboarding guide for guidelines on extending validation logic.
 
+## NetworkValidationAgent
+
+The `NetworkValidationAgent` checks that all critical devices are
+connected to a network.  When the planner emits a
+`validate_network` task, this agent:
+
+- Retrieves the design graph and locates network devices, inverters and
+  monitoring modules.  It recognises both domain‑specific types
+  (`network`, `monitoring`) and generic placeholder types
+  (`generic_network`, `generic_monitoring`) to support designs
+  produced by the NetworkAgent and MonitoringAgent.
+- Verifies that at least one network device exists; if not, it reports
+  this as an issue.
+- Builds an adjacency map of communication links and checks for each
+  inverter and monitoring device whether it is connected (directly or
+  transitively) to a network device.
+- Returns an ADPF envelope with a design card summarising
+  connectivity issues and recommended actions (e.g. add network
+  devices and connect them to all inverters and monitoring devices).
+
+This agent complements the network design by ensuring that monitoring
+and control paths are complete.  Future versions may incorporate
+throughput analysis, redundancy checks and integration with actual
+network hardware catalogues.
+
 ## Planner Integration
 
 These tasks are mapped to their respective agents in the registry
