@@ -74,15 +74,34 @@ assign a low risk class and a capability of ``report`` via
    `output`, `status`) when designing new agents and test against the
    schema.
 
-## 5. Recovery and Retry
+## 5. Orchestrator & Planning
 
-Use the `RetryManager` to re‑execute blocked tasks. Agents should return
-`status="blocked"` with a helpful message when required context is
-missing.  The `PlannerOrchestrator` automatically invokes the retry
-manager at the start and end of each `run_workflow` call, so blocked
-tasks are re‑executed when new context (such as user input or another
-agent’s output) becomes available.  If needed, you can still call
-`resolve_blocked_tasks(session_id)` manually for ad‑hoc retries.
+* **Recovery & retry** – Because agents are invoked through
+  `safe_execute`, blocked tasks are registered with the global
+  `RetryManager`.  The `PlannerOrchestrator` automatically invokes the
+  retry manager at the start and end of each `run_workflow` call, so
+  blocked tasks are re‑executed whenever new context (such as user input
+  or another agent’s output) becomes available. If needed, you can still
+  call `resolve_blocked_tasks(session_id)` manually for ad‑hoc retries.
+
+* **Confidence calibration** – Each agent response receives a base
+  confidence according to its risk class. The orchestrator uses the
+  `ConfidenceCalibrator` to adjust this value based on historical user
+  feedback, then writes the calibrated confidence and a dynamic
+  auto‑approval threshold into the card. The `ConsensusAgent` ranks
+  proposals by calibrated confidence. Call `record_feedback` on the
+  orchestrator whenever users approve or reject an action to improve
+  calibration.
+
+* **Dynamic planning** – The orchestrator integrates the `DynamicPlanner`
+  to automatically generate a task list when none is supplied. The
+  planner examines the current design graph to determine which domain
+  tasks (network, site, battery, monitoring and validation) are
+  required. You can extend the planner by adding new heuristic rules in
+  `backend/services/planner.py`, such as checking user requirements or
+  balancing risk classes. When adding new tasks, remember to register
+  them in `backend/agents/registry.py` and provide the corresponding
+  agent implementation.
 
 ## 6. Write Tests
 
