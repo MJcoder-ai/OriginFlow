@@ -31,6 +31,7 @@ This document outlines the successful implementation of OriginFlow's transformat
 10. **Phase 10**: Extended Multi‑Domain Support ✅
 11. **Phase 11**: Observability & Learning ✅
 12. **Phase 12**: Error Handling & Concurrency ✅
+13. **Phase 13**: Sagas & Workflow Engine ✅
 
 ## Architecture Components
 
@@ -460,3 +461,22 @@ These improvements harden the OriginFlow backend against runtime errors and
 race conditions, paving the way for further concurrency enhancements in
 future releases (e.g. using a workflow engine like Temporal or a saga
 pattern for rollback).
+
+### Sagas & Workflow Engine (Phase 13)
+
+Complex multi-agent operations require transactional guarantees across many
+graph mutations. The new saga-style workflow engine provides these guarantees
+without long-lived locks:
+
+- **Workflow engine**: `backend/services/workflow_engine.py` defines a
+  `WorkflowEngine` that runs ordered `SagaStep` instances. Each step returns an
+  `ODLGraphPatch` applied to the design graph. If any step fails, previously
+  applied patches are rolled back in reverse order automatically.
+- **Reverse patches**: `ODLGraphPatch` gains a `reverse` method to generate a
+  compensating patch removing nodes and edges added by a step. Custom
+  compensation functions remain possible for more complex scenarios.
+- **Extensibility**: While lightweight today, the engine sets the stage for
+  integrating external orchestrators such as Temporal.io in future phases.
+
+This addition allows OriginFlow to maintain graph consistency across long
+design sequences, significantly improving robustness for real-world workflows.
