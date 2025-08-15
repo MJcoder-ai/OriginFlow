@@ -3,12 +3,13 @@
 This module provides a simple ``plan_strategy`` helper that infers the
 appropriate domain pack and version from a raw user command.  It starts with
 the default ``solar`` domain and detects explicit domain names.  If no explicit
-match is found, synonyms are inspected: HVAC keywords like ``"ac"``,
-``"heat pump"`` or ``"split"`` map to the ``hvac`` domain, while
-``"battery"``, ``"storage"`` and ``"energy storage"`` map to the ``battery``
-domain.  When a detected domain is unavailable, the planner falls back to the
-default solar domain.  Version tags of the form ``v2`` or ``v3`` are honoured
-if present and available.
+match is found, synonyms are inspected: HVAC keywords such as ``"ac"``,
+``"air conditioning"``, ``"heat pump"`` or ``"split"`` map to the ``hvac``
+domain, while ``"battery"``, ``"storage"``, ``"energy storage"`` and related
+terms like ``"ess"`` or ``"bess"`` map to the ``battery`` domain.  When a
+detected domain is unavailable, the planner falls back to the default solar
+domain.  Version tags of the form ``v2`` or ``v3`` are honoured if present and
+available.
 """
 from __future__ import annotations
 
@@ -21,9 +22,9 @@ def plan_strategy(command: str, available: Dict[str, List[str]]) -> Dict[str, st
 
     The planner selects a domain pack and version by inspecting the command
     string.  Explicit domain names take precedence.  If none are present, the
-    command is scanned for HVAC and battery synonyms such as "ac", "heat pump",
-    "split", "storage" or "energy storage".  Unavailable domains trigger a
-    fallback to the default solar domain.
+    command is scanned for HVAC and battery synonyms such as "ac", "air
+    conditioning", "heat pump", "split", "ess" or "bess".  Unavailable domains
+    trigger a fallback to the default solar domain.
 
     Args:
         command: Raw user command text.
@@ -47,15 +48,27 @@ def plan_strategy(command: str, available: Dict[str, List[str]]) -> Dict[str, st
             break
     # If no explicit domain matched, detect synonyms for HVAC and battery
     if domain == "solar":
-        # HVAC synonyms
-        hvac_syns = ["hvac", " ac ", "heat pump", "split"]
+        # HVAC synonyms.  Include variations of air conditioning, heat
+        # pumps and splits; leading/trailing spaces are used to avoid
+        # partial matches within other words.  Synonyms such as
+        # "air conditioning" and abbreviations like "ac" or "hvac"
+        # trigger the HVAC domain.
+        hvac_syns = [
+            "hvac", " ac ", " ac", "ac ", "air conditioning", "air conditioner",
+            "heat pump", "split", "aircon", "cooling"
+        ]
         for syn in hvac_syns:
             if syn in cmd_lower and "hvac" in available:
                 domain = "hvac"
                 break
-        # Battery synonyms
+        # Battery synonyms.  Include common terms for energy storage
+        # systems such as ESS/BESS and generic storage phrases.  These
+        # synonyms trigger the battery domain if available.
         if domain == "solar":
-            battery_syns = ["battery", "storage", "energy storage", "battery system"]
+            battery_syns = [
+                "battery", "storage", "energy storage", "battery system",
+                "ess", "bess", "storage system"
+            ]
             for syn in battery_syns:
                 if syn in cmd_lower and "battery" in available:
                     domain = "battery"
