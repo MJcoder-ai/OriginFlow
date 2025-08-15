@@ -49,3 +49,10 @@ These mechanisms enhance the transparency and reliability of OriginFlow by
 ensuring agents surface their uncertainty, solicit necessary input from
 users, and converge on a unified design when multiple opinions are
 available.
+
+## Developer Guidance
+
+To implement your own meta‑cognitive or consensus mechanisms—or to extend
+the existing agents—refer to the [developer onboarding guide](developer_guide.md).
+The guide provides a walkthrough on creating new agents, integrating them
+into the task registry and documenting their behaviour.

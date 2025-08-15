@@ -47,3 +47,10 @@ Future expansions may add more placeholders (e.g. EV chargers,
 optimised inverter connectors) or refine default attributes.  When
 adding new placeholders, update this document to keep the catalog
 current.
+
+## Developer Guidance
+
+For step-by-step instructions on how to add new placeholder component types or create
+domain agents that consume them, consult the [developer onboarding guide](developer_guide.md).
+The guide explains how to modify the `PLACEHOLDER_COMPONENT_TYPES` catalogue, update this
+document and integrate placeholders into agents and planners.

@@ -69,3 +69,10 @@ engine (such as Temporal.io) to persist blocked tasks, schedule
 retries, and provide user notifications when a task resumes or still
 requires attention.
 
+## Developer Guidance
+
+For detailed instructions on implementing recovery and retry logic in
+new agents or orchestrators, refer to the [developer onboarding guide](developer_guide.md).
+The guide explains how to register blocked tasks using `safe_execute`, leverage the
+`RetryManager` and design agents to gracefully recover from missing context or errors.
+
