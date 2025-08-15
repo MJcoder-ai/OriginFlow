@@ -29,6 +29,7 @@ This document outlines the successful implementation of OriginFlow's transformat
 8. **Phase 8**: Governance & Safety Policies ✅
 9. **Phase 9**: Compliance & Rule Engine ✅
 10. **Phase 10**: Extended Multi‑Domain Support ✅
+11. **Phase 11**: Observability & Learning ✅
 
 ## Architecture Components
 
@@ -404,3 +405,28 @@ requires energy storage or telemetry.  The new agents operate as follows:
 Both agents return ADPF‑compliant envelopes and are registered with risk
 classes (medium for battery, low for monitoring) to allow the governance
 layer to gate their actions appropriately.
+
+### Observability & Learning (Phase 11)
+
+To operate safely at scale, OriginFlow now exposes a **telemetry layer** and lays
+the groundwork for continuous learning:
+
+- **Observability utilities**: A new module (`backend/utils/observability.py`)
+  introduces `trace_span` and `record_metric`, lightweight wrappers for
+  measuring execution latency and recording arbitrary counters.  These
+  utilities log metrics using a dedicated logger (`originflow.observability`),
+  enabling easy integration with existing monitoring stacks.
+- **Instrumented orchestrators**: The AI orchestrators now wrap action
+  validation and risk‑based approval loops in timed spans and emit metrics
+  for each processed action and auto‑approval decision.  This provides
+  visibility into throughput, latency and approval rates, which can be used
+  to tune performance and detect regressions.
+- **Metrics for approvals**: Both `AiOrchestrator` and `AnalyzeOrchestrator`
+  record the number of processed actions and the subset automatically
+  approved.  Confidence scores are logged with each decision, enabling
+  calibration analysis.
+
+This phase does not yet include a full ML‑powered feedback loop, but lays
+the foundation for adaptive learning by exposing rich telemetry that can be
+consumed by future calibrators.  Subsequent releases will add retrieval‑
+augmented feedback and dynamic adjustment of agent confidence thresholds.

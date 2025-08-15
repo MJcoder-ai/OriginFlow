@@ -21,6 +21,7 @@ from backend.schemas.design_context import RequestContext, DesignSnapshot
 from backend.policy.capabilities import ACTION_REQUIRED_SCOPES
 from backend.services.ai_clients import get_openai_client
 from backend.utils.logging import get_logger
+from backend.utils.observability import trace_span, record_metric
 from backend.policy.risk_policy import RiskPolicy
 
 limiter = Limiter(key_func=get_remote_address)
@@ -89,43 +90,49 @@ class AiOrchestrator:
             AiActionType.remove_component: 0.4,
             AiActionType.remove_link: 0.4,
         }
-        for action in raw:
-            # Extract the originating agent name (set by RouterAgent) and validate schema
-            agent_name = action.pop("agent_name", "unknown")
-            try:
-                obj = AiAction.model_validate(action)
-            except Exception as exc:  # pragma: no cover - defensive
-                raise HTTPException(422, f"Invalid action schema: {exc}") from exc
+        # Instrument validation and approval of raw AI actions
+        with trace_span("ai_service.validate_actions", action_count=len(raw)):
+            for action in raw:
+                # Extract the originating agent name (set by RouterAgent) and validate schema
+                agent_name = action.pop("agent_name", "unknown")
+                try:
+                    obj = AiAction.model_validate(action)
+                except Exception as exc:  # pragma: no cover - defensive
+                    raise HTTPException(422, f"Invalid action schema: {exc}") from exc
 
-            # Enforce capability checks: ensure the producing agent has
-            # permission to perform this action type.
-            _check_capabilities(agent_name, obj)
+                # Enforce capability checks: ensure the producing agent has
+                # permission to perform this action type.
+                _check_capabilities(agent_name, obj)
 
-            # Assign a default confidence score if none exists.  The learning
-            # agent may adjust this value based on historical approvals.
-            obj.confidence = _CONFIDENCE_MAP.get(obj.action, 0.5)
+                # Assign a default confidence score if none exists.  The learning
+                # agent may adjust this value based on historical approvals.
+                obj.confidence = _CONFIDENCE_MAP.get(obj.action, 0.5)
 
-            # Validate payloads for component and link operations
-            if obj.action == AiActionType.add_component:
-                ComponentCreate(**obj.payload)
-            elif obj.action == AiActionType.add_link:
-                LinkCreate(**obj.payload)
-            elif obj.action == AiActionType.update_position:
-                PositionPayload(**obj.payload)
-            elif obj.action == AiActionType.report:
-                BomReportPayload(**obj.payload)
+                # Validate payloads for component and link operations
+                if obj.action == AiActionType.add_component:
+                    ComponentCreate(**obj.payload)
+                elif obj.action == AiActionType.add_link:
+                    LinkCreate(**obj.payload)
+                elif obj.action == AiActionType.update_position:
+                    PositionPayload(**obj.payload)
+                elif obj.action == AiActionType.report:
+                    BomReportPayload(**obj.payload)
 
-            # Apply risk-based governance: decide whether this action should
-            # be auto-approved based on the agent's risk class and current
-            # confidence.  The result is stored on the action for downstream
-            # consumers (e.g. UI) to display approval status.
-            obj.auto_approved = RiskPolicy.is_auto_approved(
-                agent_name=agent_name,
-                action_type=obj.action,
-                confidence=obj.confidence,
-            )
+                # Apply risk-based governance: decide whether this action should
+                # be auto-approved based on the agent's risk class and current
+                # confidence.  The result is stored on the action for downstream
+                # consumers (e.g. UI) to display approval status.
+                obj.auto_approved = RiskPolicy.is_auto_approved(
+                    agent_name=agent_name,
+                    action_type=obj.action,
+                    confidence=obj.confidence,
+                )
 
-            validated.append(obj)
+                # Record a metric for each processed action
+                record_metric(
+                    "action.processed", 1, {"agent": agent_name, "type": obj.action.value}
+                )
+                validated.append(obj)
 
         # Apply learning-based confidence adjustments.  If historical data
         # exists for any of the action types, this will override the
@@ -149,6 +156,8 @@ class AiOrchestrator:
         auto_count = sum(
             1 for action in validated if getattr(action, "auto_approved", False)
         )
+        # Record how many actions were auto approved vs total
+        record_metric("action.auto_approved", auto_count, {"total": len(validated)})
         try:  # Emit trace events; ignore any errors
             from backend.services.tracing import emit_event  # type: ignore
             from backend.database.session import SessionMaker  # type: ignore
