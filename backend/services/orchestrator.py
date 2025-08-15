@@ -21,6 +21,12 @@ Key features:
       to override the default behaviour of calling ``patch.reverse()``.
       This ensures atomic multi‑step operations without relying on
       distributed transactions.
+
+While still minimal and not yet dynamically planning tasks based on the
+design state, this orchestrator demonstrates how OriginFlow can
+coordinate complex, multi‑agent workflows with compensation, rollback,
+confidence calibration, and automated retry.  Future enhancements could
+incorporate dynamic task planning and more sophisticated policy checks.
 """
 
 from __future__ import annotations
