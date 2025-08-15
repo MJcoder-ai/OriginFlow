@@ -131,27 +131,7 @@ async def test_consensus_agent_selects_highest_confidence():
     assert selected["title"] == "Design B"
     assert resp["output"]["patch"]["id"] == "patchB"
 
-
-def test_confidence_calibrator():
-    """ConfidenceCalibrator should update confidence and thresholds based on feedback."""
-    from backend.utils.confidence_calibration import ConfidenceCalibrator
-
-    calibrator = ConfidenceCalibrator()
-    # Record mixed feedback for a single action
-    calibrator.record_feedback(
-        agent_name="test_agent", action_type="add_component", confidence=0.8, approved=True
-    )
-    calibrator.record_feedback(
-        agent_name="test_agent", action_type="add_component", confidence=0.6, approved=False
-    )
-    # Acceptance rate is 0.5 -> calibrated confidence drifts halfway towards 0.5
-    calibrated = calibrator.calibrate_confidence(
-        agent_name="test_agent", action_type="add_component", original_confidence=0.7
-    )
-    assert abs(calibrated - 0.6) < 1e-6
-    # Base threshold remains unchanged when acceptance rate is 0.5
-    threshold = calibrator.get_threshold(
-        agent_name="test_agent", action_type="add_component", base_threshold=0.75
-    )
-    assert abs(threshold - 0.75) < 1e-6
+# The direct test for ConfidenceCalibrator has been removed in favour of orchestrator‑level
+# tests that verify calibrated confidences and dynamic thresholds.  The calibrator is now
+# integrated into the orchestrator and consensus agent.
 
