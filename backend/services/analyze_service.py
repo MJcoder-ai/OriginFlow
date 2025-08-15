@@ -8,6 +8,7 @@ from backend.schemas.ai import AnalyzeCommandRequest, AiAction, AiActionType
 from backend.schemas.component import ComponentCreate
 from backend.schemas.link import LinkCreate
 from backend.utils.openai_helpers import map_openai_error
+from backend.utils.observability import trace_span, record_metric
 
 
 class AnalyzeOrchestrator(AiOrchestrator):
@@ -41,19 +42,27 @@ class AnalyzeOrchestrator(AiOrchestrator):
             logger.info(f"Applying risk-based autonomy to {len(actions)} actions")
             # Import here to avoid circular dependencies at module load time
             from backend.policy.risk_policy import RiskPolicy  # type: ignore
-            for action in actions:
-                # Use the risk policy to determine auto-approval; since AnalyzeOrchestrator
-                # does not propagate agent names, we default to a synthetic "analyze_agent".
-                auto = RiskPolicy.is_auto_approved(
-                    agent_name="analyze_agent",
-                    action_type=action.action,
-                    confidence=action.confidence,
-                )
-                action.auto_approved = bool(auto)
-                logger.info(
-                    f"{'AUTO-APPROVED' if auto else 'MANUAL APPROVAL'}: "
-                    f"{action.action} (confidence {action.confidence})"
-                )
+            # Measure how long it takes to determine auto-approval
+            with trace_span("analyze_service.auto_approval", action_count=len(actions)):
+                for action in actions:
+                    # Use the risk policy to determine auto-approval; since AnalyzeOrchestrator
+                    # does not propagate agent names, we default to a synthetic "analyze_agent".
+                    auto = RiskPolicy.is_auto_approved(
+                        agent_name="analyze_agent",
+                        action_type=action.action,
+                        confidence=action.confidence,
+                    )
+                    action.auto_approved = bool(auto)
+                    # Record a metric for each approval decision
+                    record_metric(
+                        "action.auto_approved.decision",
+                        1 if auto else 0,
+                        {"type": action.action.value, "confidence": action.confidence},
+                    )
+                    logger.info(
+                        f"{'AUTO-APPROVED' if auto else 'MANUAL APPROVAL'}: "
+                        f"{action.action} (confidence {action.confidence})"
+                    )
         else:
             logger.info("Risk-based autonomy disabled; routing all actions to human review")
             for action in actions:
