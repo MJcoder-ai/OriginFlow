@@ -65,3 +65,11 @@ Developers adding new agents should:
 By adopting contract‑first schema enforcement, OriginFlow reduces
 unexpected runtime errors and improves reliability as more domains and
 agents are added.
+
+## Developer Guidance
+
+For step‑by‑step instructions on using the schema enforcement tools and
+integrating them into new agents or orchestrators, see the [developer onboarding guide](developer_guide.md).
+The guide explains how to validate envelopes with `validate_envelope`, define custom
+schemas for your agent’s card and patch fields and maintain data contracts across
+the platform.

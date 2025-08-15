@@ -44,3 +44,11 @@ orchestrators, the calibrator can be integrated easily by
 wrapping confidence assignments and auto‑approval decisions around
 these methods.  This adaptive approach helps the system align its
 confidence assessments with user expectations over time.
+
+## Developer Guidance
+
+Developers looking to integrate the calibrator into new agents or
+orchestrators should consult the [developer onboarding guide](developer_guide.md).
+The guide outlines how to use the `ConfidenceCalibrator` when assigning
+confidence scores, update governance thresholds based on acceptance rates and
+record user feedback to improve calibration over time.

@@ -54,3 +54,10 @@ In future phases, additional tests should be added to cover:
 These tests form an essential part of the quality assurance process and
 help prevent regressions as OriginFlow continues to evolve.
 
+## Developer Guidance
+
+When writing new tests, consult the [developer onboarding guide](developer_guide.md)
+for best practices. The guide provides templates for writing asynchronous tests,
+explains how to use the `safe_execute` wrapper in test contexts and highlights
+how to extend scenario coverage as new agents and workflows are added.
+
