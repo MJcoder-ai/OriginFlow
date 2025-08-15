@@ -26,14 +26,16 @@ class ComponentSelectorAgent:
     async def execute(self, session_id: str, tid: str, **kwargs) -> Dict:
         """Execute component selection task and return an ADPF envelope."""
         try:
-        if tid != "populate_real_components":
-            return wrap_response(
-                thought=f"Received unknown component-selection task '{tid}'.",
-                card={"title": "Component Selection", "body": f"Unknown task '{tid}'"},
-                patch=None,
-                status="pending",
-            )
-            
+            # Only handle the supported task
+            if tid != "populate_real_components":
+                return wrap_response(
+                    thought=f"Received unknown component-selection task '{tid}'.",
+                    card={"title": "Component Selection", "body": f"Unknown task '{tid}'"},
+                    patch=None,
+                    status="pending",
+                )
+
+            # Retrieve the graph for this session
             graph = await self.odl_graph_service.get_graph(session_id)
             if graph is None:
                 return wrap_response(
@@ -42,41 +44,41 @@ class ComponentSelectorAgent:
                     patch=None,
                     status="blocked",
                 )
-            
+
+            # Identify placeholder nodes in the graph
             placeholder_nodes = {
-                n: d for n, d in graph.nodes(data=True) 
-                if d.get("placeholder", False)
+                n: d for n, d in graph.nodes(data=True) if d.get("placeholder", False)
             }
-            
             if not placeholder_nodes:
                 return wrap_response(
                     thought="No placeholders found; component selection is unnecessary.",
                     card={
                         "title": "Component Selection",
-                        "body": "No placeholder components found to replace"
+                        "body": "No placeholder components found to replace",
                     },
                     patch=None,
                     status="complete",
                 )
-            
-            # Group placeholders by type
-            placeholders_by_type = {}
+
+            # Group placeholders by type and find candidate replacements
+            placeholders_by_type: Dict[str, List] = {}
             for node_id, node_data in placeholder_nodes.items():
                 component_type = node_data.get("type", "unknown")
-                if component_type not in placeholders_by_type:
-                    placeholders_by_type[component_type] = []
-                placeholders_by_type[component_type].append((node_id, node_data))
-            
-            # Find candidate components for each type
-            all_candidates = {}
+                placeholders_by_type.setdefault(component_type, []).append(
+                    (node_id, node_data)
+                )
+            all_candidates: Dict[str, List] = {}
             requirements = graph.graph.get("requirements", {})
-            
             for placeholder_type, nodes in placeholders_by_type.items():
-                candidates = await self._find_candidates(placeholder_type, requirements, nodes)
+                candidates = await self._find_candidates(
+                    placeholder_type, requirements, nodes
+                )
                 all_candidates[placeholder_type] = candidates
-            
-            # Create selection card
-            selection_result = await self._create_selection_card(session_id, placeholders_by_type, all_candidates)
+
+            # Create a selection card and return the response
+            selection_result = await self._create_selection_card(
+                session_id, placeholders_by_type, all_candidates
+            )
             card = selection_result.get("card")
             patch = selection_result.get("patch")
             status = selection_result.get("status", "pending")
@@ -88,7 +90,6 @@ class ComponentSelectorAgent:
                 status=status,
                 warnings=warnings or None,
             )
-        
         except Exception as e:
             return wrap_response(
                 thought="Encountered an exception during component selection.",
