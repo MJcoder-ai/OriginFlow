@@ -3,13 +3,13 @@
 To ensure that OriginFlow operates correctly across its various agents
 and calibration components, a set of end‑to‑end scenario tests has been
 added. These tests exercise the meta‑cognition and consensus agents,
-verify the behaviour of the confidence calibrator, and serve as a
+validate the orchestrator’s saga‑based workflow and recovery logic, and serve as a
 foundation for future integration tests covering full design flows.
 
 ## Test Overview
 
-The new tests reside under the `tests/` directory and can be executed
-using `pytest`. They cover the following scenarios:
+The test suite resides under the `tests/` directory and can be executed
+using `pytest`. It covers the following scenarios:
 
 - **Meta‑Cognition questions**: When provided with a list of missing
   fields (e.g. `panel orientation`, `datasheet`), the
@@ -21,11 +21,17 @@ using `pytest`. They cover the following scenarios:
 - **Consensus selection**: The `ConsensusAgent` receives multiple
   candidate outputs containing confidence values and selects the design
   with the highest confidence, returning the chosen card and patch.
-- **Confidence calibration**: The `ConfidenceCalibrator` records
-  feedback (approval/rejection) for a specific agent and action type,
-  computes an acceptance rate, adjusts a new confidence score towards
-  neutrality when feedback is mixed, and leaves thresholds unchanged
-  when the acceptance rate is neutral (0.5).
+- **Orchestrator workflow**: The `PlannerOrchestrator` executes a multi‑step saga
+  workflow (for example, `generate_network`, `generate_site`,
+  `generate_battery`, `generate_monitoring`) and produces calibrated
+  design cards with confidence and dynamic thresholds.  The test
+  verifies that the design graph contains the expected placeholder nodes
+  and edges.
+- **Recovery & retry**: A blocked task is manually registered with the
+  retry manager.  When the orchestrator runs a workflow containing that
+  task, it automatically resolves and clears the blocked task queue.
+  The test ensures the blocked queue is empty after the workflow
+  completes.
 
 ## Running the Tests
 
@@ -38,7 +44,9 @@ pytest -q
 
 These tests rely on the presence of `backend.utils.adpf.wrap_response`
 for the meta‑cognition and consensus agents. If the module is missing,
-those tests will be skipped automatically.
+those tests will be skipped automatically.  The orchestrator tests
+assume that the saga engine, confidence calibrator and recovery
+manager are integrated as in the current codebase.
 
 ## Extending Scenario Tests
 
