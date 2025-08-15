@@ -74,6 +74,10 @@ from backend.agents.structural_agent import StructuralAgent  # noqa: E402
 from backend.agents.wiring_agent import WiringAgent  # noqa: E402
 from backend.agents.battery_agent import BatteryAgent  # noqa: E402
 from backend.agents.monitoring_agent import MonitoringAgent  # noqa: E402
+from backend.agents.meta_cognition_agent import MetaCognitionAgent  # noqa: E402
+from backend.agents.consensus_agent import ConsensusAgent  # noqa: E402
+from backend.agents.network_agent import NetworkAgent  # import network agent for task mapping and specs  # noqa: E402
+from backend.agents.site_planning_agent import SitePlanningAgent  # import site planning agent for task mapping and specs  # noqa: E402
 from backend.schemas.ai import AiActionType  # noqa: E402
 
 
@@ -112,34 +116,52 @@ class AgentRegistry:
 
     def _initialize_default_mappings(self) -> None:
         """Initialize the default task-agent mappings."""
+        # Map task identifiers to agent classes. When adding new domain agents,
+        # ensure the tasks are registered here and the corresponding agents are
+        # imported above. This mapping drives the planner to dispatch tasks to
+        # the correct agent implementations.
         mappings = [
+            TaskAgentMapping(
+                task_id="meta_cognition",
+                agent_class=MetaCognitionAgent,
+                description="Generate clarifying questions for blocked tasks",
+                domain="meta",
+                prerequisites=[],
+            ),
+            TaskAgentMapping(
+                task_id="consensus",
+                agent_class=ConsensusAgent,
+                description="Select a consensus design among candidate outputs",
+                domain="coordination",
+                prerequisites=[],
+            ),
             TaskAgentMapping(
                 task_id="gather_requirements",
                 agent_class=PVDesignAgent,
                 description="Collect user requirements and verify component availability",
                 domain="requirements",
-                prerequisites=[]
+                prerequisites=[],
             ),
             TaskAgentMapping(
                 task_id="generate_design",
                 agent_class=PVDesignAgent,
                 description="Generate preliminary PV system design with panels and inverters",
                 domain="electrical",
-                prerequisites=["gather_requirements"]
+                prerequisites=["gather_requirements"],
             ),
             TaskAgentMapping(
                 task_id="generate_structural",
                 agent_class=StructuralAgent,
                 description="Generate mounting hardware and structural components",
                 domain="structural",
-                prerequisites=["generate_design"]
+                prerequisites=["generate_design"],
             ),
             TaskAgentMapping(
                 task_id="generate_wiring",
                 agent_class=WiringAgent,
                 description="Generate electrical wiring and protective devices",
                 domain="electrical",
-                prerequisites=["generate_design"]
+                prerequisites=["generate_design"],
             ),
             TaskAgentMapping(
                 task_id="generate_battery",
@@ -156,11 +178,25 @@ class AgentRegistry:
                 prerequisites=["generate_design"],
             ),
             TaskAgentMapping(
+                task_id="generate_network",
+                agent_class=NetworkAgent,
+                description="Generate network topology and communication links",
+                domain="network",
+                prerequisites=["generate_design"],
+            ),
+            TaskAgentMapping(
+                task_id="generate_site",
+                agent_class=SitePlanningAgent,
+                description="Generate site layout and planning considerations",
+                domain="site",
+                prerequisites=["generate_design"],
+            ),
+            TaskAgentMapping(
                 task_id="refine_validate",
                 agent_class=PVDesignAgent,
                 description="Refine and validate the complete design",
                 domain="validation",
-                prerequisites=["generate_design"]
+                prerequisites=["generate_design"],
             ),
         ]
         
@@ -268,6 +304,18 @@ register_spec(
 register_spec(
     name=MonitoringAgent.name,
     domain="monitoring",
+    risk_class="low",
+    capabilities=[AiActionType.add_component, AiActionType.add_link],
+)
+register_spec(
+    name=NetworkAgent.name,
+    domain="network",
+    risk_class="low",
+    capabilities=[AiActionType.add_component, AiActionType.add_link],
+)
+register_spec(
+    name=SitePlanningAgent.name,
+    domain="site",
     risk_class="low",
     capabilities=[AiActionType.add_component, AiActionType.add_link],
 )
