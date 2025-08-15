@@ -39,6 +39,18 @@ additional properties by default.  However, they must always include
 the required keys (`thought`, `output`, `status`) and a `card`
 within `output`.
 
+## Centralised schema enforcement in the orchestrator
+
+Beginning in Phase 20, schema enforcement is applied not only in
+`safe_execute` but also in the orchestrator.  After an agent’s
+response is calibrated (e.g. adding confidence values and dynamic
+thresholds), the orchestrator re‑validates the envelope to ensure it
+still conforms to the ADPF schema.  If validation fails, the
+orchestrator returns a blocked response indicating that the modified
+envelope was invalid.  This centralised validation prevents
+unexpected fields or corrupted structures from propagating through
+the workflow after post‑processing steps.
+
 ## Agent‑Specific Contracts
 
 While the ADPF envelope schema covers the common structure, agents are

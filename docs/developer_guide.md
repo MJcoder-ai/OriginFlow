@@ -43,6 +43,11 @@ agents.
    by the schema enforcer.
 2. Use `ConfidenceCalibrator` when assigning confidence scores and
    adjust thresholds based on feedback.
+3. After any post‑processing such as confidence calibration, re‑validate
+   the envelope using `validate_envelope`. If validation fails, return a
+   blocked response. Always include the required keys (`thought`,
+   `output`, `status`) when designing new agents and test against the
+   schema.
 
 ## 5. Recovery and Retry
 

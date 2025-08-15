@@ -29,6 +29,7 @@ from typing import Any, Dict, List, Optional
 
 from backend.agents.planner_agent import PlannerAgent
 from backend.agents.registry import AgentRegistry
+from backend.utils.confidence_calibration import ConfidenceCalibrator
 
 
 class PlannerOrchestrator:
@@ -38,9 +39,11 @@ class PlannerOrchestrator:
         self,
         registry: Optional[AgentRegistry] = None,
         planner: Optional[PlannerAgent] = None,
+        calibrator: Optional[ConfidenceCalibrator] = None,
     ) -> None:
         self.registry = registry or AgentRegistry()
         self.planner = planner or PlannerAgent()
+        self.calibrator = calibrator or ConfidenceCalibrator()
 
     async def run(
         self,
@@ -96,7 +99,7 @@ class PlannerOrchestrator:
             if not agent:
                 continue
 
-            env = await agent.safe_execute(session_id, tid, **task)
+            env = await self.run_task(session_id, tid, agent_name=tid, agent=agent, **task)
             envelopes.append(env)
             candidates.append(env)
 
@@ -109,6 +112,56 @@ class PlannerOrchestrator:
                 envelopes.append(env)
 
         return envelopes
+
+    async def run_task(
+        self,
+        session_id: str,
+        task_id: str,
+        *,
+        agent_name: str,
+        agent: Any,
+        **context: Any,
+    ) -> Dict[str, Any]:
+        """Execute an individual task and enforce schema compliance."""
+
+        resp = await agent.safe_execute(session_id, task_id, **context)
+
+        # Apply confidence calibration if a card and confidence are present
+        try:
+            card = resp.get("output", {}).get("card", {})  # type: ignore[assignment]
+            confidence = card.get("confidence")
+            if isinstance(confidence, (int, float)):
+                card["confidence"] = self.calibrator.calibrate_confidence(
+                    agent_name=agent_name,
+                    action_type=task_id,
+                    original_confidence=float(confidence),
+                )
+        except Exception:
+            pass
+
+        # After calibration, re-validate the envelope to ensure it still
+        # conforms to the ADPF schema.  If validation fails, return a
+        # blocked envelope indicating schema error.  This ensures that
+        # modifications (e.g. adding confidence fields) do not break the
+        # contract enforced by schema_enforcer.
+        try:
+            # Reuse validate_envelope from schema_enforcer via safe_execute
+            from backend.utils.schema_enforcer import validate_envelope  # type: ignore
+            validate_envelope(resp)  # type: ignore[arg-type]
+        except Exception:
+            # Return a fallback envelope to indicate invalid structure
+            return {
+                "thought": f"Invalid envelope returned by agent '{agent_name}' after calibration for task '{task_id}'",
+                "output": {
+                    "card": {
+                        "title": agent_name.replace("_", " ").title(),
+                        "body": "The modified envelope did not conform to the required schema.",
+                    },
+                    "patch": None,
+                },
+                "status": "blocked",
+            }
+        return resp
 
 
 __all__ = ["PlannerOrchestrator"]
