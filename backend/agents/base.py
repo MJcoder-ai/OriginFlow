@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import Any, Dict, List
 
 from backend.utils.retry_manager import retry_manager
@@ -16,7 +16,6 @@ class AgentBase(ABC):
     name: str = ""
     description: str = ""
 
-    @abstractmethod
     async def handle(self, command: str, **kwargs) -> List[Dict[str, Any]]:
         """Return a list of AiAction dicts.
 
@@ -24,15 +23,21 @@ class AgentBase(ABC):
         Concrete agents may ignore unknown keys.
         """
 
-        raise NotImplementedError("Agent must implement handle(command, **kwargs))")
+        raise NotImplementedError(
+            "Agent must implement handle(command, **kwargs))"
+        )
 
     async def execute(self, session_id: str, tid: str, **kwargs) -> Any:
         """Override to perform work for a given task."""
         raise NotImplementedError
 
-    async def safe_execute(self, session_id: str, tid: str, **kwargs) -> Dict[str, Any]:
+    async def safe_execute(
+        self, session_id: str, tid: str, **kwargs
+    ) -> Dict[str, Any]:
         """Execute the task with error handling and retry registration."""
-        from backend.utils.adpf import wrap_response  # local import to avoid cycles
+        from backend.utils.adpf import (
+            wrap_response,
+        )  # local import to avoid cycles
         from backend.utils.errors import OriginFlowError
 
         try:
@@ -42,7 +47,10 @@ class AgentBase(ABC):
                     validate_envelope(result)
                 except Exception as exc:
                     response = wrap_response(
-                        thought=f"Invalid envelope returned by agent '{self.name}' for task '{tid}'",
+                        thought=(
+                            "Invalid envelope returned by agent "
+                            f"'{self.name}' for task '{tid}'"
+                        ),
                         card={
                             "title": f"{self.name.replace('_', ' ').title()}",
                             "body": str(exc),
@@ -57,7 +65,9 @@ class AgentBase(ABC):
                         context=kwargs,
                     )
                     return response
-                status = result.get("status") or result.get("output", {}).get("status")
+                status = result.get("status") or result.get(
+                    "output", {}
+                ).get("status")
                 if status == "blocked":
                     retry_manager.register_blocked_task(
                         session_id=session_id,
@@ -68,12 +78,15 @@ class AgentBase(ABC):
             return result
         except OriginFlowError as exc:
             response = wrap_response(
-                thought=f"Agent '{self.name}' encountered a recoverable error.",
+                thought=(
+                    f"Agent '{self.name}' encountered a recoverable error."
+                ),
                 card={
                     "title": f"{self.name.replace('_', ' ').title()}",
                     "body": str(exc),
                     "warnings": [
-                        "This task has been blocked due to a conflict or invalid input.",
+                        "This task has been blocked due to a conflict or "
+                        "invalid input.",
                     ],
                 },
                 patch=None,
@@ -92,10 +105,15 @@ class AgentBase(ABC):
             logger = logging.getLogger(f"originflow.{self.name}")
             logger.exception("Unhandled exception in agent '%s'", self.name)
             response = wrap_response(
-                thought=f"Agent '{self.name}' failed with an unexpected error.",
+                thought=(
+                    f"Agent '{self.name}' failed with an unexpected error."
+                ),
                 card={
                     "title": f"{self.name.replace('_', ' ').title()}",
-                    "body": "An unexpected error occurred. Please try again or contact support.",
+                    "body": (
+                        "An unexpected error occurred. Please try again or "
+                        "contact support."
+                    ),
                 },
                 patch=None,
                 status="blocked",
@@ -107,4 +125,3 @@ class AgentBase(ABC):
                 context=kwargs,
             )
             return response
-

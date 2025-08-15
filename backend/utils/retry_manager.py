@@ -34,12 +34,14 @@ class RetryManager:
             }
         )
 
-    async def resolve_blocked_tasks(self, session_id: str) -> List[Dict[str, Any]]:
+    async def resolve_blocked_tasks(
+        self, session_id: str
+    ) -> List[Dict[str, Any]]:
         """Attempt to resolve all blocked tasks for ``session_id``.
 
-        Returns a list of results from each task execution.  Tasks that return a
-        non-blocked status are removed from the queue.  Remaining blocked tasks
-        stay queued for future attempts.
+        Returns a list of results from each task execution.  Tasks that return
+        a non-blocked status are removed from the queue.  Remaining blocked
+        tasks stay queued for future attempts.
         """
 
         tasks = self._blocked.get(session_id, [])
@@ -48,16 +50,26 @@ class RetryManager:
 
         remaining: List[Dict[str, Any]] = []
         results: List[Dict[str, Any]] = []
-        from backend.agents.registry import get_agent  # local import to avoid cycles
+        from backend.agents.registry import (
+            AgentRegistry,
+        )  # local import to avoid cycles
+
+        registry = AgentRegistry()
 
         for item in tasks:
-            agent = get_agent(item["agent_name"])
+            agent = registry.get_agent(item["task_id"]) or registry.get_agent(
+                item["agent_name"]
+            )
+            if not agent:
+                continue
             result = await agent.safe_execute(
                 session_id, item["task_id"], **item.get("context", {})
             )
             results.append(result)
             if isinstance(result, dict):
-                status = result.get("status") or result.get("output", {}).get("status")
+                status = result.get("status") or result.get(
+                    "output", {}
+                ).get("status")
                 if status == "blocked":
                     remaining.append(item)
 
@@ -75,4 +87,3 @@ class RetryManager:
 
 
 retry_manager = RetryManager()
-
