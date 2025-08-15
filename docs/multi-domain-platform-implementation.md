@@ -32,6 +32,7 @@ This document outlines the successful implementation of OriginFlow's transformat
 11. **Phase 11**: Observability & Learning ✅
 12. **Phase 12**: Error Handling & Concurrency ✅
 13. **Phase 13**: Sagas & Workflow Engine ✅
+14. **Phase 14**: Enhanced Rule Engine ✅
 
 ## Architecture Components
 
@@ -480,3 +481,23 @@ without long-lived locks:
 
 This addition allows OriginFlow to maintain graph consistency across long
 design sequences, significantly improving robustness for real-world workflows.
+### Enhanced Rule Engine (Phase 14)
+
+In this phase, the deterministic rule engine has been extended beyond wire
+sizing to cover conduit sizing and structural mount load calculations.  These
+additional checks provide stronger compliance with NEC/IEC codes and help
+engineers design safe, compliant PV installations across multiple domains.
+
+- **Conduit sizing**: `RuleEngine.size_conduit` computes the required
+  conduit cross‑section and diameter based on the total cross-section of
+  conductors and an allowable fill factor.  `validate_conduit` checks an
+  installed conduit against these recommendations, returning a fill ratio and
+  compliance flag.
+- **Mount load sizing**: `size_mount_load` estimates the minimum required
+  load capacity for panel mounts based on the number of panels, panel
+  weight and a wind load factor.  `validate_mount` compares installed mount
+  capacity to the recommended value and reports compliance.
+
+These enhancements lay the groundwork for future deterministic rules—such as
+battery pack configurations and lightning protection sizing—bringing
+OriginFlow closer to full NEC/IEC compliance across all domains.
