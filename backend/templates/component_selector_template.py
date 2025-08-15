@@ -1,26 +1,19 @@
-"""Implementation of the component selection template.
+"""Component selection template.
 
 The ``ComponentSelectorTemplate`` recommends components from the
-domain catalog based on simple heuristics.  When operating in the
-solar domain it returns photovoltaic modules (panels) and inverters,
-ranked by their efficiency‑to‑price and capacity‑to‑price ratios
-respectively.  When operating in the HVAC domain it recommends HVAC
-units ranked by their capacity (kW) to price ratio.  The template
-selects up to three top candidates of each type.
+domain catalogue using straightforward heuristics. In the solar domain
+it proposes photovoltaic modules and inverters ranked by their
+efficiency‑to‑price and capacity‑to‑price ratios. For HVAC it returns
+units ranked by capacity to price. Up to three candidates of each type
+are produced.
 
-When a target power is specified in the context contract (via
-``contract.inputs['target_power']``) the template estimates how many
-units of each recommended component would be required to meet that
-target.  It also computes the approximate cost by multiplying the
-unit price by the recommended quantity.  These quantities and
-estimated costs are included in the recommendation entries.  If no
-target power is provided the quantities are omitted.
-
-A user‑supplied budget is taken into account by comparing the cost of
-the cheapest compatible configuration against the budget and
-recording a validation warning if the budget may be insufficient.
-Future iterations will incorporate more sophisticated scoring based on
-user preferences, technical constraints, pricing and risk factors.
+If the context contract provides a target power
+(``contract.inputs['target_power']``) the template estimates how many
+units of each candidate are required and their approximate cost. When
+a budget is supplied the lowest‑cost configuration is compared against
+it and a validation warning is emitted if the budget may be
+insufficient. Future iterations will add richer scoring based on user
+preferences, technical constraints, pricing and risk factors.
 """
 from __future__ import annotations
 
@@ -55,29 +48,22 @@ class ComponentSelectorTemplate(AgentTemplate):
     async def run(
         self, contract: ContextContract, policy: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Recommend PV components based on simple heuristics.
+        """Recommend components using simple heuristics.
 
-        This template reads the component catalogue from the loaded
-        domain pack and produces ranked recommendations for PV modules
-        and inverters.  Panels are scored by the ratio of their
-        efficiency to price; inverters by capacity to price.  The
-        highest‑scoring candidates (up to three each) are selected.
+        The template reads the catalogue from the loaded domain pack and
+        returns up to three candidates for each supported type. In the
+        solar domain it considers PV modules and inverters ranked by
+        efficiency‑to‑price and capacity‑to‑price ratios; in the HVAC
+        domain it ranks units by capacity to price.
 
-        Where possible the template estimates the quantity of each
-        candidate required to meet the session's target power.  The
-        target power is taken from ``contract.inputs['target_power']``
-        (in watts).  If no target power is provided the quantity is
-        omitted.  This helps downstream users understand how many
-        units of each recommended component would be needed.  An
-        approximate cost is also provided by multiplying the unit
-        price by the recommended quantity.
-
-        A user‑supplied budget is taken into account by checking
-        whether the lowest‑cost pair of a panel and an inverter can
-        meet the target power within the budget; if not a validation
-        warning is recorded.  Future iterations will incorporate
-        more sophisticated scoring based on user preferences, technical
-        constraints, pricing and risk factors.
+        When ``contract.inputs['target_power']`` is provided the function
+        estimates the quantity of each recommendation and its approximate
+        cost. A user budget triggers a validation warning when the
+        cheapest feasible configuration might exceed the available funds.
+        Future iterations will incorporate more sophisticated scoring
+        based on user preferences, technical constraints, pricing and
+        risk factors.
+        """
 
         Args:
             contract: Context with user inputs.  Relevant fields include
