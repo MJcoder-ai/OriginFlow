@@ -1,15 +1,27 @@
-"""Agent that validates cross-layer connectivity and dependencies.
+"""CrossLayerValidationAgent validates connectivity and component relationships across design layers.
 
-This agent analyses a design snapshot to verify that all components are
-properly connected and that no elements have been left isolated.  It is
-invoked via a natural-language command such as ``"validate connections"``
-or ``"validate design"``.  The agent parses the `snapshot` passed in
-``kwargs``, counts the number of connections for each component, and
-reports components that lack any incoming or outgoing links.
+This agent is invoked via the ``validate_design`` task after primary domain
+agents have populated the graph.  It performs several checks to ensure
+that components are correctly connected and that key relationships are
+maintained:
 
-Future versions of this agent may include more sophisticated checks,
-such as ensuring that required sub-assemblies are present (e.g. rails
-and brackets for panels) and validating cross-layer compatibility.
+* **Isolated components** – Any non‑root node with neither incoming
+  nor outgoing edges is flagged as an isolated component.
+* **Battery connections** – Each battery (``generic_battery``) must be
+  connected to at least one inverter or the system root.  Unconnected
+  batteries are reported.
+* **Monitoring connections** – Each monitoring device
+  (``generic_monitoring``) must be connected to at least one component.
+  Devices without connections are flagged.
+* **Battery–inverter ratio** – The number of battery modules should match
+  the number of inverters (1:1 ratio).  A mismatch is reported as an
+  issue.
+
+The agent returns an ADPF envelope summarising the findings.  The
+``issues`` list contains human‑readable descriptions of any problems,
+and the design card suggests corrective actions.  This agent does not
+modify the graph itself and always returns ``status='complete'`` when
+the validation check finishes.
 """
 from __future__ import annotations
 
