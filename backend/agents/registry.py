@@ -72,6 +72,9 @@ def get_spec(name: str) -> AgentSpec:
 from backend.agents.odl_domain_agents import PVDesignAgent  # noqa: E402
 from backend.agents.structural_agent import StructuralAgent  # noqa: E402
 from backend.agents.wiring_agent import WiringAgent  # noqa: E402
+from backend.agents.battery_agent import BatteryAgent  # noqa: E402
+from backend.agents.monitoring_agent import MonitoringAgent  # noqa: E402
+from backend.schemas.ai import AiActionType  # noqa: E402
 
 
 class TaskAgentMapping:
@@ -137,6 +140,20 @@ class AgentRegistry:
                 description="Generate electrical wiring and protective devices",
                 domain="electrical",
                 prerequisites=["generate_design"]
+            ),
+            TaskAgentMapping(
+                task_id="generate_battery",
+                agent_class=BatteryAgent,
+                description="Generate battery storage design",
+                domain="battery",
+                prerequisites=["generate_design"],
+            ),
+            TaskAgentMapping(
+                task_id="generate_monitoring",
+                agent_class=MonitoringAgent,
+                description="Generate system monitoring design",
+                domain="monitoring",
+                prerequisites=["generate_design"],
             ),
             TaskAgentMapping(
                 task_id="refine_validate",
@@ -240,3 +257,17 @@ class AgentRegistry:
 
 
 registry = AgentRegistry()
+
+# Register risk specifications for new domain agents
+register_spec(
+    name=BatteryAgent.name,
+    domain="battery",
+    risk_class="medium",
+    capabilities=[AiActionType.add_component, AiActionType.add_link],
+)
+register_spec(
+    name=MonitoringAgent.name,
+    domain="monitoring",
+    risk_class="low",
+    capabilities=[AiActionType.add_component, AiActionType.add_link],
+)

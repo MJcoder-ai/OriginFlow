@@ -63,6 +63,14 @@ OriginFlow/
 └── qdrant_storage/             # Vector database (optional)
 
 
+### Registered Agents
+
+* `pv_design_agent` — Domain agent responsible for generating PV designs.
+* `structural_agent` — Domain agent for structural/mounting design.
+* `wiring_agent` — Domain agent for wiring and protective devices.
+* `battery_agent` — Domain agent for sizing and integrating battery modules.
+* `monitoring_agent` — Domain agent for adding monitoring devices and communication links.
+
 
 ## 2. Core Agent Interface (Phase 1)
 
