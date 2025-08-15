@@ -25,6 +25,7 @@ This document outlines the successful implementation of OriginFlow's transformat
 4. **Phase 4**: Component Selector Agent ✅
 5. **Phase 5**: Frontend Enhancements ✅
 6. **Phase 6**: Documentation & Guidelines ✅
+7. **Phase 7**: ADPF Integration ✅
 
 ## Architecture Components
 
@@ -118,6 +119,17 @@ Final Validation
 - Complete functional design with placeholders
 - Gradual replacement as real components become available
 - Maintain design connectivity throughout process
+
+### ADPF Integration (Phase 7)
+
+As part of adopting the **Advanced Dynamic Prompting Framework (ADPF)**, all AI agents now return their results in a standard JSON envelope.  The envelope includes:
+
+- **thought** – a short string describing the agent’s internal reasoning and why it produced a particular output.
+- **output** – a structured object containing the original `card` and `patch` fields produced by the agent.
+- **status** – the outcome of the task (`pending`, `blocked` or `complete`).
+- **warnings** – optional list of warnings.
+
+This change provides traceability and meta‑cognitive context for every AI action, making it easier for downstream components (UI, orchestrator or other agents) to interpret agent outputs.  A new helper function `wrap_response` in `backend/utils/adpf.py` centralises envelope creation and should be used by all agents.
 
 ### 2. Component-First Design Flow
 
