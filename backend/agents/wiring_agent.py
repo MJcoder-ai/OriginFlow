@@ -5,6 +5,7 @@ from typing import Dict, List
 
 from backend.services import odl_graph_service
 from backend.services.placeholder_components import get_placeholder_service
+from backend.utils.adpf import wrap_response
 from backend.schemas.odl import ODLNode, ODLEdge
 
 
@@ -21,42 +22,45 @@ class WiringAgent:
 
     async def execute(self, session_id: str, tid: str, **kwargs) -> Dict:
         """
-        Perform wiring sizing. Accepts `generate_wiring` or `wiring` as task IDs
-        and returns a card summarising any added components.
+        Perform wiring sizing.  Accepts `generate_wiring` or `wiring` as task IDs
+        and returns an ADPF envelope summarising the added components.
         """
         try:
             tid = tid.lower().strip()
             if tid not in {"generate_wiring", "wiring"}:
-                return {
-                    "card": {
+                return wrap_response(
+                    thought=f"Received unknown wiring task '{tid}'.",
+                    card={
                         "title": "Wiring design",
                         "body": f"Unknown wiring task '{tid}'.",
                     },
-                    "patch": None,
-                    "status": "pending",
-                }
+                    patch=None,
+                    status="pending",
+                )
             
             graph = await self.odl_graph_service.get_graph(session_id)
             if graph is None:
-                return {
-                    "card": {"title": "Wiring design", "body": "Session not found."},
-                    "patch": None,
-                    "status": "blocked",
-                }
+                return wrap_response(
+                    thought="Cannot design wiring because the session does not exist.",
+                    card={"title": "Wiring design", "body": "Session not found."},
+                    patch=None,
+                    status="blocked",
+                )
             
             # Find electrical connections that need wiring
             electrical_edges = [(u, v, e_data) for u, v, e_data in graph.edges(data=True) 
                               if e_data.get("type") == "electrical" and not e_data.get("provisional")]
             
             if not electrical_edges:
-                return {
-                    "card": {
+                return wrap_response(
+                    thought="No electrical connections present, so wiring cannot be generated.",
+                    card={
                         "title": "Wiring design",
                         "body": "No electrical connections found. Generate design first.",
                     },
-                    "patch": None,
-                    "status": "blocked",
-                }
+                    patch=None,
+                    status="blocked",
+                )
             
             # Check if wiring already exists
             existing_cables = [n for n, d in graph.nodes(data=True) 
@@ -65,14 +69,15 @@ class WiringAgent:
                             if d.get("type") in ["fuse", "generic_fuse"]]
             
             if existing_cables or existing_fuses:
-                return {
-                    "card": {
+                return wrap_response(
+                    thought="Wiring already exists; skipping generation.",
+                    card={
                         "title": "Wiring design",
                         "body": f"Wiring already exists ({len(existing_cables)} cables, {len(existing_fuses)} fuses).",
                     },
-                    "patch": None,
-                    "status": "complete",
-                }
+                    patch=None,
+                    status="complete",
+                )
             
             add_nodes: List[ODLNode] = []
             add_edges: List[ODLEdge] = []
@@ -112,14 +117,15 @@ class WiringAgent:
                 ])
             
             if not add_nodes:
-                return {
-                    "card": {
+                return wrap_response(
+                    thought="No electrical connections found; nothing to wire.",
+                    card={
                         "title": "Wiring design",
                         "body": "No electrical connections found to wire.",
                     },
-                    "patch": None,
-                    "status": "complete",
-                }
+                    patch=None,
+                    status="complete",
+                )
             
             patch = {
                 "add_nodes": [n.model_dump() for n in add_nodes],
@@ -146,18 +152,21 @@ class WiringAgent:
                 "recommendations": ["Consider voltage drop calculations for final design"]
             }
             
-            return {
-                "card": card,
-                "patch": patch,
-                "status": "complete",
-            }
+            return wrap_response(
+                thought=f"Added {cables_count} cable(s) and {fuses_count} protective device(s).",
+                card=card,
+                patch=patch,
+                status="complete",
+                warnings=card.get("warnings"),
+            )
             
         except Exception as e:
-            return {
-                "card": {
+            return wrap_response(
+                thought="Encountered an exception during wiring design.",
+                card={
                     "title": "Wiring design",
                     "body": f"Error generating wiring: {str(e)}",
                 },
-                "patch": None,
-                "status": "blocked",
-            }
+                patch=None,
+                status="blocked",
+            )

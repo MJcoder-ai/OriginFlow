@@ -5,6 +5,7 @@ from typing import Dict, List
 from backend.services import odl_graph_service
 from backend.services.placeholder_components import get_placeholder_service
 from backend.schemas.odl import ODLNode, ODLEdge
+from backend.utils.adpf import wrap_response
 
 
 class StructuralAgent:
@@ -15,53 +16,57 @@ class StructuralAgent:
         self.placeholder_service = get_placeholder_service()
     
     async def execute(self, session_id: str, tid: str, **kwargs) -> Dict:
-        """Execute structural design task."""
+        """Execute structural design task and return an ADPF envelope."""
         try:
             if tid.lower().strip() not in {"generate_structural", "structural"}:
-                return {
-                    "card": {
+                return wrap_response(
+                    thought=f"Received unknown structural task '{tid}'.",
+                    card={
                         "title": "Structural design",
                         "body": f"Unknown structural task '{tid}'.",
                     },
-                    "patch": None,
-                    "status": "pending",
-                }
+                    patch=None,
+                    status="pending",
+                )
             
             graph = await self.odl_graph_service.get_graph(session_id)
             if graph is None:
-                return {
-                    "card": {"title": "Structural design", "body": "Session not found."},
-                    "patch": None,
-                    "status": "blocked",
-                }
+                return wrap_response(
+                    thought="Cannot generate structural design because the session does not exist.",
+                    card={"title": "Structural design", "body": "Session not found."},
+                    patch=None,
+                    status="blocked",
+                )
             
             # Find panels that need mounting
             panels = [(n, d) for n, d in graph.nodes(data=True) 
                      if d.get("type") in ["panel", "generic_panel"]]
             
             if not panels:
-                return {
-                    "card": {
+                return wrap_response(
+                    thought="No panels available for structural design.",
+                    card={
                         "title": "Structural design",
                         "body": "No panels found. Generate design first.",
                     },
-                    "patch": None,
-                    "status": "blocked",
-                }
+                    patch=None,
+                    status="blocked",
+                )
             
             # Check if mounts already exist
             existing_mounts = [n for n, d in graph.nodes(data=True) 
                              if d.get("type") in ["mount", "generic_mount"]]
             
             if existing_mounts:
-                return {
-                    "card": {
+                return wrap_response(
+                    thought="Mounting structure already exists; no further action needed.",
+                    card={
                         "title": "Structural design", 
                         "body": f"Mounting structure already exists ({len(existing_mounts)} mounts).",
                     },
-                    "patch": None,
-                    "status": "complete",
-                }
+                    patch=None,
+                    status="complete",
+                )
             
             # Generate mounting for each panel
             nodes = []
@@ -95,7 +100,7 @@ class StructuralAgent:
                 "add_nodes": [n.model_dump() for n in nodes],
                 "add_edges": [e.model_dump() for e in edges]
             }
-            
+
             card = {
                 "title": "Structural design",
                 "body": f"Generated mounting structure for {len(panels)} panels.",
@@ -111,19 +116,23 @@ class StructuralAgent:
                 "warnings": ["Using generic mounting - upload mount datasheets for real components"],
                 "recommendations": ["Consider wind and snow loads for final design"]
             }
-            
-            return {
-                "card": card,
-                "patch": patch,
-                "status": "complete",
-            }
+
+            return wrap_response(
+                thought=f"Generated mounting structure for {len(panels)} panels.",
+                card=card,
+                patch=patch,
+                status="complete",
+                warnings=card.get("warnings"),
+            )
+
             
         except Exception as e:
-            return {
-                "card": {
+            return wrap_response(
+                thought="Encountered an exception during structural design.",
+                card={
                     "title": "Structural design",
                     "body": f"Error generating structural design: {str(e)}",
                 },
-                "patch": None,
-                "status": "blocked",
-            }
+                patch=None,
+                status="blocked",
+            )

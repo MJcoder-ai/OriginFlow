@@ -9,6 +9,7 @@ from backend.services.component_db_service import ComponentDBService
 from backend.services import odl_graph_service
 from backend.services.learning_agent_service import LearningAgentService
 from backend.services.placeholder_components import get_placeholder_service
+from backend.utils.adpf import wrap_response
 from backend.schemas.odl import ComponentCandidate, ODLNode, ODLEdge
 from datetime import datetime
 
@@ -23,22 +24,24 @@ class ComponentSelectorAgent:
         self.placeholder_service = get_placeholder_service()
     
     async def execute(self, session_id: str, tid: str, **kwargs) -> Dict:
-        """Execute component selection task."""
+        """Execute component selection task and return an ADPF envelope."""
         try:
-            if tid != "populate_real_components":
-                return {
-                    "card": {"title": "Component Selection", "body": f"Unknown task '{tid}'"},
-                    "patch": None,
-                    "status": "pending"
-                }
+        if tid != "populate_real_components":
+            return wrap_response(
+                thought=f"Received unknown component-selection task '{tid}'.",
+                card={"title": "Component Selection", "body": f"Unknown task '{tid}'"},
+                patch=None,
+                status="pending",
+            )
             
             graph = await self.odl_graph_service.get_graph(session_id)
             if graph is None:
-                return {
-                    "card": {"title": "Component Selection", "body": "Session not found"},
-                    "patch": None,
-                    "status": "blocked"
-                }
+                return wrap_response(
+                    thought="Cannot replace placeholders because the session does not exist.",
+                    card={"title": "Component Selection", "body": "Session not found"},
+                    patch=None,
+                    status="blocked",
+                )
             
             placeholder_nodes = {
                 n: d for n, d in graph.nodes(data=True) 
@@ -46,14 +49,15 @@ class ComponentSelectorAgent:
             }
             
             if not placeholder_nodes:
-                return {
-                    "card": {
+                return wrap_response(
+                    thought="No placeholders found; component selection is unnecessary.",
+                    card={
                         "title": "Component Selection",
                         "body": "No placeholder components found to replace"
                     },
-                    "patch": None,
-                    "status": "complete"
-                }
+                    patch=None,
+                    status="complete",
+                )
             
             # Group placeholders by type
             placeholders_by_type = {}
@@ -72,17 +76,29 @@ class ComponentSelectorAgent:
                 all_candidates[placeholder_type] = candidates
             
             # Create selection card
-            return await self._create_selection_card(session_id, placeholders_by_type, all_candidates)
+            selection_result = await self._create_selection_card(session_id, placeholders_by_type, all_candidates)
+            card = selection_result.get("card")
+            patch = selection_result.get("patch")
+            status = selection_result.get("status", "pending")
+            warnings = card.get("warnings", []) if card else []
+            return wrap_response(
+                thought="Generated candidate replacements for placeholder components.",
+                card=card,
+                patch=patch,
+                status=status,
+                warnings=warnings or None,
+            )
         
         except Exception as e:
-            return {
-                "card": {
+            return wrap_response(
+                thought="Encountered an exception during component selection.",
+                card={
                     "title": "Component Selection",
                     "body": f"Error in component selection: {str(e)}"
                 },
-                "patch": None,
-                "status": "blocked"
-            }
+                patch=None,
+                status="blocked",
+            )
     
     async def _find_candidates(self, placeholder_type: str, requirements: Dict, placeholder_nodes: List) -> List[ComponentCandidate]:
         """Find real components that could replace the placeholder type."""

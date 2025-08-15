@@ -8,6 +8,7 @@ from backend.services.component_db_service import ComponentDBService
 from backend.services import odl_graph_service
 from backend.services.learning_agent_service import LearningAgentService
 from backend.services.placeholder_components import get_placeholder_service
+from backend.utils.adpf import wrap_response
 from backend.schemas.odl import ODLNode, ODLEdge
 import math
 from datetime import datetime
@@ -31,25 +32,54 @@ class PVDesignAgent:
         self.placeholder_service = get_placeholder_service()
 
     async def execute(self, session_id: str, tid: str, **kwargs) -> Dict:
+        """Execute the given task and return an ADPF-compliant envelope.
+
+        The PVDesignAgent now wraps all responses in a standard JSON envelope
+        defined by :func:`wrap_response`.  This envelope carries the agent's
+        internal thought along with the structured output (card and patch).
+        """
         task = tid.lower().strip()
+        thought_map = {
+            "gather_requirements": "Gathering design requirements and validating inputs.",
+            "generate_design": "Generating a PV design using available or placeholder components.",
+            "generate_structural": "Delegating structural design task to the structural agent.",
+            "generate wiring": "Delegating wiring design task to the wiring agent.",
+            "generate_wiring": "Delegating wiring design task to the wiring agent.",
+            "refine_validate": "Refining and validating the photovoltaic design.",
+        }
+        thought = thought_map.get(task, f"Executing task '{tid}'")
         if task == "gather_requirements":
-            return await self._gather(session_id, **kwargs)
-        if task == "generate_design":
-            return await self._generate_design(session_id, **kwargs)
-        if task in {"generate_structural", "generate wiring", "generate_wiring"}:
-            return {
+            result = await self._gather(session_id, **kwargs)
+        elif task == "generate_design":
+            result = await self._generate_design(session_id, **kwargs)
+        elif task in {"generate_structural", "generate wiring", "generate_wiring"}:
+            result = {
                 "card": {
                     "title": "Delegated task",
                     "body": f"Task '{tid}' is handled by StructuralAgent or WiringAgent",
                 },
                 "patch": None,
+                "status": "pending",
             }
-        if task == "refine_validate":
-            return await self._refine_validate(session_id, **kwargs)
-        return {
-            "card": {"title": "Unknown task", "body": f"Task '{tid}' not supported"},
-            "patch": None,
-        }
+        elif task == "refine_validate":
+            result = await self._refine_validate(session_id, **kwargs)
+        else:
+            result = {
+                "card": {"title": "Unknown task", "body": f"Task '{tid}' not supported"},
+                "patch": None,
+                "status": "pending",
+            }
+        card = result.get("card")
+        patch = result.get("patch")
+        status = result.get("status", "pending")
+        warnings = card.get("warnings", []) if isinstance(card, dict) else []
+        return wrap_response(
+            thought=thought,
+            card=card,
+            patch=patch,
+            status=status,
+            warnings=warnings or None,
+        )
 
     async def _gather(self, session_id: str, **kwargs) -> Dict:
         """
