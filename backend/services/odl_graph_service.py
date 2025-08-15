@@ -28,7 +28,9 @@ import json
 import sqlite3
 from collections import Counter
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field
 
 import networkx as nx
 import asyncio
@@ -38,6 +40,50 @@ from backend.utils.errors import (
     InvalidPatchError,
     SessionNotFoundError,
 )
+
+# Data models for graph patches used by saga/workflow engine
+
+
+class ODLNode(BaseModel):
+    """Node representation for ODL graph patches."""
+
+    id: str
+    data: Dict[str, Any] = Field(default_factory=dict)
+
+
+class ODLEdge(BaseModel):
+    """Edge representation for ODL graph patches."""
+
+    source: str
+    target: str
+    data: Dict[str, Any] = Field(default_factory=dict)
+
+
+class ODLGraphPatch(BaseModel):
+    """Patch describing additions and removals to an ODL graph."""
+
+    added_nodes: List[ODLNode] = Field(default_factory=list)
+    added_edges: List[ODLEdge] = Field(default_factory=list)
+    removed_nodes: List[str] = Field(default_factory=list)
+    removed_edges: List[Dict[str, str]] = Field(default_factory=list)
+
+    def reverse(self) -> "ODLGraphPatch":
+        """Return a patch that undoes this patch's additions.
+
+        Only additions are reversed automatically. Restoring removed elements
+        requires custom compensation logic provided by the caller.
+        """
+
+        removed_edges = [
+            {"source": edge.source, "target": edge.target} for edge in self.added_edges
+        ]
+        removed_node_ids = [node.id for node in self.added_nodes]
+        return ODLGraphPatch(
+            added_nodes=[],
+            added_edges=[],
+            removed_nodes=removed_node_ids,
+            removed_edges=removed_edges,
+        )
 
 # SQLite database file used to persist graphs and patches.  A `data` directory
 # under backend/services will be created automatically.
@@ -690,3 +736,10 @@ async def update_requirements(session_id: str, requirements: Dict[str, Any]) -> 
     except Exception as e:
         print(f"Error updating requirements for session {session_id}: {e}")
         return False
+
+
+# Expose module as a service-like object for convenience imports.
+import sys
+
+
+odl_graph_service = sys.modules[__name__]
