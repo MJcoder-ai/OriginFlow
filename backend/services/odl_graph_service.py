@@ -28,14 +28,24 @@ import json
 import sqlite3
 from collections import Counter
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import networkx as nx
+import asyncio
+
+from backend.utils.errors import (
+    DesignConflictError,
+    InvalidPatchError,
+    SessionNotFoundError,
+)
 
 # SQLite database file used to persist graphs and patches.  A `data` directory
 # under backend/services will be created automatically.
 DB_PATH = Path(__file__).resolve().parent.parent / "data" / "odl_sessions.db"
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+# Per-session locks to ensure patch applications are atomic.
+_locks: Dict[str, asyncio.Lock] = {}
 
 
 def _init_db() -> None:
@@ -143,75 +153,112 @@ def delete_graph(session_id: str) -> None:
         conn.commit()
 
 
-async def apply_patch(session_id: str, patch: Dict[str, List[Dict]]) -> Tuple[bool, str]:
+async def apply_patch(session_id: str, patch: Dict[str, List[Dict]]) -> nx.DiGraph:
     """
-    Apply an add/remove patch to the given session’s graph.  This version
-    checks optimistic concurrency by comparing the incoming version (if
-    provided in the patch) against the persisted version.  After
-    modifications, the updated graph and patch are persisted.
+    Apply an add/remove patch to the given session’s graph in an idempotent
+    and concurrency-safe manner.
+
+    This acquires a per-session asyncio lock to avoid concurrent writes from
+    corrupting graph state.  Added nodes/edges are skipped if they already
+    exist, removals raise :class:`DesignConflictError` when targets are
+    missing, and all unexpected errors result in an
+    :class:`InvalidPatchError`.
     """
     g = await get_graph(session_id)
     if g is None:
-        return False, f"Session {session_id} does not exist"
+        raise SessionNotFoundError(f"Session '{session_id}' does not exist")
 
-    # Concurrency: if the caller includes 'version' in the patch, ensure it matches.
-    incoming_version = patch.get("version")
-    current_version = g.graph.get("version", 0)
-    if incoming_version is not None and incoming_version != current_version:
-        return False, f"Version conflict: client has {incoming_version}, server has {current_version}"
+    lock = _locks.setdefault(session_id, asyncio.Lock())
+    async with lock:
+        incoming_version = patch.get("version")
+        current_version = g.graph.get("version", 0)
+        if incoming_version is not None and incoming_version != current_version:
+            raise DesignConflictError(
+                f"Version conflict: client has {incoming_version}, server has {current_version}"
+            )
 
-    for node_id in patch.get("remove_nodes", []):
-        if g.has_node(node_id):
-            g.remove_node(node_id)
-    for edge in patch.get("remove_edges", []):
-        u = edge.get("source")
-        v = edge.get("target")
-        if u is not None and v is not None and g.has_edge(u, v):
-            g.remove_edge(u, v)
-    for node in patch.get("add_nodes", []):
-        node_id = node.get("id")
-        if node_id is None:
-            return False, "Node id is required"
-        g.add_node(node_id, **node.get("data", {}))
-    for edge in patch.get("add_edges", []):
-        src = edge.get("source")
-        dst = edge.get("target")
-        if src is None or dst is None:
-            return False, "Edge source and target are required"
-        g.add_edge(src, dst, **edge.get("data", {}))
-    
-    # Handle edge updates
-    for edge in patch.get("update_edges", []):
-        src = edge.get("source")
-        dst = edge.get("target")
-        if src is None or dst is None:
-            return False, "Edge source and target are required for update"
-        if g.has_edge(src, dst):
-            # Update edge attributes
-            g.edges[src, dst].update(edge.get("data", {}))
+        existing_nodes = set(g.nodes())
+        existing_edges = set(g.edges())
 
-    # bump version
-    g.graph["version"] = g.graph.get("version", 0) + 1
-    # persist updated graph
-    await save_graph(session_id, g)
-    # persist the patch as a separate record for diff/undo, but exclude the
-    # version key from the stored patch to avoid confusion on replay
-    stored_patch = {
-        key: val
-        for key, val in patch.items()
-        if key in {"add_nodes", "add_edges", "remove_nodes", "remove_edges", "update_edges"}
-    }
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute(
-            "INSERT INTO patches (session_id, version, patch_json) VALUES (?, ?, ?)",
-            (
-                session_id,
-                g.graph["version"],
-                json.dumps(stored_patch),
-            ),
-        )
-        conn.commit()
-    return True, ""
+        try:
+            # Apply removals first to detect conflicts
+            for node_id in patch.get("remove_nodes", []):
+                if node_id not in existing_nodes:
+                    raise DesignConflictError(f"Node '{node_id}' does not exist")
+                g.remove_node(node_id)
+                existing_nodes.remove(node_id)
+
+            for edge in patch.get("remove_edges", []):
+                u = edge.get("source")
+                v = edge.get("target")
+                if u is None or v is None:
+                    raise InvalidPatchError("Edge removal requires source and target")
+                if (u, v) not in existing_edges:
+                    raise DesignConflictError(f"Edge '{u}->{v}' does not exist")
+                g.remove_edge(u, v)
+                existing_edges.remove((u, v))
+
+            # Apply additions, skipping duplicates for idempotency
+            for node in patch.get("add_nodes", []):
+                node_id = node.get("id")
+                if node_id is None:
+                    raise InvalidPatchError("Node id is required")
+                if node_id in existing_nodes:
+                    continue
+                g.add_node(node_id, **node.get("data", {}))
+                existing_nodes.add(node_id)
+
+            for edge in patch.get("add_edges", []):
+                src = edge.get("source")
+                dst = edge.get("target")
+                if src is None or dst is None:
+                    raise InvalidPatchError("Edge source and target are required")
+                if (src, dst) in existing_edges:
+                    continue
+                g.add_edge(src, dst, **edge.get("data", {}))
+                existing_edges.add((src, dst))
+
+            # Handle edge updates
+            for edge in patch.get("update_edges", []):
+                src = edge.get("source")
+                dst = edge.get("target")
+                if src is None or dst is None:
+                    raise InvalidPatchError(
+                        "Edge source and target are required for update"
+                    )
+                if (src, dst) not in existing_edges:
+                    raise DesignConflictError(
+                        f"Edge '{src}->{dst}' does not exist"
+                    )
+                g.edges[src, dst].update(edge.get("data", {}))
+
+        except (DesignConflictError, InvalidPatchError):
+            raise
+        except Exception as exc:
+            raise InvalidPatchError(f"Failed to apply patch: {exc}") from exc
+
+        # bump version and persist graph
+        g.graph["version"] = g.graph.get("version", 0) + 1
+        await save_graph(session_id, g)
+
+        # persist the patch as a separate record for diff/undo, excluding version
+        stored_patch = {
+            key: val
+            for key, val in patch.items()
+            if key
+            in {"add_nodes", "add_edges", "remove_nodes", "remove_edges", "update_edges"}
+        }
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute(
+                "INSERT INTO patches (session_id, version, patch_json) VALUES (?, ?, ?)",
+                (
+                    session_id,
+                    g.graph["version"],
+                    json.dumps(stored_patch),
+                ),
+            )
+            conn.commit()
+    return g
 
 
 def get_patch_diff(session_id: str, from_version: int, to_version: int) -> Optional[List[Dict]]:

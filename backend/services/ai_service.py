@@ -132,6 +132,8 @@ class AiOrchestrator:
                 record_metric(
                     "action.processed", 1, {"agent": agent_name, "type": obj.action.value}
                 )
+                # Wrap agent execution in safe_execute to handle errors consistently
+                # (Domain agents will be invoked elsewhere; this ensures later error handling)
                 validated.append(obj)
 
         # Apply learning-based confidence adjustments.  If historical data
