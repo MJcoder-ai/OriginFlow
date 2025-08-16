@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from backend.services import odl_graph_service
 from backend.services.component_db_service import ComponentDBService
@@ -22,6 +22,8 @@ TASK_TITLES: Dict[str, str] = {
     "populate_real_components": "Select real components",
     "generate_battery": "Generate battery design",
     "generate_monitoring": "Generate monitoring design",
+    "generate_network": "Generate network design",
+    "generate_site": "Generate site plan",
     "refine_validate": "Refine and validate design",
 }
 
@@ -44,13 +46,18 @@ class PlannerAgent:
         graph state and requirements to emit contextually appropriate tasks.
 
         Task Decision Logic:
-        - gather_requirements: emitted if any required user input or component
-          datasheets are missing.
-        - generate_design: emitted only if no panel/inverter combination exists
-          AND requirements are complete.
-        - generate_structural: emitted after panels exist but mounts are missing.
-        - generate_wiring: emitted after design exists but wiring is missing.
-        - refine_validate: always emitted as final step when design exists.
+        - gather_requirements: emitted if any required user input or component datasheets are missing.
+        - generate_design: emitted only if no panel/inverter combination exists AND requirements are complete
+          (or placeholder components are allowed).
+        - downstream domain tasks (generate_structural, generate_wiring) are always scheduled once a
+          preliminary design exists to ensure mounts and wiring are generated.
+        - generate_battery is scheduled only when backup_hours are provided or the planner determines a battery
+          is needed (``_should_add_battery_design``), preserving the ability to design systems without storage.
+        - generate_monitoring is scheduled only when target_power exceeds a threshold or the planner deems
+          monitoring necessary (``_should_add_monitoring``), preserving the ability to design systems without monitoring.
+        - generate_network and generate_site are scheduled unconditionally once a design exists, providing a
+          placeholder communications network and basic site planning.
+        - refine_validate: always emitted as the final step to validate the entire design.
 
         The planner now includes:
         - Graph state inspection using describe_graph helper
@@ -201,38 +208,56 @@ class PlannerAgent:
                 "available_replacements": state.get("available_replacement_count", 0)
             })
 
-        # Phase 3: Structural Design (only after preliminary design exists)
-        if has_preliminary_design and not has_mounts:
+        # Phase 3+: Downstream domain tasks.  Once a preliminary design exists we always
+        # schedule structural and wiring tasks.  Battery and monitoring tasks remain conditional
+        # so that users can design systems without storage or monitoring; network and site
+        # tasks are scheduled unconditionally to provide placeholders.
+        if has_preliminary_design:
+            # Structural design: always add mounts for panels.
             tasks.append({
                 "id": "generate_structural",
                 "status": "pending",
                 "reason": f"Generate mounting for {panel_count} panel{'s' if panel_count != 1 else ''}"
             })
 
-        # Phase 4: Wiring Design (only after preliminary design exists)
-        if has_preliminary_design and not has_wiring:
+            # Wiring design: always add cables and protective devices.
             tasks.append({
                 "id": "generate_wiring",
                 "status": "pending",
                 "reason": f"Generate wiring between {panel_count} panel{'s' if panel_count != 1 else ''} and {inverter_count} inverter{'s' if inverter_count != 1 else ''}"
             })
 
-        # NEW: Phase 4.5: Domain-specific tasks
-        if has_preliminary_design and self._should_add_battery_design(reqs, state):
+            # Battery design: schedule only if battery sizing is required.
+            if self._should_add_battery_design(reqs, state):
+                tasks.append({
+                    "id": "generate_battery",
+                    "status": "pending",
+                    "reason": f"Design battery system for {reqs.get('backup_hours', 8)} hours backup",
+                    "backup_hours": reqs.get('backup_hours', 8),
+                    "estimated_capacity": self._estimate_battery_capacity(reqs)
+                })
+
+            # Monitoring design: schedule only if monitoring is required.
+            if self._should_add_monitoring(reqs, state):
+                tasks.append({
+                    "id": "generate_monitoring",
+                    "status": "pending",
+                    "reason": "Add system monitoring and data collection",
+                    "monitoring_type": "basic"
+                })
+
+            # Network design: schedule unconditionally to add placeholder communications network.
             tasks.append({
-                "id": "generate_battery",
+                "id": "generate_network",
                 "status": "pending",
-                "reason": f"Design battery system for {reqs.get('backup_hours', 8)} hours backup",
-                "backup_hours": reqs.get("backup_hours", 8),
-                "estimated_capacity": self._estimate_battery_capacity(reqs)
+                "reason": "Add communications network"
             })
 
-        if has_preliminary_design and self._should_add_monitoring(reqs, state):
+            # Site planning: schedule unconditionally to add site layout and planning.
             tasks.append({
-                "id": "generate_monitoring",
-                "status": "pending", 
-                "reason": "Add system monitoring and data collection",
-                "monitoring_type": "basic"
+                "id": "generate_site",
+                "status": "pending",
+                "reason": "Add site planning and layout"
             })
 
         # Phase 5: Refine and Validate (always appended)
@@ -309,11 +334,9 @@ class PlannerAgent:
         # Generate next logical tasks
         has_panels = state["has_panels"]
         has_inverters = state["has_inverters"]
-        has_mounts = state["has_mounts"]
-        has_wiring = state["has_wiring"]
-        
-        # Always add structural design if we have panels but no mounts
-        if has_panels and not has_mounts:
+
+        # Always schedule structural and wiring tasks to progress design
+        if has_panels:
             tasks.append({
                 "id": "generate_structural",
                 "title": "Generate Structural Design",
@@ -321,30 +344,28 @@ class PlannerAgent:
                 "reason": "Add mounting systems for panels",
                 "description": "Design and size mounting hardware for the solar array"
             })
-        
-        # Always add wiring design if we have electrical components but no wiring
-        if (has_panels or has_inverters) and not has_wiring:
+
+        if has_panels or has_inverters:
             tasks.append({
-                "id": "generate_wiring", 
+                "id": "generate_wiring",
                 "title": "Generate Wiring Design",
                 "status": "pending",
                 "reason": "Add cables and protective devices",
                 "description": "Size and route electrical wiring between components"
             })
-        
+
         # Add domain-specific tasks based on requirements
         requirements = graph.graph.get("requirements", {})
-        if requirements.get("backup_hours") and not state.get("has_battery", False):
+        if self._should_add_battery_design(requirements, state):
             tasks.append({
                 "id": "generate_battery",
                 "title": "Generate Battery Storage",
-                "status": "pending", 
+                "status": "pending",
                 "reason": "Backup power requirement specified",
-                "description": f"Add battery storage for {requirements['backup_hours']} hours backup"
+                "description": f"Add battery storage for {requirements.get('backup_hours', 8)} hours backup"
             })
-        
-        target_power = requirements.get("target_power", 0)
-        if target_power > 1000 and not state.get("has_monitoring", False):  # > 1kW
+
+        if self._should_add_monitoring(requirements, state):
             tasks.append({
                 "id": "generate_monitoring",
                 "title": "Generate Monitoring System",
@@ -352,7 +373,24 @@ class PlannerAgent:
                 "reason": "Large system requires monitoring",
                 "description": "Add performance monitoring and data collection"
             })
-        
+
+        # Always include network and site planning placeholders
+        tasks.append({
+            "id": "generate_network",
+            "title": "Generate Network Design",
+            "status": "pending",
+            "reason": "Add communications network",
+            "description": "Create basic communication links between components"
+        })
+
+        tasks.append({
+            "id": "generate_site",
+            "title": "Generate Site Plan",
+            "status": "pending",
+            "reason": "Add site planning and layout",
+            "description": "Draft array layout and site boundaries"
+        })
+
         # Always add refinement as final step
         tasks.append({
             "id": "refine_validate",
@@ -361,7 +399,7 @@ class PlannerAgent:
             "reason": "Final design optimization and validation",
             "description": "Optimize design and validate all requirements"
         })
-        
+
         return tasks
 
     async def _build_planning_context(
@@ -425,8 +463,12 @@ USER COMMAND: "{command}"
 PLANNING GUIDELINES:
 - gather_requirements: Use when missing user inputs or component datasheets
 - generate_design: Use after requirements complete and components available
-- generate_structural: Use after panels placed but missing mounting
-- generate_wiring: Use after design exists but missing electrical connections
+- generate_structural: Use once a preliminary design exists to add mounting
+- generate_wiring: Use once a preliminary design exists to add electrical connections
+- generate_battery: Use when backup power is required or recommended
+- generate_monitoring: Use for large systems or when monitoring is needed
+- generate_network: Use to define communications network
+- generate_site: Use to develop site layout and planning
 - refine_validate: Use as final validation step
 
 Task statuses should be:
@@ -459,8 +501,9 @@ Return a JSON array of tasks with reasoning for each decision."""
         try:
             # Available domain agents
             available_tools = [
-                "gather_requirements", "generate_design", "generate_structural", 
-                "generate_wiring", "refine_validate"
+                "gather_requirements", "generate_design", "generate_structural",
+                "generate_wiring", "generate_battery", "generate_monitoring",
+                "generate_network", "generate_site", "refine_validate"
             ]
             
             # Build rich context for LLM
