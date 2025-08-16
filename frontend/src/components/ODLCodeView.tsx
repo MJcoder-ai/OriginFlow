@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useAppStore } from '../appStore';
+import { API_BASE_URL } from '../config';
 
 interface ODLCodeViewProps {
   sessionId: string;
@@ -27,7 +28,8 @@ export const ODLCodeView: React.FC<ODLCodeViewProps> = ({ sessionId }) => {
     setError(null);
     
     try {
-      const data = await fetch(`/api/v1/odl/sessions/${sessionId}/text`)
+      const url = `${API_BASE_URL}/odl/sessions/${sessionId}/text`;
+      const data = await fetch(url)
         .then(response => {
           if (!response.ok) {
             throw new Error(`Failed to fetch ODL text: ${response.statusText}`);
