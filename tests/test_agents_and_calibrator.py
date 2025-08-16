@@ -77,6 +77,7 @@ async def test_meta_cognition_questions():
     )
     assert resp["status"] == "blocked"
     card = resp["output"]["card"]
+    assert resp["card"] == card
     # Ensure questions are present and correspond to missing items
     assert "questions" in card
     assert len(card["questions"]) == 2
@@ -96,6 +97,7 @@ async def test_meta_cognition_reason():
         session_id="s2", tid="meta_cognition", reason="missing PV layout"
     )
     card = resp["output"]["card"]
+    assert resp["card"] == card
     assert len(card["questions"]) == 1
     assert "missing PV layout" in card["questions"][0]
 
@@ -126,10 +128,12 @@ async def test_consensus_agent_selects_highest_confidence():
         session_id="s3", tid="consensus", candidates=candidates
     )
     card = resp["output"]["card"]
+    assert resp["card"] == card
     # The selected card should correspond to the highest confidence design
     selected = card["selected_card"]
     assert selected["title"] == "Design B"
-    assert resp["output"]["patch"]["id"] == "patchB"
+    assert resp["patch"] == resp["output"]["patch"]
+    assert resp["patch"]["id"] == "patchB"
 
 # The direct test for ConfidenceCalibrator has been removed in favour of orchestrator‑level
 # tests that verify calibrated confidences and dynamic thresholds.  The calibrator is now
