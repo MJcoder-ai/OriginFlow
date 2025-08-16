@@ -491,6 +491,25 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
         const newStatus = (status as PlanTaskStatus) || 'complete';
         get().updatePlanTaskStatus(task.id, newStatus);
+
+        // After completing a task, refresh the plan from the server to ensure the UI
+        // reflects the latest list of tasks.  This prevents stale or duplicate tasks
+        // from persisting in the timeline when the backend updates the plan.
+        try {
+          const refreshedPlan = await api.getPlanForSession(
+            sessionId,
+            get().lastPrompt || 'design'
+          );
+          if (
+            (refreshedPlan as any).tasks &&
+            Array.isArray((refreshedPlan as any).tasks)
+          ) {
+            set({ planTasks: (refreshedPlan as any).tasks as any });
+          }
+        } catch (e) {
+          console.warn('Failed to refresh plan after act', e);
+        }
+
         return newStatus;
       } catch (err: any) {
         if (!retry && err.status === 409) {
