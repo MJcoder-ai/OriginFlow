@@ -82,14 +82,13 @@ consensus, set `use_consensus=True`.
   skip an agent task, prompt the user for approval or adjust task
   ordering. This will ensure a safe, cost‑effective, and token‑wise
   operation.
-* **Dynamic planning refinement** – The current dynamic planner uses
-  simple heuristics (e.g. add a battery if no battery exists). Future
-  work should incorporate user requirements, domain context, agent risk
-  classes and prior design state to propose a more efficient sequence of
-  tasks. The planner could learn from past successes and failures,
-  adjusting task order and selection to optimise design quality and
-  performance. See the developer guide for guidance on extending the
-  dynamic planner.
+* **Dynamic planning refinement** – The dynamic planner currently uses
+  simple heuristics (for example, adding a battery if none exists).
+  Future development should refine the planner by considering user
+  requirements, domain context, agent risk classes and the design
+  history to propose more efficient task sequences. The planner could
+  learn from past successes and failures, adjusting task order and
+  selection to optimise design quality and performance.
 
 ### Developer Guidance
 
