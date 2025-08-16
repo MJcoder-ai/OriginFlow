@@ -55,8 +55,10 @@ class PlannerAgent:
           is needed (``_should_add_battery_design``), preserving the ability to design systems without storage.
         - generate_monitoring is scheduled only when target_power exceeds a threshold or the planner deems
           monitoring necessary (``_should_add_monitoring``), preserving the ability to design systems without monitoring.
-        - generate_network and generate_site are scheduled unconditionally once a design exists, providing a
-          placeholder communications network and basic site planning.
+        - generate_network and generate_site are not scheduled by default. These tasks
+          depend on agents that are not yet registered in the backend; scheduling them
+          prematurely would result in an "Unknown task" error.  Once network and site
+          planning agents are implemented and registered, these tasks can be re-enabled.
         - refine_validate: always emitted as the final step to validate the entire design.
 
         The planner now includes:
@@ -210,8 +212,9 @@ class PlannerAgent:
 
         # Phase 3+: Downstream domain tasks.  Once a preliminary design exists we always
         # schedule structural and wiring tasks.  Battery and monitoring tasks remain conditional
-        # so that users can design systems without storage or monitoring; network and site
-        # tasks are scheduled unconditionally to provide placeholders.
+        # so that users can design systems without storage or monitoring.  Note: network and
+        # site tasks are intentionally omitted here because they depend on agents that are not
+        # yet implemented in the backend; scheduling them would cause "Unknown task" errors.
         if has_preliminary_design:
             # Structural design: always add mounts for panels.
             tasks.append({
@@ -246,19 +249,7 @@ class PlannerAgent:
                     "monitoring_type": "basic"
                 })
 
-            # Network design: schedule unconditionally to add placeholder communications network.
-            tasks.append({
-                "id": "generate_network",
-                "status": "pending",
-                "reason": "Add communications network"
-            })
-
-            # Site planning: schedule unconditionally to add site layout and planning.
-            tasks.append({
-                "id": "generate_site",
-                "status": "pending",
-                "reason": "Add site planning and layout"
-            })
+            # Network and site tasks are intentionally omitted until backend support exists.
 
         # Phase 5: Refine and Validate (always appended)
         validation_status = "pending"
@@ -374,22 +365,7 @@ class PlannerAgent:
                 "description": "Add performance monitoring and data collection"
             })
 
-        # Always include network and site planning placeholders
-        tasks.append({
-            "id": "generate_network",
-            "title": "Generate Network Design",
-            "status": "pending",
-            "reason": "Add communications network",
-            "description": "Create basic communication links between components"
-        })
-
-        tasks.append({
-            "id": "generate_site",
-            "title": "Generate Site Plan",
-            "status": "pending",
-            "reason": "Add site planning and layout",
-            "description": "Draft array layout and site boundaries"
-        })
+        # Network and site tasks are intentionally omitted until backend support exists.
 
         # Always add refinement as final step
         tasks.append({
@@ -460,16 +436,14 @@ AVAILABLE TOOLS: {', '.join(available_tools)}
 
 USER COMMAND: "{command}"
 
-PLANNING GUIDELINES:
-- gather_requirements: Use when missing user inputs or component datasheets
-- generate_design: Use after requirements complete and components available
-- generate_structural: Use once a preliminary design exists to add mounting
-- generate_wiring: Use once a preliminary design exists to add electrical connections
-- generate_battery: Use when backup power is required or recommended
-- generate_monitoring: Use for large systems or when monitoring is needed
-- generate_network: Use to define communications network
-- generate_site: Use to develop site layout and planning
-- refine_validate: Use as final validation step
+        PLANNING GUIDELINES:
+        - gather_requirements: Use when missing user inputs or component datasheets
+        - generate_design: Use after requirements complete and components available
+        - generate_structural: Use once a preliminary design exists to add mounting
+        - generate_wiring: Use once a preliminary design exists to add electrical connections
+        - generate_battery: Use when backup power is required or recommended
+        - generate_monitoring: Use for large systems or when monitoring is needed
+        - refine_validate: Use as final validation step
 
 Task statuses should be:
 - "pending": Ready to execute immediately
@@ -503,7 +477,7 @@ Return a JSON array of tasks with reasoning for each decision."""
             available_tools = [
                 "gather_requirements", "generate_design", "generate_structural",
                 "generate_wiring", "generate_battery", "generate_monitoring",
-                "generate_network", "generate_site", "refine_validate"
+                "refine_validate"
             ]
             
             # Build rich context for LLM
