@@ -29,6 +29,8 @@ def wrap_response(
 
     - ``thought``: a short string summarising the agent's internal reasoning.
     - ``output``: a dictionary containing the ``card`` and ``patch``.
+    - ``card``/``patch``: duplicated at the top level for backward
+      compatibility with pre‑ADPF responses.
     - ``status``: one of ``pending``, ``blocked`` or ``complete``.
     - ``warnings``: an optional list of cautionary messages.
 
@@ -50,7 +52,13 @@ def wrap_response(
         },
         "status": status,
     }
+
+    # Expose card and patch at the top level for backward compatibility
+    envelope["card"] = card
+    envelope["patch"] = patch
+
     if warnings:
         envelope["warnings"] = warnings
+
     return envelope
 
