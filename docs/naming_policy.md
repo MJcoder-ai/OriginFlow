@@ -63,14 +63,25 @@ Example response:
 ### Notes
 
 - Changing the naming policy does **not** affect the stable identifiers
-  (`id` and `part_number`) used by OriginFlow’s ODL graph and canvas.
-  Only the human‑friendly display name is updated.
+  (`id` and `standard_code`/`part_number`) used by OriginFlow’s ODL
+  graph and canvas. Only the human‑friendly display name is updated.
 - If you plan to update the naming policy frequently, consider using
   `apply_to_existing=false` and running the migration script separately
   to avoid blocking API responses. See below for details.
 - Authentication and authorisation are not implemented in the example
   code; in a production deployment, protect these endpoints so only
   authorised users can modify the naming policy.
+
+### Stable references
+
+Changing the naming policy affects only the **display name** of a
+component. The underlying identifiers (`id` and `standard_code` or
+manufacturer `part_number`) do not change. When working with ODL or the
+canvas, always use these stable identifiers for references and keys.
+Display names can change when the naming policy is updated or when a
+user edits the name, but the identifiers remain constant. For guidelines
+on using stable identifiers and updating labels when names change, see
+`docs/stable_references.md`.
 
 ## Running the migration script manually
 
