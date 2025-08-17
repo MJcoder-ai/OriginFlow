@@ -171,7 +171,7 @@ const Workspace: React.FC = () => {
     selectedComponentId,
     deleteComponent,
     currentLayer,
-    currentSessionId,
+    sessionId, // Use the main sessionId for ODL view
   } = useAppStore();
   useEffect(() => {
     fetchProject();
@@ -226,7 +226,8 @@ const Workspace: React.FC = () => {
   const renderLayerContent = () => {
     if (currentLayer === 'ODL Code') {
       return (
-        <ODLCodeView sessionId={currentSessionId || ''} />
+        // Render ODL code for the active design session
+        <ODLCodeView sessionId={sessionId} />
       );
     }
 

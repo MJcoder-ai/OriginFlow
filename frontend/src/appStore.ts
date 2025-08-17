@@ -306,12 +306,7 @@ interface AppState {
   /** Update the current layer. */
   setCurrentLayer: (layer: string) => void;
 
-  /** Current ODL design session ID */
-  currentSessionId: string | null;
-  /** Set the current ODL session ID */
-  setCurrentSessionId: (sessionId: string | null) => void;
-  /** Create a new ODL session */
-  createODLSession: () => Promise<string | null>;
+  // The ODL view reuses the main `sessionId`; no separate session tracking.
 
 
   /** Total cost of the current design, if estimated by the AI. */
@@ -695,36 +690,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   setCurrentLayer: (layer) => {
     set({ currentLayer: layer });
     
-    // If switching to ODL Code View, ensure we have a session
-    if (layer === 'ODL Code' && !get().currentSessionId) {
-      get().createODLSession().catch(err => {
-        console.error('Failed to create ODL session on layer switch:', err);
-      });
-    }
+    // When switching layers we no longer auto-create a separate ODL session.
+    // The "ODL Code" layer reads the same session used for design tasks.
   },
 
-  // ODL session management
-  currentSessionId: null,
-  setCurrentSessionId: (sessionId) => set({ currentSessionId: sessionId }),
-  
-  createODLSession: async () => {
-    // Defensive check: don't create if one already exists
-    if (get().currentSessionId) {
-      console.log('ODL session already exists:', get().currentSessionId);
-      return get().currentSessionId;
-    }
-    
-    try {
-      const data = await api.createOdlSession();
-      get().setCurrentSessionId(data.session_id);
-      get().addStatusMessage('ODL session created', 'success');
-      return data.session_id;
-    } catch (error: any) {
-      console.error('Error creating ODL session:', error);
-      get().addStatusMessage(`Failed to create ODL session: ${error.message}`, 'error');
-      return null;
-    }
-  },
+  // The ODL view now reuses `sessionId` directly.
 
   voiceMode: 'idle',
   isContinuousConversation: false,
