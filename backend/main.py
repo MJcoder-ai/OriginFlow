@@ -126,6 +126,7 @@ from backend.api.routes import (
     me,
     odl,
     requirements,
+    snapshots,
     versioning,
     agents,
 )
@@ -188,6 +189,7 @@ app.include_router(traces.router, prefix=settings.api_prefix)
 app.include_router(me.router, prefix=settings.api_prefix)
 app.include_router(odl.router, prefix=settings.api_prefix)
 app.include_router(requirements.router, prefix=settings.api_prefix)
+app.include_router(snapshots.router, prefix=settings.api_prefix)
 app.include_router(versioning.router, prefix=settings.api_prefix)
 app.include_router(agents.router, prefix=settings.api_prefix)
 

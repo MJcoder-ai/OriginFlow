@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from typing import List, Optional, Union, Any
-from pydantic import BaseModel, field_validator
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Union
+
+from pydantic import BaseModel, Field, field_validator
 
 
 class CanvasComponent(BaseModel):
@@ -50,9 +52,28 @@ class CanvasLink(BaseModel):
     target_id: str
 
 
+class LayerSnapshot(BaseModel):
+    """Represents a layer-specific view of the design."""
+
+    name: str
+    nodes: List[CanvasComponent] = Field(default_factory=list)
+    links: List[CanvasLink] = Field(default_factory=list)
+
+
 class DesignSnapshot(BaseModel):
+    """A snapshot of a design session at a specific point in time."""
+
+    id: Optional[str] = None
+    session_id: Optional[str] = None
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    modified_by: Optional[str] = None
+    version: int = 1
+    domain: Optional[str] = None
+    requirements: Dict[str, Any] = Field(default_factory=dict)
     components: List[CanvasComponent]
     links: List[CanvasLink]
+    layers: Dict[str, LayerSnapshot] = Field(default_factory=dict)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
 DesignSnapshot.model_rebuild()
