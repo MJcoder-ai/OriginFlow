@@ -11,6 +11,7 @@ reference them via the package root.  See individual service modules
 for detailed documentation.
 """
 
+from .component_naming_service import ComponentNamingService  # noqa: F401
 from .orchestrator import PlannerOrchestrator  # noqa: F401
 from .placeholder_components import get_placeholder_catalog  # noqa: F401
 from .workflow_engine import WorkflowEngine, SagaStep  # noqa: F401
@@ -18,6 +19,7 @@ from .workflow_engine import WorkflowEngine, SagaStep  # noqa: F401
 __all__ = [
     "PlannerOrchestrator",
     "get_placeholder_catalog",
+    "ComponentNamingService",
     "WorkflowEngine",
     "SagaStep",
 ]
