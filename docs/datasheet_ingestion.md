@@ -45,3 +45,16 @@ the user to provide or correct the component’s name. Once a user edits the
 name and confirms it, the `needs_manual_name_review` flag should be cleared and
 `is_human_verified` set to `true` to avoid triggering another automatic parse.
 
+### Multi-variant datasheets
+
+Some datasheets describe multiple product variants (e.g., a solar panel family
+offered in 400 W, 425 W and 450 W options). When the parser detects a
+`variants` list in the extracted payload, it creates a separate
+`ComponentMaster` record for each variant. The `ComponentNamingService` is
+invoked for every variant with the variant’s own part number and rating,
+ensuring that each option has a distinct, descriptive name such as
+“BrandX ABC-425 – 425 W Panel” or “BrandX ABC-450 – 450 W Panel”. The shared
+`series_name` is retained to group the variants logically, and all variants
+inherit common metadata (e.g., manufacturer, category, ports, dependencies)
+from the base component.
+
