@@ -2,11 +2,11 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 from .analysis import DesignSnapshot
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class AiActionType(str, Enum):
@@ -23,11 +23,27 @@ class AiActionType(str, Enum):
 
 
 class PositionPayload(BaseModel):
-    """Coordinates for a canvas component."""
+    """Coordinates for a canvas component.
+
+    In earlier versions ``x`` and ``y`` were defined as integers because
+    components snapped to a grid. The UI now supports fractional pixel
+    positions (e.g. from free-form dragging), so these fields accept both
+    integers and floats. They will be coerced to floats on validation.
+    """
 
     id: str
-    x: int
-    y: int
+    # Accept int or float for x and y; see CanvasComponent for similar logic.
+    x: Union[int, float]
+    y: Union[int, float]
+
+    @field_validator("x", "y", mode="before")
+    def _coerce_numeric(cls, v: Any) -> float:
+        if isinstance(v, (int, float)):
+            return float(v)
+        try:
+            return float(v)
+        except Exception as exc:
+            raise ValueError("coordinate must be numeric") from exc
 
 
 class BomReportPayload(BaseModel):
@@ -43,7 +59,7 @@ class AiAction(BaseModel):
     payload: Dict[str, Any]
     version: int
     confidence: float | None = None
-    auto_approved: bool = False  # Whether this action was automatically approved by the learning system
+    auto_approved: bool = False  # auto-approved by the learning system
 
 
 # -----------------------------------------------------------------------------

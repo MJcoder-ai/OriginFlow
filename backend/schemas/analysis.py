@@ -1,16 +1,47 @@
 from __future__ import annotations
 
-from typing import List
-from pydantic import BaseModel
+from typing import List, Optional, Union, Any
+from pydantic import BaseModel, field_validator
 
 
 class CanvasComponent(BaseModel):
+    """Represents a component drawn on the design canvas.
+
+    ``standard_code`` is optional in development: placeholder components
+    (e.g. ``generic_panel``, ``generic_inverter``) do not have a code until
+    they are replaced by a real part. Clients may omit this field or provide
+    an empty string.
+
+    The coordinates ``x`` and ``y`` describe the position on the canvas.
+    Historically these were integers because the UI snapped components to a
+    grid; however fractional positions are now supported. Both integers and
+    floating-point numbers are accepted and will be coerced to floats during
+    validation.
+    """
+
     id: str
     name: str
     type: str
-    standard_code: str
-    x: int
-    y: int
+    # standard_code may be None for placeholder components
+    standard_code: Optional[str] = None
+    # Accept int or float for coordinates
+    x: Union[int, float]
+    y: Union[int, float]
+
+    @field_validator("x", "y", mode="before")
+    def _coerce_numeric(cls, v: Any) -> float:
+        """Ensure x/y are numeric and cast them to float.
+
+        Raises:
+            ValueError: if the value cannot be interpreted as a number.
+        """
+        if isinstance(v, (int, float)):
+            return float(v)
+        # Allow numeric strings to be converted
+        try:
+            return float(v)
+        except Exception as exc:
+            raise ValueError("coordinate must be numeric") from exc
 
 
 class CanvasLink(BaseModel):

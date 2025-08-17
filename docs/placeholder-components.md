@@ -4,6 +4,15 @@
 
 The Placeholder Components System in OriginFlow allows users to start designing solar systems even when specific component datasheets are not available. The system uses generic placeholder components with reasonable default values to enable rapid prototyping and iterative design refinement.
 
+### API considerations
+
+When working with placeholder components, note that the canvas snapshot API treats some fields differently from fully specified components:
+
+- **`standard_code`** – Real components have a unique `standard_code` identifying the part. Placeholder nodes, however, do not have a code until they are replaced. The backend therefore accepts a missing or empty `standard_code` in snapshot requests. If present, this field should be a string.
+- **`x` and `y` coordinates** – Canvas positions may be any numeric value. Earlier versions required integer coordinates, but to support free-form dragging the backend now accepts both integers and floats and coerces them to floats internally.
+
+These changes are reflected in the `CanvasComponent` and `PositionPayload` schemas in the backend. Frontend developers should ensure that snapshot data either omits `standard_code` for placeholders or provides an empty string, and should not round coordinates before sending them to the API.
+
 ## Architecture
 
 ### Core Components
