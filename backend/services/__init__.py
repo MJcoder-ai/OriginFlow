@@ -14,6 +14,12 @@ for detailed documentation.
 from .component_naming_service import ComponentNamingService  # noqa: F401
 from .orchestrator import PlannerOrchestrator  # noqa: F401
 from .placeholder_components import get_placeholder_catalog  # noqa: F401
+from .calculation_engines import (  # noqa: F401
+    BaseCalculationEngine,
+    PVCalculationEngine,
+    HVACCalculationEngine,
+    WaterCalculationEngine,
+)
 from .workflow_engine import WorkflowEngine, SagaStep  # noqa: F401
 
 __all__ = [
@@ -22,5 +28,8 @@ __all__ = [
     "ComponentNamingService",
     "WorkflowEngine",
     "SagaStep",
+    "BaseCalculationEngine",
+    "PVCalculationEngine",
+    "HVACCalculationEngine",
+    "WaterCalculationEngine",
 ]
-

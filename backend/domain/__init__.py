@@ -8,5 +8,16 @@ version (e.g. ``domain_packs/solar/v1``).
 """
 
 from .domain_pack_loader import load_domain_pack, available_packs  # noqa: F401
+from .domain_rules import (  # noqa: F401
+    DOMAIN_CATEGORIES,
+    missing_required_categories,
+    count_components_by_type,
+)
 
-__all__ = ["load_domain_pack", "available_packs"]
+__all__ = [
+    "load_domain_pack",
+    "available_packs",
+    "DOMAIN_CATEGORIES",
+    "missing_required_categories",
+    "count_components_by_type",
+]
