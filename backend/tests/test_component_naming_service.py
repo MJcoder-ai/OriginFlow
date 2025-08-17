@@ -69,3 +69,55 @@ def test_generate_name_review_flag_when_missing_fields() -> None:
 
     assert name == "- Inverter"
     assert needs_review is True
+
+
+def test_generate_name_complete_metadata_no_review_flag() -> None:
+    """Complete metadata should not trigger a review flag."""
+
+    metadata = {
+        "manufacturer": "Trina",
+        "part_number": "TSM-425DE09R.08",
+        "power": "425 W",
+        "category": "Panel",
+    }
+
+    name, needs_review = ComponentNamingService.generate_name(
+        metadata, return_review_flag=True
+    )
+
+    assert name == "Trina TSM-425DE09R.08 - 425 W Panel"
+    assert needs_review is False
+
+
+def test_generate_name_missing_manufacturer() -> None:
+    """Missing manufacturer should prefix with part number and flag review."""
+
+    metadata = {
+        "part_number": "ABC123",
+        "category": "Inverter",
+        "power": 10,
+    }
+
+    name, needs_review = ComponentNamingService.generate_name(
+        metadata, return_review_flag=True
+    )
+
+    assert name.startswith("ABC123")
+    assert needs_review is True
+
+
+def test_generate_name_unknown_placeholder_is_ignored() -> None:
+    """Unknown placeholders in templates are removed gracefully."""
+
+    metadata = {
+        "manufacturer": "LG",
+        "part_number": "RESU10H",
+        "category": "Battery",
+        "capacity": "9.8 kWh",
+    }
+    template = "{manufacturer} {part_number} {unknown} - {rating} {category}"
+
+    name = ComponentNamingService.generate_name(metadata, template=template)
+
+    assert "{unknown}" not in name
+    assert name == "LG RESU10H - 9.8 kWh Battery"

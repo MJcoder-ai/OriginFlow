@@ -17,6 +17,27 @@ sys.path.append(str(ROOT))
 from backend.config import settings  # noqa: E402
 
 import importlib.util
+import types
+
+# Stub out the migration module to avoid importing the entire services package
+services_pkg = types.ModuleType("backend.services")
+services_pkg.__path__ = []  # type: ignore[attr-defined]
+sys.modules["backend.services"] = services_pkg
+
+migration_stub = types.ModuleType("backend.services.component_name_migration")
+async def update_existing_component_names(session):
+    return None
+migration_stub.update_existing_component_names = update_existing_component_names
+sys.modules["backend.services.component_name_migration"] = migration_stub
+
+# Provide a minimal deps module with a ``get_session`` dependency
+deps_stub = types.ModuleType("backend.api.deps")
+async def get_session():
+    class DummySession:
+        pass
+    yield DummySession()
+deps_stub.get_session = get_session
+sys.modules["backend.api.deps"] = deps_stub
 
 SPEC_PATH = ROOT / "backend" / "api" / "routes" / "naming_policy.py"
 spec = importlib.util.spec_from_file_location("naming_policy_routes", SPEC_PATH)
