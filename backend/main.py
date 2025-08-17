@@ -119,6 +119,7 @@ from backend.api.routes import (
     feedback_v2,
     design_knowledge,
     component_library,
+    naming_policy,
     memory,
     traces,
     me,
@@ -174,6 +175,7 @@ app.include_router(design_knowledge.router, prefix=settings.api_prefix)
 
 # Component library search endpoints
 app.include_router(component_library.router, prefix=settings.api_prefix)
+app.include_router(naming_policy.router, prefix=settings.api_prefix)
 
 # Feedback logging endpoint for user decisions on AI actions
 app.include_router(feedback.router, prefix=settings.api_prefix)
