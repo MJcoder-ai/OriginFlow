@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useAppStore } from '../appStore';
 import { API_BASE_URL } from '../config';
 
@@ -20,13 +20,17 @@ export const ODLCodeView: React.FC<ODLCodeViewProps> = ({ sessionId }) => {
   const [error, setError] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const { addStatusMessage } = useAppStore();
+  // Track pending requests without causing re-renders
+  const loadingRef = useRef(false);
 
   const fetchODLText = useCallback(async () => {
-    if (!sessionId || loading) return;
-    
+    // Don't fire if we have no session or a request is already in flight
+    if (!sessionId || loadingRef.current) return;
+
     setLoading(true);
+    loadingRef.current = true;
     setError(null);
-    
+
     try {
       const url = `${API_BASE_URL}/odl/sessions/${sessionId}/text`;
       const data = await fetch(url)
@@ -49,12 +53,15 @@ export const ODLCodeView: React.FC<ODLCodeViewProps> = ({ sessionId }) => {
       addStatusMessage('Failed to load ODL text', 'error');
     } finally {
       setLoading(false);
+      loadingRef.current = false;
     }
-  }, [sessionId, loading, addStatusMessage]);
+  // Note that we do not depend on `loading` here to avoid recreating the function each fetch.
+  }, [sessionId, addStatusMessage]);
 
   useEffect(() => {
+    // Only fetch when the component mounts or the session ID changes
     fetchODLText();
-  }, [fetchODLText]);
+  }, [sessionId, fetchODLText]);
 
   // Auto-refresh every 5 seconds when enabled
   useEffect(() => {
