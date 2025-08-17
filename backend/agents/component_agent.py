@@ -77,14 +77,27 @@ class ComponentAgent(AgentBase):
 
         comps = await comp_service.search(category=category)
         if not comps:
+            # Fall back to a generic placeholder if no real components are available.
             return [
+                AiAction(
+                    action=AiActionType.add_component,
+                    payload={
+                        "name": f"generic_{category}",
+                        "type": category,
+                        "standard_code": None,
+                    },
+                    version=1,
+                ).model_dump(),
                 AiAction(
                     action=AiActionType.validation,
                     payload={
-                        "message": f"No {category} in the library; please upload a {category} datasheet.",
+                        "message": (
+                            f"No {category} in the library; using a generic placeholder. "
+                            f"Please upload a {category} datasheet for more accurate results."
+                        )
                     },
                     version=1,
-                ).model_dump()
+                ).model_dump(),
             ]
 
         comps_sorted = sorted(
@@ -199,8 +212,12 @@ class ComponentAgent(AgentBase):
                                     f"ComponentAgent found {len(comps)} {category}(s); selecting the cheapest."
                                 )
                             else:
+                                enriched["name"] = f"generic_{category}"
+                                enriched["type"] = category
+                                enriched["standard_code"] = None
                                 validation_msg = (
-                                    f"No {category} in the library; please upload a {category} datasheet."
+                                    f"No {category} in the library; using a generic placeholder. "
+                                    f"Please upload a {category} datasheet for more accurate results."
                                 )
                 except Exception:
                     enriched = dict(payload)
