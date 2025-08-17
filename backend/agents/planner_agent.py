@@ -9,6 +9,7 @@ from backend.services import odl_graph_service
 from backend.services.component_db_service import ComponentDBService
 from backend.services.ai_clients import get_openai_client
 from backend.services.placeholder_components import get_placeholder_service
+from backend.services.nlp_service import parse_command
 from collections import Counter
 
 # Human-readable titles for plan tasks.  Defaults to a prettified version of the
@@ -74,7 +75,15 @@ class PlannerAgent:
         :returns: ordered list of task dicts with ids, statuses, and context
         """
         cmd = command.lower().strip()
-        
+
+        # Attempt to derive structured hints from the free-text command. The
+        # planner tolerates parsing failures and simply proceeds without
+        # additional hints if anything goes wrong.
+        try:
+            parsed = parse_command(command)
+        except Exception:
+            parsed = {}
+
         # Handle special commands that should continue the design workflow
         if cmd == "accept_placeholder_design":
             # User accepted placeholder design, continue with next steps
@@ -90,6 +99,18 @@ class PlannerAgent:
         if graph is None:
             # If no graph exists, create one
             graph = await self.odl_graph_service.create_graph(session_id)
+
+        # Merge parsed hints into stored requirements, filling in values only
+        # when they are currently missing or falsy.  This allows users to state
+        # values directly in natural language commands like "design a 5 kW
+        # system" which then inform downstream planning logic.
+        if parsed:
+            reqs_dict = graph.graph.get("requirements", {}) or {}
+            for key, value in parsed.items():
+                if key not in reqs_dict or reqs_dict.get(key) in (None, 0, ""):
+                    reqs_dict[key] = value
+            graph.graph["requirements"] = reqs_dict
+            await self.odl_graph_service.save_graph(session_id, graph)
 
         # Enhanced graph state analysis with placeholder support
         state = await self._analyze_graph_state(graph)
