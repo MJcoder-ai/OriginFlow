@@ -185,11 +185,18 @@ interface AppState {
   /** Monotonic graph version for optimistic concurrency. */
   graphVersion: number;
   setGraphVersion: (version: number) => void;
+  /**
+   * Synchronise the local graph version with the server.
+   *
+   * Fetches the current design text and updates the graphVersion. Use
+   * this after retrieving a plan to avoid initial 409 version conflicts.
+   */
+  syncGraphVersion: (sessionId: string) => Promise<void>;
 
   /**
    * Execute a plan task via the backend.  Sends the task to the
    * ``/odl/{session_id}/act`` endpoint, applies the returned patch,
-  * shows any design card in the chat, and updates the task status.
+   * shows any design card in the chat, and updates the task status.
   */
   performPlanTask: (task: PlanTask) => Promise<PlanTaskStatus>;
   /** User-provided requirements for gather phase. */
@@ -396,8 +403,38 @@ export const useAppStore = create<AppState>((set, get) => ({
     } catch {}
     set({ sessionId: id });
   },
+  /**
+   * Current graph version returned by the backend.
+   *
+   * The graph version is used for optimistic concurrency when calling
+   * POST /odl/sessions/{session_id}/act. The API will reject a request
+   * with a 409 Conflict if the client's version is older than the
+   * server's version. We initialise this to 0, but the store will
+   * automatically synchronise it after the first plan fetch via
+   * `syncGraphVersion`. Components should always read `graphVersion`
+   * from the store rather than hard-coding 0.
+   */
   graphVersion: 0,
   setGraphVersion: (version: number) => set({ graphVersion: version }),
+  /**
+   * Synchronise the local graph version with the server.
+   *
+   * This helper calls `/odl/sessions/{sessionId}/text` to fetch the
+   * latest design representation (which includes the current version)
+   * and updates the `graphVersion` state. It catches any errors and
+   * logs them without interrupting the caller. Use this after
+   * retrieving a plan to ensure the first call to `act` passes the
+   * correct version and avoids an initial 409 conflict.
+   */
+  async syncGraphVersion(sessionId: string) {
+    try {
+      if (!sessionId) return;
+      const { version } = await api.getOdlText(sessionId);
+      if (typeof version === 'number') set({ graphVersion: version });
+    } catch (e) {
+      console.warn('Failed to sync graph version', e);
+    }
+  },
   // High‑level plan defaults to empty.  When the orchestrator
   // generates a plan it will replace this array.
   planTasks: [],
@@ -506,6 +543,9 @@ export const useAppStore = create<AppState>((set, get) => ({
           ) {
             set({ planTasks: (refreshedPlan as any).tasks as any });
           }
+          // After refreshing the plan, synchronise the graph version so that
+          // subsequent act requests carry the correct version number.
+          await (get() as any).syncGraphVersion(sessionId);
         } catch (e) {
           console.warn('Failed to refresh plan after act', e);
         }
@@ -524,6 +564,9 @@ export const useAppStore = create<AppState>((set, get) => ({
             const plan = await api.getPlanForSession(sessionId, get().lastPrompt || 'design');
             if ((plan as any).tasks && Array.isArray((plan as any).tasks))
               set({ planTasks: (plan as any).tasks as any });
+            // After refetching the plan, sync the graph version to avoid
+            // another conflict when we retry the act call.
+            await (get() as any).syncGraphVersion(sessionId);
           } catch (_) {}
           return await execute(true);
         }
@@ -552,7 +595,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (sessionId) await api.postRequirements(sessionId, next);
       if (sessionId) {
         const plan = await api.getPlanForSession(sessionId, get().lastPrompt || 'design');
-        if ((plan as any).tasks && Array.isArray((plan as any).tasks)) set({ planTasks: (plan as any).tasks as any });
+        if ((plan as any).tasks && Array.isArray((plan as any).tasks)) {
+          set({ planTasks: (plan as any).tasks as any });
+        }
+        // Synchronise graph version after fetching the plan so the next act call uses the correct version.
+        await (get() as any).syncGraphVersion(sessionId);
       }
     } catch (e) {
       console.error('Failed to update requirements', e);
@@ -960,6 +1007,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
         // Request a plan for this session
         const plan = await api.getPlanForSession(get().sessionId, command);
+        // Sync the graph version so the first act call uses the current version
+        await (get() as any).syncGraphVersion(get().sessionId);
         if (plan.tasks && Array.isArray(plan.tasks)) {
           // Merge new tasks with existing ones, preserving their statuses
           const existingTasks = get().planTasks;
