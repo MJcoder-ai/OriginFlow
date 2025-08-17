@@ -195,6 +195,10 @@ The ODL Code View reuses the application's primary `sessionId`. There is no sepa
 If a session does not yet exist, it will be created when a design command is executed via
 `analyzeAndExecute` or by calling `createOdlSession()` directly.
 
+All user commands are routed through the analysis endpoint, allowing the router agent to
+classify intent (design vs. component vs. wiring) and return the appropriate `AiAction`
+set without relying on brittle keyword checks.
+
 ### Layer Management Updates
 
 **Enhanced Layer List**:

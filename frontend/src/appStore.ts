@@ -1020,13 +1020,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     })();
     try {
       const { canvasComponents, links } = get();
-      // For design commands we rely solely on plan–act; skip analyzeDesign
-      const lower = command.toLowerCase();
       const snapshot = { components: canvasComponents, links };
+      /*
+       * Send every command through the analysis route.  The router agent will
+       * classify the intent (design vs. component vs. wiring, etc.) and return
+       * one or more AiActions.  Removing the old substring check on “design”
+       * allows natural‑language requests like “add another solar panel to this
+       * design” to be handled by the component_agent instead of being
+       * mis‑routed to the planner.
+       */
       let actions: AiAction[] = [];
-      if (!lower.includes('design')) {
-        actions = await api.analyzeDesign(snapshot, command);
-      }
+      actions = await api.analyzeDesign(snapshot, command);
       if (actions.length > 0) {
         await get().executeAiActions(actions);
       }
