@@ -1,10 +1,11 @@
 """Pydantic models for memory management APIs.
 
-These schemas define the shape of data returned by the memory API. The
-``Memory`` class mirrors the ORM model to expose memory entries via
-FastAPI routes while enforcing types at runtime. Optional fields
-such as ``project_id`` and ``tags`` are represented with ``None``
-defaults.
+This module defines the ``Memory`` schema used by the `/memory` API.
+The schema mirrors the fields defined on the ``Memory`` ORM model to
+expose persisted memories via FastAPI while enforcing type safety.  When
+the ORM model is extended with new fields, update this schema
+accordingly and regenerate the frontend TypeScript definitions to avoid
+misalignment:contentReference[oaicite:4]{index=4}.
 """
 from __future__ import annotations
 

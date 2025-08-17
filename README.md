@@ -66,6 +66,11 @@ Each agent returns enhanced design cards with confidence scores, specifications,
 - ✅ **Component Selection**: Intelligent candidate finding and ranking system
 - ✅ **Learning System**: Confidence-driven autonomy with vector-based memory
 - ✅ **Production Ready**: SQLite/PostgreSQL, robust error handling, type safety
+- ✅ **Schema Versioning & Alignment**: All database tables are created and
+  evolved via Alembic migrations:contentReference[oaicite:7]{index=7}.  When adding or
+  modifying ORM models (e.g. the `Memory` table), a matching migration is
+  included and applied automatically to keep the schema aligned with the
+  backend and frontend types.
 
 ### 🔮 **Roadmap: Enterprise Platform Vision**
 - ⏳ **Phase 2** (6-12 months): Sales & procurement agents, workflow orchestration

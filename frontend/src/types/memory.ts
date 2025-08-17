@@ -1,9 +1,11 @@
 /**
  * Type definitions for memory entries returned by the API.
  *
- * Mirrors the server side ``Memory`` Pydantic schema. Optional
- * properties such as ``project_id`` and ``tags`` are represented
- * accordingly. ``created_at`` is an ISO timestamp string.
+ * This interface mirrors the server‑side `Memory` Pydantic schema:contentReference[oaicite:8]{index=8}.
+ * Whenever the backend `Memory` model changes (e.g. a new property is added),
+ * update this type as well as the Pydantic schema to keep all layers aligned.
+ * Optional properties such as `project_id` and `tags` are represented
+ * accordingly. `created_at` is an ISO timestamp string.
  */
 export interface Memory {
   id: number;
