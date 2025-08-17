@@ -1,9 +1,12 @@
 """API endpoints for managing memory entries.
 
-Exposes a simple GET endpoint to list memory entries. Additional
-functionality such as deletion and retention policies can be layered
-on later. This route uses the async SQLAlchemy session provided by
-``get_session`` to fetch records from the ``memory`` table.
+This route exposes a GET endpoint (`/memory`) that lists all persisted
+memory records.  Each record is returned using the `Memory` Pydantic
+schema, which mirrors the underlying ORM model:contentReference[oaicite:5]{index=5}.
+Future enhancements may include filters, retention policies, and
+creation/deletion endpoints.  A corresponding Alembic migration
+(`9123abcd4567_create_memory_table.py`) must be applied to ensure the
+``memory`` table exists.
 """
 from __future__ import annotations
 
