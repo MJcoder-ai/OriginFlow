@@ -201,15 +201,21 @@ interface AppStore {
 ```
 
 **Session Creation**:
+
+In the examples below, we use the `API_BASE_URL` constant defined in
+`frontend/src/config.ts` to build fully-qualified URLs. If the frontend is served from a
+different port than the backend, using a relative path like `/api/v1/...` will cause requests
+to hit the frontend server instead of the backend and return HTML errors. To avoid this, write:
+
 ```typescript
 createODLSession: async () => {
   try {
-    const response = await fetch('/api/v1/odl/sessions', {
+    const response = await fetch(`${API_BASE_URL}/odl/sessions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({})
     });
-    
+
     const data = await response.json();
     get().setCurrentSessionId(data.session_id);
     get().addStatusMessage('ODL session created', 'success');
@@ -386,7 +392,7 @@ if (!sessionId) {
 ```typescript
 // Update requirements
 const updateRequirements = async (requirements: DesignRequirements) => {
-  const response = await fetch(`/api/v1/odl/sessions/${sessionId}/requirements`, {
+  const response = await fetch(`${API_BASE_URL}/odl/sessions/${sessionId}/requirements`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ requirements })
@@ -399,7 +405,7 @@ const updateRequirements = async (requirements: DesignRequirements) => {
 ```typescript
 // Select component
 const selectComponent = async (placeholderId: string, component: ComponentCandidate) => {
-  const response = await fetch(`/api/v1/odl/sessions/${sessionId}/select-component`, {
+  const response = await fetch(`${API_BASE_URL}/odl/sessions/${sessionId}/select-component`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ placeholder_id: placeholderId, component })
@@ -412,7 +418,7 @@ const selectComponent = async (placeholderId: string, component: ComponentCandid
 ```typescript
 // Get ODL representation
 const getODLText = async (sessionId: string) => {
-  const response = await fetch(`/api/v1/odl/sessions/${sessionId}/text`);
+  const response = await fetch(`${API_BASE_URL}/odl/sessions/${sessionId}/text`);
   return response.json();
 };
 ```

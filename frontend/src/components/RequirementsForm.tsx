@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../appStore';
+import { API_BASE_URL } from '../config'; // Import base URL for API calls
 
 interface RequirementsFormProps {
   sessionId: string;
@@ -48,7 +49,8 @@ export const RequirementsForm: React.FC<RequirementsFormProps> = ({
 
   const loadExistingRequirements = async () => {
     try {
-      const response = await fetch(`/api/v1/odl/sessions/${sessionId}/analysis`);
+      // Always use the absolute API base URL so requests hit the backend rather than the frontend dev server.
+      const response = await fetch(`${API_BASE_URL}/odl/sessions/${sessionId}/analysis`);
       if (response.ok) {
         const data = await response.json();
         // In a real implementation, this would extract requirements from the analysis
@@ -110,7 +112,7 @@ export const RequirementsForm: React.FC<RequirementsFormProps> = ({
     
     try {
       // Submit requirements to backend
-      const response = await fetch(`/api/v1/odl/sessions/${sessionId}/requirements`, {
+      const response = await fetch(`${API_BASE_URL}/odl/sessions/${sessionId}/requirements`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ requirements })
