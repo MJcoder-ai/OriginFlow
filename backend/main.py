@@ -115,6 +115,7 @@ from backend.api.routes import (
     files,
     ai_tools,
     datasheet_parse,
+    compatibility,
     feedback,
     feedback_v2,
     design_knowledge,
@@ -169,6 +170,7 @@ app.include_router(ai.router, prefix=settings.api_prefix)
 app.include_router(analyze.router, prefix=settings.api_prefix)
 app.include_router(ai_tools.router, prefix=settings.api_prefix)
 app.include_router(datasheet_parse.router, prefix=settings.api_prefix)
+app.include_router(compatibility.router, prefix=settings.api_prefix)
 
 # Design knowledge base endpoints for persisting and querying design embeddings
 app.include_router(design_knowledge.router, prefix=settings.api_prefix)

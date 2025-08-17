@@ -19,3 +19,4 @@ from . import odl  # noqa: F401  pylint: disable=unused-import
 from . import requirements  # noqa: F401  pylint: disable=unused-import
 from . import versioning  # noqa: F401  pylint: disable=unused-import
 from . import agents  # noqa: F401  pylint: disable=unused-import
+from . import compatibility  # noqa: F401  pylint: disable=unused-import
