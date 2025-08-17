@@ -22,6 +22,29 @@ class Settings(BaseSettings):
     max_tokens: int = 512
     commands_per_minute: int = 30
 
+    # ------------------------------------------------------------------
+    # Component naming policy
+    # ------------------------------------------------------------------
+    #
+    # OriginFlow generates human-friendly component names automatically
+    # from datasheet metadata.  The naming convention is controlled by
+    # two configuration fields: ``component_name_template`` and
+    # ``component_naming_version``.  The template is a Python format
+    # string containing placeholders (e.g. ``{manufacturer}``,
+    # ``{part_number}``, ``{rating}``, ``{category}``) which are
+    # substituted with values extracted from the datasheet during
+    # parsing.  The version allows deployments to track changes in
+    # naming conventions over time without altering code.
+    #
+    # Example::
+    #
+    #     component_name_template = "{manufacturer} {part_number} - {rating} {category}"
+    #     component_naming_version = 1
+    component_name_template: str = (
+        "{manufacturer} {part_number} - {rating} {category}"
+    )
+    component_naming_version: int = 1
+
     # Datasheet extraction flags. These booleans control which parsing
     # strategies are applied by `run_parsing_job()`. They can be toggled
     # via environment variables or via a future API.
