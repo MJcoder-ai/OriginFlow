@@ -7,6 +7,9 @@ from backend.services.ai_service import AiOrchestrator
 from backend.schemas.ai import AnalyzeCommandRequest, AiAction, AiActionType
 from backend.schemas.component import ComponentCreate
 from backend.schemas.link import LinkCreate
+from uuid import uuid4
+from fastapi import HTTPException
+from pydantic import ValidationError
 from backend.utils.openai_helpers import map_openai_error
 from backend.utils.observability import trace_span, record_metric
 
@@ -110,7 +113,21 @@ class AnalyzeOrchestrator(AiOrchestrator):
             obj.confidence = _CONFIDENCE_MAP.get(obj.action, 0.5)
             
             if obj.action == AiActionType.add_component:
-                ComponentCreate(**obj.payload)
+                payload = obj.payload or {}
+                sc = payload.get("standard_code")
+                if not sc:
+                    payload = {**payload, "standard_code": f"AUTO-{uuid4().hex[:8]}"}
+                try:
+                    ComponentCreate(**payload)
+                except ValidationError as exc:
+                    raise HTTPException(
+                        status_code=422,
+                        detail={
+                            "message": "Invalid component payload",
+                            "errors": exc.errors(),
+                        },
+                    ) from exc
+                obj.payload = payload
             elif obj.action in (AiActionType.add_link, AiActionType.suggest_link):
                 LinkCreate(**obj.payload)
             validated.append(obj)

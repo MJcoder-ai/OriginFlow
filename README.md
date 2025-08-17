@@ -473,6 +473,11 @@ class NewComponent(Component):
         self.description = "Custom component"
 ```
 
+When creating components via the API, the ``standard_code`` field is optional.
+If it is omitted or set to ``null``, the backend will assign a unique code
+automatically. Payloads failing schema validation now raise an HTTP ``422``
+response with details instead of a generic server error.
+
 ### 6.3 Add a New API Endpoint
 ```python
 from fastapi import APIRouter

@@ -17,6 +17,8 @@ from backend.utils.openai_helpers import map_openai_error
 from backend.schemas.ai import AiAction, AiActionType, BomReportPayload, PositionPayload
 from backend.schemas.component import ComponentCreate
 from backend.schemas.link import LinkCreate
+from uuid import uuid4
+from pydantic import ValidationError
 from backend.schemas.design_context import RequestContext, DesignSnapshot
 from backend.policy.capabilities import ACTION_REQUIRED_SCOPES
 from backend.services.ai_clients import get_openai_client
@@ -110,7 +112,21 @@ class AiOrchestrator:
 
                 # Validate payloads for component and link operations
                 if obj.action == AiActionType.add_component:
-                    ComponentCreate(**obj.payload)
+                    payload = obj.payload or {}
+                    sc = payload.get("standard_code")
+                    if not sc:
+                        payload = {**payload, "standard_code": f"AUTO-{uuid4().hex[:8]}"}
+                    try:
+                        ComponentCreate(**payload)
+                    except ValidationError as exc:
+                        raise HTTPException(
+                            status_code=422,
+                            detail={
+                                "message": "Invalid component payload",
+                                "errors": exc.errors(),
+                            },
+                        ) from exc
+                    obj.payload = payload
                 elif obj.action == AiActionType.add_link:
                     LinkCreate(**obj.payload)
                 elif obj.action == AiActionType.update_position:
