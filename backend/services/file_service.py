@@ -37,6 +37,7 @@ from backend.schemas.file_asset import FileAssetUpdate
 from backend.utils.id import generate_id
 from pathlib import Path
 from fastapi import UploadFile
+from backend.services.component_naming_service import ComponentNamingService
 
 
 class ParsedSchema(TypedDict, total=False):
@@ -452,7 +453,7 @@ async def run_parsing_job(asset_id: str, session: AsyncSession, ai_client: Async
                 or extraction_result.get("mfg")
                 or extraction_result.get("maker")
             )
-            # Use description as the human-friendly name when available.
+            # Initial human-friendly name; may be overridden by the naming service below.
             name = (
                 extraction_result.get("description")
                 or extraction_result.get("name")
@@ -502,6 +503,25 @@ async def run_parsing_job(asset_id: str, session: AsyncSession, ai_client: Async
             series_name = extraction_result.get("series_name")
             variants = extraction_result.get("variants")
 
+            # ------------------------------------------------------------------
+            # Generate the base component name using the ComponentNamingService
+            # ------------------------------------------------------------------
+            metadata_for_name = {
+                "manufacturer": manufacturer,
+                "part_number": part_number,
+                "category": category,
+                "series_name": series_name,
+                "power": power,
+                "capacity": extraction_result.get("capacity"),
+                "voltage": voltage,
+            }
+            generated_name, review_flag = ComponentNamingService.generate_name(
+                metadata_for_name, return_review_flag=True
+            )
+            if generated_name:
+                name = generated_name
+            asset.needs_manual_name_review = review_flag
+
             # If multiple variants are present, create a master record for each variant
             if isinstance(variants, list) and variants:
                 common = {
@@ -521,10 +541,27 @@ async def run_parsing_job(asset_id: str, session: AsyncSession, ai_client: Async
                     if not v_part:
                         continue
                     v_data = dict(common)
+                    # Build metadata for the variant and generate a distinct name.
+                    variant_metadata = {
+                        "manufacturer": manufacturer,
+                        "part_number": v_part,
+                        "category": category,
+                        "series_name": series_name,
+                        "power": var.get("power")
+                        or var.get("pmax")
+                        or var.get("rated_power"),
+                        "capacity": var.get("capacity"),
+                        "voltage": var.get("voltage"),
+                    }
+                    v_name, _ = ComponentNamingService.generate_name(
+                        variant_metadata, return_review_flag=True
+                    )
+                    if not v_name:
+                        v_name = var.get("name") or name
                     v_data.update(
                         {
                             "part_number": v_part,
-                            "name": var.get("name") or name,
+                            "name": v_name,
                             "voltage": _to_float(var.get("voltage")) or voltage,
                             "current": _to_float(var.get("current")) or current,
                             "power": _to_float(var.get("power"))
