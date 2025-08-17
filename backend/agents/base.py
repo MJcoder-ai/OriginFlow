@@ -1,5 +1,11 @@
 # backend/agents/base.py
-"""Base class for AI agents with retry support."""
+"""Base class for AI agents with retry and discovery support.
+
+This interface underpins OriginFlow's agent system and now includes
+optional metadata used by the plug‑in architecture.  The additional
+fields enable runtime discovery and UI hints while remaining backward
+compatible with existing agents.
+"""
 
 from __future__ import annotations
 
@@ -11,10 +17,25 @@ from backend.utils.schema_enforcer import validate_envelope
 
 
 class AgentBase(ABC):
-    """Common interface for all agents."""
+    """Common interface for all agents.
+
+    Agents may optionally declare metadata for discovery:
+
+    - ``domain``: High-level domain this agent operates in (e.g. ``pv``).
+    - ``risk_class``: Risk classification used by auto‑approval policies.
+    - ``capabilities``: List of capability keywords.
+    - ``examples``: Sample commands that the agent can handle.
+
+    Existing agents can ignore these attributes and continue to
+    implement ``handle`` and ``execute`` as before.
+    """
 
     name: str = ""
     description: str = ""
+    domain: str = ""
+    risk_class: str = "low"
+    capabilities: List[str] = []
+    examples: List[str] = []
 
     async def handle(self, command: str, **kwargs) -> List[Dict[str, Any]]:
         """Return a list of AiAction dicts.
@@ -25,6 +46,20 @@ class AgentBase(ABC):
 
         raise NotImplementedError(
             "Agent must implement handle(command, **kwargs))"
+        )
+
+    def can_handle(self, command: str) -> bool:
+        """Return ``True`` if this agent can handle ``command``.
+
+        The default implementation matches the agent's ``name`` or
+        ``domain`` within the command string.  Agents with more
+        sophisticated routing logic should override this method.
+        """
+
+        cmd = command.lower()
+        return bool(
+            (self.domain and self.domain.lower() in cmd)
+            or (self.name and self.name.lower() in cmd)
         )
 
     async def execute(self, session_id: str, tid: str, **kwargs) -> Any:
