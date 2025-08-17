@@ -16,7 +16,6 @@ const Divider: React.FC = () => (
  */
 const ChatSidebar: React.FC = () => {
   const sessionId = useAppStore((s) => s.sessionId);
-  const setSessionId = useAppStore((s) => s.setSessionId);
   const planTasks = useAppStore((s) => s.planTasks);
   const setPlanTasks = useAppStore((s) => s.setPlanTasks);
   const addStatusMessage = useAppStore((s) => s.addStatusMessage);
@@ -27,20 +26,6 @@ const ChatSidebar: React.FC = () => {
   const [autoIterate, setAutoIterate] = useState<boolean>(false);
   const [minConfidence, setMinConfidence] = useState<number>(0.6);
   const nextPending = useMemo(() => planTasks.find((t) => t.status === 'pending'), [planTasks]);
-
-  // Ensure there is a session
-  useEffect(() => {
-    (async () => {
-      try {
-        if (!sessionId || sessionId === 'global') {
-          const created = await api.createOdlSession();
-          if (created?.session_id) setSessionId(created.session_id);
-        }
-      } catch (e) {
-        console.warn('Failed to ensure ODL session', e);
-      }
-    })();
-  }, []);
 
   // Auto-iterate: when toggled on, run the next pending task until blocked/low-confidence
   useEffect(() => {

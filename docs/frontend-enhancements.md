@@ -20,7 +20,7 @@ The frontend enhancements transform OriginFlow from a traditional CAD tool into 
 
 **Usage**:
 ```tsx
-<ODLCodeView sessionId={currentSessionId} />
+<ODLCodeView sessionId={sessionId} />
 ```
 
 **Key Features**:
@@ -30,8 +30,8 @@ The frontend enhancements transform OriginFlow from a traditional CAD tool into 
 - **Statistics**: Shows version, node count, edge count, and line count
 - **Error Handling**: Graceful fallback when session unavailable
 
-**Integration**: 
-Added as new layer "ODL Code" in the main workspace canvas. Automatically creates ODL session when layer is selected.
+**Integration**:
+Added as new layer "ODL Code" in the main workspace canvas. The view reflects the same session used for design tasks.
 
 ### 2. Requirements Form (`RequirementsForm.tsx`)
 
@@ -190,42 +190,10 @@ interface PlanTask {
 
 ### ODL Session Management
 
-**New State Properties**:
-```typescript
-interface AppStore {
-  // ODL session management
-  currentSessionId: string | null;
-  setCurrentSessionId: (sessionId: string | null) => void;
-  createODLSession: () => Promise<string | null>;
-}
-```
-
-**Session Creation**:
-
-In the examples below, we use the `API_BASE_URL` constant defined in
-`frontend/src/config.ts` to build fully-qualified URLs. If the frontend is served from a
-different port than the backend, using a relative path like `/api/v1/...` will cause requests
-to hit the frontend server instead of the backend and return HTML errors. To avoid this, write:
-
-```typescript
-createODLSession: async () => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/odl/sessions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({})
-    });
-
-    const data = await response.json();
-    get().setCurrentSessionId(data.session_id);
-    get().addStatusMessage('ODL session created', 'success');
-    return data.session_id;
-  } catch (error) {
-    get().addStatusMessage('Failed to create ODL session', 'error');
-    return null;
-  }
-}
-```
+The ODL Code View reuses the application's primary `sessionId`. There is no separate
+`currentSessionId` and sessions are not created automatically when switching layers.
+If a session does not yet exist, it will be created when a design command is executed via
+`analyzeAndExecute` or by calling `createOdlSession()` directly.
 
 ### Layer Management Updates
 
@@ -240,15 +208,12 @@ layers: [
 ]
 ```
 
-**Automatic Session Creation**:
+**Layer Selection**:
 ```typescript
 setCurrentLayer: (layer) => {
   set({ currentLayer: layer });
-  
-  // Auto-create ODL session when switching to ODL Code View
-  if (layer === 'ODL Code' && !get().currentSessionId) {
-    get().createODLSession();
-  }
+  // The ODL Code View reads the existing design session (sessionId).
+  // No new session is created on layer switch.
 }
 ```
 
@@ -260,7 +225,7 @@ setCurrentLayer: (layer) => {
 ```tsx
 const renderLayerContent = () => {
   if (currentLayer === 'ODL Code') {
-    return <ODLCodeView sessionId={currentSessionId || ''} />;
+    return <ODLCodeView sessionId={sessionId} />;
   }
 
   // Default canvas for other layers
@@ -279,10 +244,9 @@ const renderLayerContent = () => {
 
 ### State Management Integration
 
-**Session State Synchronization**:
-- Automatic session creation when needed
-- Session ID persistence across page reloads
-- Graceful handling of session expiration
+  **Session State Synchronization**:
+  - Session ID persistence across page reloads
+  - Graceful handling of session expiration
 
 ## User Experience Enhancements
 

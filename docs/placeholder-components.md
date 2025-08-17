@@ -197,7 +197,7 @@ New layer in the canvas that shows live ODL text representation:
 ```tsx
 // Usage in Workspace component
 if (currentLayer === 'ODL Code') {
-  return <ODLCodeView sessionId={currentSessionId || ''} />;
+  return <ODLCodeView sessionId={sessionId} />;
 }
 ```
 

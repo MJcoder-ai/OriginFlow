@@ -24,8 +24,8 @@ export const ODLCodeView: React.FC<ODLCodeViewProps> = ({ sessionId }) => {
   const loadingRef = useRef(false);
 
   const fetchODLText = useCallback(async () => {
-    // Don't fire if we have no session or a request is already in flight
-    if (!sessionId || loadingRef.current) return;
+    // Don't fire if we have no valid session or a request is already in flight
+    if (!sessionId || sessionId === 'global' || loadingRef.current) return;
 
     setLoading(true);
     loadingRef.current = true;
@@ -102,7 +102,7 @@ export const ODLCodeView: React.FC<ODLCodeViewProps> = ({ sessionId }) => {
     addStatusMessage('ODL code downloaded', 'success');
   };
 
-  if (!sessionId) {
+  if (!sessionId || sessionId === 'global') {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
