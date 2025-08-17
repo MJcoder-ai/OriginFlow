@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../appStore';
+import { API_BASE_URL } from '../config'; // Import base URL for API calls
 
 interface PlanTask {
   id: string;
@@ -54,7 +55,8 @@ export const EnhancedPlanTimeline: React.FC<EnhancedPlanTimelineProps> = ({
     
     setRefreshing(true);
     try {
-      const response = await fetch(`/api/v1/odl/sessions/${sessionId}/plan?command=design system`);
+      // Use API_BASE_URL to target the backend; relative URLs would hit the frontend dev server instead.
+      const response = await fetch(`${API_BASE_URL}/odl/sessions/${sessionId}/plan?command=design system`);
       if (response.ok) {
         const data = await response.json();
         // This would update the task list, but since it's passed as props,
