@@ -31,16 +31,23 @@ class ComponentNamingService:
     """Generate component names from parsed metadata."""
 
     @staticmethod
-    def generate_name(metadata: Dict[str, Any], template: str | None = None) -> str:
+    def generate_name(
+        metadata: Dict[str, Any],
+        template: str | None = None,
+        return_review_flag: bool = False,
+    ) -> Any:
         """
-        Construct a human-friendly component name based on the provided metadata.
+        Construct a human-friendly component name based on the provided
+        metadata.
 
-        The service retrieves the active naming policy (template and version)
-        using :func:`backend.services.component_naming_policy.get_naming_policy`.
-        Placeholders in the template (e.g. ``{manufacturer}``, ``{part_number}``,
-        ``{rating}``, ``{category}``, ``{series_name}``) are populated from
-        ``metadata``. If critical fields are missing, the service supplies
-        sensible defaults or omits the corresponding parts of the name.
+        The service retrieves the active naming policy (template and
+        version) using
+        :func:`backend.services.component_naming_policy.get_naming_policy`.
+        Placeholders in the template (e.g. ``{manufacturer}``,
+        ``{part_number}``, ``{rating}``, ``{category}``, ``{series_name}``)
+        are populated from ``metadata``. If critical fields are missing, the
+        service supplies sensible defaults or omits the corresponding parts
+        of the name.
 
         Args:
             metadata: The dictionary of fields extracted from the datasheet.
@@ -48,14 +55,22 @@ class ComponentNamingService:
                 ``category``, ``series_name``, ``power``, ``capacity`` and
                 ``voltage``. Alternative keys such as ``mfg`` or ``pn`` are
                 also recognised.
-            template: Optional custom template to override the policy template.
+            template: Optional custom template to override the policy
+                template.
+            return_review_flag: When ``True`` the function returns a tuple of
+                ``(name, needs_review)`` where ``needs_review`` is ``True`` if
+                required fields are missing.
 
         Returns:
-            The formatted component name. Consecutive whitespace is collapsed
-            into a single space, and leading/trailing whitespace is removed.
+            The formatted component name. Consecutive whitespace is
+            collapsed into a single space, and leading/trailing whitespace is
+            removed. If ``return_review_flag`` is ``True`` a tuple of
+            ``(name, needs_review)`` is returned instead.
         """
         policy = get_naming_policy()
-        fmt = template or policy.get("template", "{manufacturer} {part_number}")
+        fmt = template or policy.get(
+            "template", "{manufacturer} {part_number}"
+        )
 
         manufacturer = (
             metadata.get("manufacturer")
@@ -69,7 +84,9 @@ class ComponentNamingService:
             or metadata.get("partNumber")
             or ""
         )
-        category = metadata.get("category") or metadata.get("device_type") or ""
+        category = (
+            metadata.get("category") or metadata.get("device_type") or ""
+        )
         series_name = metadata.get("series_name") or ""
 
         rating: str = ""
@@ -103,8 +120,15 @@ class ComponentNamingService:
             name = fmt.replace(f"{{{missing_key}}}", "")
             name = name.format(**values)
 
-        return " ".join(name.split()).strip()
+        # Determine whether the generated name is missing critical fields.
+        missing_critical = not manufacturer.strip() or not part_number.strip()
+
+        # Collapse multiple spaces and trim the result.
+        cleaned = " ".join(name.split()).strip()
+
+        if return_review_flag:
+            return cleaned, missing_critical
+        return cleaned
 
 
 __all__ = ["ComponentNamingService"]
-

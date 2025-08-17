@@ -29,9 +29,14 @@ class FileAssetRead(FileAssetBase):
     width: int | None = None
     height: int | None = None
 
+    # Indicates that the component name derived from this file is incomplete
+    # and requires manual verification by a human reviewer.
+    needs_manual_name_review: bool | None = None
+
     model_config = ConfigDict(from_attributes=True)
 
 
 class FileAssetUpdate(BaseModel):
     parsed_payload: dict
     is_human_verified: bool | None = None
+    needs_manual_name_review: bool | None = None

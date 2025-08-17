@@ -17,7 +17,9 @@ from backend.config import settings  # noqa: E402,F401
 
 # Load the service module directly to avoid importing backend.services.__init__
 MODULE_PATH = ROOT / "backend" / "services" / "component_naming_service.py"
-spec = importlib.util.spec_from_file_location("component_naming_service", MODULE_PATH)
+spec = importlib.util.spec_from_file_location(
+    "component_naming_service", MODULE_PATH
+)
 module = importlib.util.module_from_spec(spec)
 assert spec and spec.loader
 spec.loader.exec_module(module)
@@ -51,3 +53,19 @@ def test_generate_name_rating_fallback() -> None:
     name = ComponentNamingService.generate_name(metadata, template=template)
     assert name == "FooCorp B-2 10 kWh"
 
+
+def test_generate_name_review_flag_when_missing_fields() -> None:
+    """Returns a review flag when manufacturer or part number is missing."""
+
+    metadata = {
+        "manufacturer": "",  # missing
+        "part_number": "",  # missing
+        "category": "Inverter",
+    }
+
+    name, needs_review = ComponentNamingService.generate_name(
+        metadata, return_review_flag=True
+    )
+
+    assert name == "- Inverter"
+    assert needs_review is True

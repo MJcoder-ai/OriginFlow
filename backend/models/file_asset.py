@@ -39,8 +39,8 @@ class FileAsset(Base):
     # datasheet or image is uploaded from the canvas.  The core component table
     # was renamed to ``schematic_components`` but this model was not updated,
     # resulting in a broken foreign key mapping at runtime.  Align the
-    # ``component_id`` foreign key with the current table name so SQLAlchemy can
-    # resolve the relationship correctly.
+    # ``component_id`` foreign key with the current table name so SQLAlchemy
+    # can resolve the relationship correctly.
     component_id: Mapped[str | None] = mapped_column(
         String, ForeignKey("schematic_components.id", ondelete="SET NULL"),
         nullable=True,
@@ -49,10 +49,14 @@ class FileAsset(Base):
         DateTime(timezone=True), server_default=func.now()
     )
     parsed_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    parsed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    parsed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     parsing_status: Mapped[str | None] = mapped_column(String, nullable=True)
     parsing_error: Mapped[str | None] = mapped_column(Text, nullable=True)
-    is_human_verified: Mapped[bool] = mapped_column(Boolean, server_default="false", nullable=False)
+    is_human_verified: Mapped[bool] = mapped_column(
+        Boolean, server_default="false", nullable=False
+    )
 
     # Fields related to images extracted from PDF datasheets.  When a
     # ``FileAsset`` represents an image produced by the datasheet parser,
@@ -60,8 +64,18 @@ class FileAsset(Base):
     # thumbnail for the associated component.  ``width`` and ``height`` store
     # pixel dimensions when available.  These fields are optional so that
     # existing files without images are unaffected.
-    is_extracted: Mapped[bool] = mapped_column(Boolean, server_default="false", nullable=False)
-    is_primary: Mapped[bool] = mapped_column(Boolean, server_default="false", nullable=False)
+    is_extracted: Mapped[bool] = mapped_column(
+        Boolean, server_default="false", nullable=False
+    )
+    is_primary: Mapped[bool] = mapped_column(
+        Boolean, server_default="false", nullable=False
+    )
+
+    # Flag indicating whether the auto-generated component name requires
+    # manual review due to missing critical metadata during parsing.
+    needs_manual_name_review: Mapped[bool] = mapped_column(
+        Boolean, server_default="false", nullable=False
+    )
     width: Mapped[int | None] = mapped_column(Integer, nullable=True)
     height: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
@@ -71,4 +85,3 @@ class FileAsset(Base):
         from backend.api.routes.files import UPLOADS_DIR
 
         return UPLOADS_DIR / self.id / self.filename
-

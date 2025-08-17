@@ -35,3 +35,13 @@ back to sensible defaults or omits them, ensuring that the resulting name
 remains usable. See the service implementation for details on how fields
 are extracted and substituted.
 
+### Manual review when critical data is missing
+
+If the naming service cannot find essential fields—such as a manufacturer or
+part number—the generated name may be incomplete. In these cases, the parser
+sets `needs_manual_name_review` to `true` on the associated `FileAsset`. This
+flag signals the UI to highlight the datasheet in the review panel and prompt
+the user to provide or correct the component’s name. Once a user edits the
+name and confirms it, the `needs_manual_name_review` flag should be cleared and
+`is_human_verified` set to `true` to avoid triggering another automatic parse.
+
