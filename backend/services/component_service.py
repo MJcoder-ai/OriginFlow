@@ -27,6 +27,8 @@ class ComponentService:
         comp_id = data.id or generate_id("component")
         payload = data.model_dump(exclude_none=True)
         payload.pop("id", None)
+        if not payload.get("standard_code"):
+            payload["standard_code"] = f"AUTO-{generate_id('').split('_')[1][:6]}"
         obj = Component(id=comp_id, **payload)
         self.session.add(obj)
         try:

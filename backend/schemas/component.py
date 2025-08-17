@@ -6,11 +6,18 @@ from pydantic import BaseModel, ConfigDict
 
 
 class ComponentBase(BaseModel):
-    """Shared attributes for a component."""
+    """Shared attributes for a component.
+
+    ``standard_code`` is optional. If omitted or ``None``, the backend
+    assigns a unique code automatically. This allows API clients to
+    create components without knowing a canonical code upfront.
+    """
 
     name: str
     type: str
-    standard_code: str
+    # Optional identifier for the component. When not supplied, service layers
+    # will generate a unique code (e.g., ``AUTO-XXXXXX``) before persisting.
+    standard_code: str | None = None
     x: int = 100
     y: int = 100
 

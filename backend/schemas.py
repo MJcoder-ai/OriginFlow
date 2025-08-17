@@ -9,11 +9,15 @@ from __future__ import annotations
 from pydantic import BaseModel, ConfigDict
 
 class ComponentBase(BaseModel):
-    """Shared attributes for a component."""
+    """Shared attributes for a component.
+
+    ``standard_code`` is optional; service layers will generate a unique code
+    if one is not supplied.
+    """
 
     name: str
     type: str
-    standard_code: str
+    standard_code: str | None = None
     x: int = 100
     y: int = 100
 
