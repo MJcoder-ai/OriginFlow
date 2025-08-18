@@ -19,6 +19,7 @@ from backend.schemas.ai import AiAction, AiActionType
 from backend.schemas.component import ComponentCreate
 from backend.schemas.analysis import DesignSnapshot
 from backend.services.ai.state_action_resolver import StateAwareActionResolver
+from backend.services.library_selector import LibrarySelector
 from backend.services.component_service import find_component_by_name
 from backend.services.component_db_service import get_component_db_service
 from backend.services.ai_clients import get_openai_client
@@ -72,13 +73,42 @@ class ComponentAgent(AgentBase):
         if not category:
             return None
 
+        selector = LibrarySelector()
+        model_id, why = await selector.choose_model_or_placeholder(category, snapshot)
+        if model_id:
+            comp = await comp_service.get_by_part_number(model_id)
+            if comp:
+                payload = {
+                    "name": comp.get("name"),
+                    "type": comp.get("category"),
+                    "standard_code": comp.get("part_number"),
+                    "_resolver": {
+                        "confidence": decision.confidence,
+                        "rationale": decision.rationale,
+                    },
+                    "_selector": {"decision": "real_model", "reason": why},
+                }
+                message = f"Selected real {category} model {model_id}."
+                return [
+                    AiAction(action=AiActionType.add_component, payload=payload, version=1).model_dump(),
+                    AiAction(
+                        action=AiActionType.validation,
+                        payload={"message": message},
+                        version=1,
+                    ).model_dump(),
+                ]
+
         comps = await comp_service.search(category=category)
         if not comps:
             payload = {
                 "name": f"generic_{category}",
                 "type": category,
                 "standard_code": None,
-                "_resolver": {"confidence": decision.confidence, "rationale": decision.rationale},
+                "_resolver": {
+                    "confidence": decision.confidence,
+                    "rationale": decision.rationale,
+                },
+                "_selector": {"decision": f"generic_{category}", "reason": why},
             }
             return [
                 AiAction(action=AiActionType.add_component, payload=payload, version=1).model_dump(),
@@ -94,15 +124,14 @@ class ComponentAgent(AgentBase):
                 ).model_dump(),
             ]
 
-        comps_sorted = sorted(
-            comps, key=lambda c: c.get("price", float("inf"))
-        )
+        comps_sorted = sorted(comps, key=lambda c: c.get("price", float("inf")))
         chosen = comps_sorted[0]
         payload = {
             "name": chosen.get("name"),
             "type": chosen.get("category"),
             "standard_code": chosen.get("part_number"),
             "_resolver": {"confidence": decision.confidence, "rationale": decision.rationale},
+            "_selector": {"decision": "cheapest_real", "reason": "fallback"},
         }
         message = f"ComponentAgent found {len(comps)} {category}(s); selecting the cheapest."
         return [

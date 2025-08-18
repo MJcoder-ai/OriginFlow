@@ -20,6 +20,7 @@ class AiActionType(str, Enum):
     suggest_link = "suggestLink"
     validation = "validation"
     report = "report"
+    wire = "wire"
 
 
 class PositionPayload(BaseModel):

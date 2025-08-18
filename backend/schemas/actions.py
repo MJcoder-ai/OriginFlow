@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Literal, Optional
+from typing import Literal, Optional, Dict, Any
 from pydantic import BaseModel, Field
 
 # ---- Canonical, closed enums for tool-calls ----
@@ -13,7 +13,15 @@ class ActionRequest(BaseModel):
     Canonical schema the AI must fill when deciding an action.
     Keep this small and stable so both LLM and deterministic code can emit it.
     """
-    action: Literal["add_component","add_link","modify_property","delete","analyze","validate"]
+    action: Literal[
+        "add_component",
+        "add_link",
+        "modify_property",
+        "delete",
+        "analyze",
+        "validate",
+        "wire",
+    ]
     rationale: str = Field("", description="Short justification for audit/debug")
     confidence: float = Field(0.0, ge=0.0, le=1.0)
 
@@ -23,5 +31,10 @@ class ActionRequest(BaseModel):
     quantity: Optional[int] = 1
     target_layer: Optional[Literal["single_line","high_level","civil","networking","physical"]] = "single_line"
     placement_hint: Optional[dict] = None  # e.g., {"near":"panel_1"} etc.
+
+    # Slots for wiring (optional)
+    wire_scope: Optional[Literal["missing_only","all","selection"]] = "missing_only"
+    wire_layer: Optional[Literal["single_line","high_level","civil","networking","physical"]] = "single_line"
+    wire_selection: Optional[Dict[str, Any]] = None  # e.g., {"nodes": ["c1","c2"]}
 
 __all__ = ["ActionRequest", "ComponentClass"]
