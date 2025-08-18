@@ -1,8 +1,12 @@
 import pytest
+import os
 import sys
 from pathlib import Path
 
-# Add project root to Python path for imports
+# Set up environment variables for testing
+os.environ.setdefault("OPENAI_API_KEY", "test")
+os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///./test.db")
+
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 
 from backend.agents.learning_agent import LearningAgent  # noqa: E402

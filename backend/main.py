@@ -32,6 +32,9 @@ async def lifespan(app: FastAPI):
     is used, so we must create tables here. This ensures that new ORM
     models (e.g. Memory and TraceEvent) exist before requests hit the DB.
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
     logger.info("Initializing AI services")
     app.state.anonymizer = AnonymizerService()
     app.state.embedder = EmbeddingService()
@@ -45,13 +48,9 @@ async def lifespan(app: FastAPI):
             await conn.run_sync(Base.metadata.create_all)
     except Exception as exc:
         # Do not crash if table creation fails; log an error
-        import logging
-        logger = logging.getLogger(__name__)
         logger.error(f"Database table creation failed: {exc}", exc_info=True)
 
     yield
-    import logging
-    logger = logging.getLogger(__name__)
     logger.info("Cleaning up AI services.")
 
 
