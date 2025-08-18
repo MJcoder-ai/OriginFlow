@@ -52,6 +52,10 @@ class AiOrchestrator:
         command: str,
         design_snapshot: dict | None = None,
         recent_actions: list[dict] | None = None,
+        *,
+        tenant_id: str | None = None,
+        project_id: str | None = None,
+        session_id: str | None = None,
     ) -> List[AiAction]:
         """Run the router agent and validate the returned actions.
 
@@ -96,22 +100,16 @@ class AiOrchestrator:
         # Instrument validation and approval of raw AI actions
         with trace_span("ai_service.validate_actions", action_count=len(raw)):
             for action in raw:
-                # Extract the originating agent name (set by RouterAgent) and validate schema
                 agent_name = action.pop("agent_name", "unknown")
                 try:
                     obj = AiAction.model_validate(action)
                 except Exception as exc:  # pragma: no cover - defensive
                     raise HTTPException(422, f"Invalid action schema: {exc}") from exc
 
-                # Enforce capability checks: ensure the producing agent has
-                # permission to perform this action type.
                 _check_capabilities(agent_name, obj)
 
-                # Assign a default confidence score if none exists.  The learning
-                # agent may adjust this value based on historical approvals.
                 obj.confidence = _CONFIDENCE_MAP.get(obj.action, 0.5)
 
-                # Validate payloads for component and link operations
                 if obj.action == AiActionType.add_component:
                     payload = obj.payload or {}
                     sc = payload.get("standard_code")
@@ -122,10 +120,7 @@ class AiOrchestrator:
                     except ValidationError as exc:
                         raise HTTPException(
                             status_code=422,
-                            detail={
-                                "message": "Invalid component payload",
-                                "errors": exc.errors(),
-                            },
+                            detail={"message": "Invalid component payload", "errors": exc.errors()},
                         ) from exc
                     obj.payload = payload
                 elif obj.action == AiActionType.add_link:
@@ -135,22 +130,31 @@ class AiOrchestrator:
                 elif obj.action == AiActionType.report:
                     BomReportPayload(**obj.payload)
 
-                # Apply risk-based governance: decide whether this action should
-                # be auto-approved based on the agent's risk class and current
-                # confidence.  The result is stored on the action for downstream
-                # consumers (e.g. UI) to display approval status.
+                # store agent name for downstream approval queueing
+                obj._agent_name = agent_name  # type: ignore[attr-defined]
+
+                thresholds_override = None
+                whitelist: set[str] | None = None
+                try:
+                    from backend.database.session import SessionMaker  # type: ignore
+                    from backend.services.config_service import ConfigService  # type: ignore
+
+                    async with SessionMaker() as _sess:
+                        _settings = await ConfigService.get_or_create(_sess, tenant_id)
+                        thresholds_override = _settings.thresholds()
+                        whitelist = _settings.whitelist_set()
+                except Exception:
+                    pass
+
                 obj.auto_approved = RiskPolicy.is_auto_approved(
                     agent_name=agent_name,
                     action_type=obj.action,
                     confidence=obj.confidence,
+                    thresholds_override=thresholds_override,
+                    whitelist=whitelist,
                 )
 
-                # Record a metric for each processed action
-                record_metric(
-                    "action.processed", 1, {"agent": agent_name, "type": obj.action.value}
-                )
-                # Wrap agent execution in safe_execute to handle errors consistently
-                # (Domain agents will be invoked elsewhere; this ensures later error handling)
+                record_metric("action.processed", 1, {"agent": agent_name, "type": obj.action.value})
                 validated.append(obj)
 
         # Apply learning-based confidence adjustments.  If historical data
@@ -212,16 +216,16 @@ class AiOrchestrator:
         try:
             from backend.models.memory import Memory  # type: ignore
             from backend.database.session import SessionMaker  # type: ignore
+            from backend.models.tenant_settings import TenantSettings  # noqa: F401
+            from backend.models.pending_action import PendingAction  # noqa: F401
+
             async with SessionMaker() as mem_sess:  # type: ignore
                 mem_sess.add(
                     Memory(
-                        tenant_id="tenant_default",
-                        project_id=None,
+                        tenant_id=tenant_id or "tenant_default",
+                        project_id=project_id,
                         kind="conversation",
-                        tags={
-                            "auto_approved": auto_count,
-                            "pending": len(validated) - auto_count,
-                        },
+                        tags={"auto_approved": auto_count, "pending": len(validated) - auto_count},
                         trace_id=ctx.trace_id,
                     )
                 )
@@ -229,14 +233,45 @@ class AiOrchestrator:
                     if act.action == AiActionType.report:
                         mem_sess.add(
                             Memory(
-                                tenant_id="tenant_default",
-                                project_id=None,
+                                tenant_id=tenant_id or "tenant_default",
+                                project_id=project_id,
                                 kind="design",
                                 tags={"action": "report"},
                                 trace_id=ctx.trace_id,
                             )
                         )
                 await mem_sess.commit()
+        except Exception:
+            pass
+
+        # Queue non-auto-approved actions for manual approval
+        try:
+            from backend.database.session import SessionMaker  # type: ignore
+            from backend.services.approval_service import ApprovalService  # type: ignore
+            from backend.agents.registry import get_spec  # type: ignore
+
+            async with SessionMaker() as q_sess:
+                for act in validated:
+                    if not getattr(act, "auto_approved", False):
+                        agent = getattr(act, "_agent_name", "unknown")
+                        try:
+                            _spec = get_spec(agent)
+                            risk = _spec.risk_class or "medium"
+                        except Exception:
+                            risk = "medium"
+                        await ApprovalService.queue(
+                            q_sess,
+                            tenant_id=tenant_id or "tenant_default",
+                            project_id=project_id,
+                            session_id=session_id,
+                            trace_id=ctx.trace_id,
+                            agent_name=agent,
+                            action_type=act.action.value,
+                            risk_class=risk,
+                            confidence=float(act.confidence or 0.0),
+                            payload=act.payload or {},
+                            created_by=None,
+                        )
         except Exception:
             pass
         return validated

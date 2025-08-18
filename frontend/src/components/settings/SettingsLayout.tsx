@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { API_BASE_URL } from '../../config';
 import MemoryTab from './MemoryTab';
 import TraceabilityTab from './TraceabilityTab';
+import GovernanceTab from './GovernanceTab';
 
 /**
  * SettingsLayout renders the enterprise settings console with tabs for
@@ -60,6 +61,7 @@ const SettingsLayout: React.FC = () => {
     { id: 'roles', label: 'Roles & Permissions', content: <div>Role management (coming soon).</div>, perm: 'policy:edit' },
     { id: 'memory', label: 'Memory', content: <MemoryTab />, perm: 'memory:read' },
     { id: 'traceability', label: 'Traceability', content: <TraceabilityTab />, perm: 'trace:read' },
+    { id: 'governance', label: 'Governance & Approvals', content: <GovernanceTab />, perm: 'policy:edit' },
     { id: 'integrations', label: 'Integrations', content: <div>Integrations configuration (coming soon).</div>, perm: 'policy:edit' },
     { id: 'models', label: 'Models & Costs', content: <div>Model settings (coming soon).</div>, perm: 'policy:edit' },
     { id: 'automations', label: 'Automations', content: <div>Automation schedules (coming soon).</div>, perm: 'policy:edit' },

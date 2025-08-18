@@ -25,7 +25,10 @@ from backend.schemas.ai import AiActionType
 
 
 class RiskPolicy:
-    """Risk-based policy helper to decide auto-approval status."""
+    """Risk-based policy helper to decide auto-approval status.
+
+    Supports optional per-tenant threshold overrides and action whitelists.
+    """
 
     # Thresholds for auto-approval per risk class.  Values represent the
     # minimum confidence required to allow automatic execution.  High risk
@@ -42,6 +45,9 @@ class RiskPolicy:
         agent_name: str,
         action_type: AiActionType,
         confidence: Optional[float],
+        *,
+        thresholds_override: dict[str, float] | None = None,
+        whitelist: set[str] | None = None,
     ) -> bool:
         """
         Decide whether an action from ``agent_name`` with the given
@@ -65,5 +71,11 @@ class RiskPolicy:
         except Exception:
             # Default to medium risk if the spec cannot be retrieved
             risk = "medium"
-        threshold = cls.RISK_THRESHOLDS.get(risk, cls.RISK_THRESHOLDS["high"])
+        # Allow whitelisted actions (typically low/medium risk) irrespective of
+        # confidence thresholds.
+        if whitelist and action_type.value in whitelist and risk in ("low", "medium"):
+            return True
+
+        t = thresholds_override or cls.RISK_THRESHOLDS
+        threshold = t.get(risk, t["high"])
         return conf >= threshold
