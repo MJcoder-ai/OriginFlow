@@ -16,6 +16,8 @@ class AgentSpec:
     domain: str
     risk_class: str = "low"  # low|medium|high
     capabilities: List[str] = field(default_factory=list)
+    description: str = ""
+    examples: List[str] = field(default_factory=list)
 
 
 _REGISTRY: Dict[str, AgentBase] = {}
@@ -47,6 +49,8 @@ def register_spec(
     *,
     risk_class: str = "low",
     capabilities: Optional[List[str]] = None,
+    description: str = "",
+    examples: Optional[List[str]] = None,
 ) -> AgentSpec:
     """Register metadata describing an agent's capabilities."""
 
@@ -55,6 +59,8 @@ def register_spec(
         domain=domain,
         risk_class=risk_class,
         capabilities=capabilities or [],
+        description=description,
+        examples=examples or [],
     )
     _SPECS[name] = spec
     return spec

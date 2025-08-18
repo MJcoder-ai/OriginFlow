@@ -6,7 +6,21 @@ The frontend enhancements transform OriginFlow from a traditional CAD tool into 
 
 ## New Components
 
-### 1. ODL Code View (`ODLCodeView.tsx`)
+### 1. AI Agents Panel
+
+**Purpose**: Discover and configure available AI agents.
+
+**Backend Support**:
+- `GET /api/v1/agents` — list all registered agents with metadata such as
+  domain, risk class, capabilities and example commands.
+- `GET /api/v1/agents/{name}` — retrieve detailed information for a single
+  agent.
+
+**Usage**: Use these endpoints to populate a sidebar panel showing all agents.
+When an agent is selected, display its description, capabilities and example
+commands.
+
+### 2. ODL Code View (`ODLCodeView.tsx`)
 
 **Purpose**: Live textual representation of the design in ODL format
 
@@ -33,7 +47,7 @@ The frontend enhancements transform OriginFlow from a traditional CAD tool into 
 **Integration**:
 Added as new layer "ODL Code" in the main workspace canvas. The view reflects the same session used for design tasks.
 
-### 2. Requirements Form (`RequirementsForm.tsx`)
+### 3. Requirements Form (`RequirementsForm.tsx`)
 
 **Purpose**: Comprehensive form for entering and editing design requirements
 
@@ -83,7 +97,7 @@ if (requirements.budget < 1000) {
 />
 ```
 
-### 3. Component Selection Modal (`ComponentSelectionModal.tsx`)
+### 4. Component Selection Modal (`ComponentSelectionModal.tsx`)
 
 **Purpose**: Interactive interface for selecting real components to replace placeholders
 
@@ -133,7 +147,7 @@ interface ComponentOption {
 />
 ```
 
-### 4. Enhanced Plan Timeline (`EnhancedPlanTimeline.tsx`)
+### 5. Enhanced Plan Timeline (`EnhancedPlanTimeline.tsx`)
 
 **Purpose**: Advanced visualization and control of the design planning process
 

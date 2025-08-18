@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Dict, List, Any, Optional
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.deps import get_session
@@ -30,6 +30,7 @@ class AgentInfo(BaseModel):
     risk_class: str
     capabilities: List[str]
     description: Optional[str] = None
+    examples: List[str] = Field(default_factory=list)
     version: Optional[str] = None
     enabled: bool = True
 
@@ -48,8 +49,9 @@ class AgentRegistrationRequest(BaseModel):
     name: str
     domain: str
     risk_class: str = "medium"
-    capabilities: List[str] = []
+    capabilities: List[str] = Field(default_factory=list)
     description: Optional[str] = None
+    examples: List[str] = Field(default_factory=list)
 
 
 @router.get("/", response_model=List[AgentInfo])
@@ -76,6 +78,7 @@ async def list_agents(
                 risk_class=spec.risk_class,
                 capabilities=spec.capabilities,
                 description=getattr(spec, 'description', None),
+                examples=getattr(spec, 'examples', []),
                 version=getattr(spec, 'version', None),
                 enabled=True
             ))
@@ -87,6 +90,7 @@ async def list_agents(
                 risk_class="unknown",
                 capabilities=[],
                 description=f"Legacy agent: {name}",
+                examples=[],
                 enabled=True
             ))
     
@@ -149,6 +153,7 @@ async def get_agent_info(
             risk_class=spec.risk_class,
             capabilities=spec.capabilities,
             description=getattr(spec, 'description', None),
+            examples=getattr(spec, 'examples', []),
             version=getattr(spec, 'version', None),
             enabled=True
         )
@@ -210,7 +215,9 @@ async def register_agent(
             name=request.name,
             domain=request.domain,
             risk_class=request.risk_class,
-            capabilities=request.capabilities
+            capabilities=request.capabilities,
+            description=request.description or "",
+            examples=request.examples or [],
         )
         
         return {
