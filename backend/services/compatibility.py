@@ -17,7 +17,7 @@ validation and easy extension in future releases.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -36,13 +36,13 @@ class CompatibilityIssue(BaseModel):
     severity: str
     category: str
     message: str
-    suggested_solutions: List[str] = Field(default_factory=list)
+    suggested_solutions: list[str] = Field(default_factory=list)
 
 
 class ValidationResult(BaseModel):
     """Container for issues produced by a single rule category."""
 
-    issues: List[CompatibilityIssue]
+    issues: list[CompatibilityIssue]
 
     def is_ok(self) -> bool:
         """Return ``True`` when no issues are present."""
@@ -53,20 +53,12 @@ class ValidationResult(BaseModel):
 class CompatibilityReport(BaseModel):
     """Aggregated results across multiple rule categories."""
 
-    electrical: ValidationResult
-    mechanical: ValidationResult  
-    thermal: ValidationResult
-    communication: ValidationResult
+    results: dict[str, ValidationResult]
 
     def total_issues(self) -> int:
         """Return the total number of issues across all categories."""
 
-        return (
-            len(self.electrical.issues) + 
-            len(self.mechanical.issues) + 
-            len(self.thermal.issues) + 
-            len(self.communication.issues)
-        )
+        return sum(len(result.issues) for result in self.results.values())
 
 
 class ElectricalCompatibilityRules:
@@ -79,8 +71,8 @@ class ElectricalCompatibilityRules:
 
     async def validate(
         self,
-        components: Dict[str, Any],
-        connections: List[Dict[str, str]],
+        components: dict[str, Any],
+        connections: list[dict[str, str]],
     ) -> ValidationResult:
         # TODO: implement electrical validation logic
         return ValidationResult(issues=[])
@@ -95,8 +87,8 @@ class MechanicalCompatibilityRules:
 
     async def validate(
         self,
-        components: Dict[str, Any],
-        connections: List[Dict[str, str]],
+        components: dict[str, Any],
+        connections: list[dict[str, str]],
     ) -> ValidationResult:
         # TODO: implement mechanical validation logic
         return ValidationResult(issues=[])
@@ -112,8 +104,8 @@ class ThermalCompatibilityRules:
 
     async def validate(
         self,
-        components: Dict[str, Any],
-        connections: List[Dict[str, str]],
+        components: dict[str, Any],
+        connections: list[dict[str, str]],
     ) -> ValidationResult:
         # TODO: implement thermal validation logic
         return ValidationResult(issues=[])
@@ -128,8 +120,8 @@ class CommunicationCompatibilityRules:
 
     async def validate(
         self,
-        components: Dict[str, Any],
-        connections: List[Dict[str, str]],
+        components: dict[str, Any],
+        connections: list[dict[str, str]],
     ) -> ValidationResult:
         # TODO: implement communication validation logic
         return ValidationResult(issues=[])
@@ -151,7 +143,7 @@ class CompatibilityEngine:
             "communication": CommunicationCompatibilityRules(),
         }
         # Cache of previous validation results keyed by (session_id, version)
-        self._cache: Dict[tuple[str, int], CompatibilityReport] = {}
+        self._cache: dict[tuple[str, int], CompatibilityReport] = {}
 
     async def validate_system_compatibility(self, snapshot: "DesignSnapshot") -> CompatibilityReport:
         """Validate all compatibility rules against a design snapshot.
@@ -175,13 +167,13 @@ class CompatibilityEngine:
         from backend.schemas.analysis import DesignSnapshot  # noqa: F401
 
         # Convert snapshot into mapping and connection list
-        components: Dict[str, Any] = {comp.id: comp for comp in snapshot.components}
-        connections: List[Dict[str, str]] = [
+        components: dict[str, Any] = {comp.id: comp for comp in snapshot.components}
+        connections: list[dict[str, str]] = [
             {"source_id": link.source_id, "target_id": link.target_id}
             for link in snapshot.links
         ]
 
-        results: Dict[str, ValidationResult] = {}
+        results: dict[str, ValidationResult] = {}
         for name, rule in self.rules.items():
             try:
                 result = await rule.validate(components, connections)
@@ -195,12 +187,7 @@ class CompatibilityEngine:
                 result = ValidationResult(issues=[issue])
             results[name] = result
 
-        report = CompatibilityReport(
-            electrical=results["electrical"],
-            mechanical=results["mechanical"],
-            thermal=results["thermal"],
-            communication=results["communication"]
-        )
+        report = CompatibilityReport(results=results)
 
         if snapshot.session_id and snapshot.version:
             cache_key = (snapshot.session_id, snapshot.version)
@@ -212,4 +199,3 @@ class CompatibilityEngine:
 CompatibilityIssue.model_rebuild()
 ValidationResult.model_rebuild()
 CompatibilityReport.model_rebuild()
-
