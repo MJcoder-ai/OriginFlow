@@ -17,48 +17,13 @@ validation and easy extension in future releases.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Dict, List
 
-from pydantic import BaseModel, Field
-
-
-class CompatibilityIssue(BaseModel):
-    """Represents a single compatibility issue.
-
-    Attributes:
-        severity: A string indicating the severity of the issue (e.g.
-            ``"error"``, ``"warning"``).
-        category: A short category name (e.g. ``"voltage_mismatch"``).
-        message: A human-readable description of the problem.
-        suggested_solutions: Optional list of suggestions to fix the issue.
-    """
-
-    severity: str
-    category: str
-    message: str
-    suggested_solutions: list[str] = Field(default_factory=list)
-
-
-class ValidationResult(BaseModel):
-    """Container for issues produced by a single rule category."""
-
-    issues: list[CompatibilityIssue]
-
-    def is_ok(self) -> bool:
-        """Return ``True`` when no issues are present."""
-
-        return len(self.issues) == 0
-
-
-class CompatibilityReport(BaseModel):
-    """Aggregated results across multiple rule categories."""
-
-    results: dict[str, ValidationResult]
-
-    def total_issues(self) -> int:
-        """Return the total number of issues across all categories."""
-
-        return sum(len(result.issues) for result in self.results.values())
+from backend.schemas.compatibility import (
+    CompatibilityIssue,
+    ValidationResult,
+    CompatibilityReport,
+)
 
 
 class ElectricalCompatibilityRules:
@@ -194,8 +159,3 @@ class CompatibilityEngine:
             self._cache[cache_key] = report
 
         return report
-
-
-CompatibilityIssue.model_rebuild()
-ValidationResult.model_rebuild()
-CompatibilityReport.model_rebuild()

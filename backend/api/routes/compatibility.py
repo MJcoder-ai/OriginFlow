@@ -22,7 +22,8 @@ application using ``app.include_router``.
 from fastapi import APIRouter
 
 from backend.schemas.analysis import DesignSnapshot
-from backend.services.compatibility import CompatibilityEngine, CompatibilityReport
+from backend.schemas.compatibility import CompatibilityReport
+from backend.services.compatibility import CompatibilityEngine
 from backend.services.metrics_service import metrics
 
 
