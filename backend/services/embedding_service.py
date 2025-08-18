@@ -96,3 +96,14 @@ class EmbeddingService:
         ]
         query_text = " ".join(parts)
         return (await self.embed_text([query_text]))[0]
+
+_embedder_instance: Optional[SentenceTransformer] = None
+
+def get_sentence_embedder() -> SentenceTransformer:
+    """Return a shared SentenceTransformer encoder for synchronous use."""
+    global _embedder_instance
+    if _embedder_instance is None:
+        if SentenceTransformer is None:  # pragma: no cover - optional dependency
+            raise RuntimeError("SentenceTransformer not installed")
+        _embedder_instance = SentenceTransformer(settings.embedding_model_name)
+    return _embedder_instance

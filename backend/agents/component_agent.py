@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from openai import AsyncOpenAI, OpenAIError
 from fastapi import HTTPException
@@ -17,6 +17,8 @@ from backend.agents.registry import register, register_spec
 from backend.config import settings
 from backend.schemas.ai import AiAction, AiActionType
 from backend.schemas.component import ComponentCreate
+from backend.schemas.analysis import DesignSnapshot
+from backend.services.ai.state_action_resolver import StateAwareActionResolver
 from backend.services.component_service import find_component_by_name
 from backend.services.component_db_service import get_component_db_service
 from backend.services.ai_clients import get_openai_client
@@ -37,9 +39,10 @@ class ComponentAgent(AgentBase):
     def __init__(self, client: AsyncOpenAI) -> None:
         self.client = client
 
-    async def _lookup_component(self, command: str) -> List[Dict[str, Any]] | None:
+    async def _lookup_component(
+        self, command: str, snapshot: Optional[DesignSnapshot] = None
+    ) -> List[Dict[str, Any]] | None:
         """Attempt a direct database lookup before invoking the LLM."""
-        text = command.lower()
         async for svc in get_component_db_service():
             comp_service = svc
             break
@@ -52,6 +55,7 @@ class ComponentAgent(AgentBase):
                     "name": comp.get("name"),
                     "type": comp.get("category"),
                     "standard_code": comp.get("part_number"),
+                    "_resolver": {"confidence": 1.0, "rationale": "matched_part_number"},
                 }
                 return [
                     AiAction(action=AiActionType.add_component, payload=payload, version=1).model_dump(),
@@ -62,32 +66,22 @@ class ComponentAgent(AgentBase):
                     ).model_dump(),
                 ]
 
-        category = None
-        if any(w in text for w in ["string inverter", "inverter"]):
-            category = "inverter"
-        elif any(
-            w in text for w in ["pv module", "pv panel", "pv", "module", "panel", "solar panel", "solar module"]
-        ):
-            category = "panel"
-        elif any(w in text for w in ["battery", "storage", "accumulator"]):
-            category = "battery"
-
+        resolver = StateAwareActionResolver()
+        decision = resolver.resolve_add_component(command, snapshot)
+        category = decision.component_class
         if not category:
             return None
 
         comps = await comp_service.search(category=category)
         if not comps:
-            # Fall back to a generic placeholder if no real components are available.
+            payload = {
+                "name": f"generic_{category}",
+                "type": category,
+                "standard_code": None,
+                "_resolver": {"confidence": decision.confidence, "rationale": decision.rationale},
+            }
             return [
-                AiAction(
-                    action=AiActionType.add_component,
-                    payload={
-                        "name": f"generic_{category}",
-                        "type": category,
-                        "standard_code": None,
-                    },
-                    version=1,
-                ).model_dump(),
+                AiAction(action=AiActionType.add_component, payload=payload, version=1).model_dump(),
                 AiAction(
                     action=AiActionType.validation,
                     payload={
@@ -108,10 +102,9 @@ class ComponentAgent(AgentBase):
             "name": chosen.get("name"),
             "type": chosen.get("category"),
             "standard_code": chosen.get("part_number"),
+            "_resolver": {"confidence": decision.confidence, "rationale": decision.rationale},
         }
-        message = (
-            f"ComponentAgent found {len(comps)} {category}(s); selecting the cheapest."
-        )
+        message = f"ComponentAgent found {len(comps)} {category}(s); selecting the cheapest."
         return [
             AiAction(action=AiActionType.add_component, payload=payload, version=1).model_dump(),
             AiAction(
@@ -124,7 +117,8 @@ class ComponentAgent(AgentBase):
     async def handle(self, command: str, **kwargs) -> List[Dict[str, Any]]:
         """Return validated component actions."""
 
-        db_actions = await self._lookup_component(command)
+        snapshot: Optional[DesignSnapshot] = kwargs.get("snapshot")
+        db_actions = await self._lookup_component(command, snapshot)
         if db_actions is not None:
             return db_actions
 
@@ -184,19 +178,9 @@ class ComponentAgent(AgentBase):
                                 f"Using library component {comp.get('part_number')} from the datasheet"
                             )
                     if validation_msg is None:
-                        category = None
-                        if any(w in name_lower or w in type_lower for w in ["string inverter", "inverter"]):
-                            category = "inverter"
-                        elif any(
-                            w in name_lower
-                            or w in type_lower
-                            for w in ["pv", "module", "panel", "solar"]
-                        ):
-                            category = "panel"
-                        elif any(
-                            w in name_lower or w in type_lower for w in ["battery", "storage", "accumulator"]
-                        ):
-                            category = "battery"
+                        resolver = StateAwareActionResolver()
+                        decision = resolver.resolve_add_component(command, snapshot)
+                        category = decision.component_class
                         if category:
                             comps = await comp_service.search(category=category)
                             if comps:
@@ -219,6 +203,10 @@ class ComponentAgent(AgentBase):
                                     f"No {category} in the library; using a generic placeholder. "
                                     f"Please upload a {category} datasheet for more accurate results."
                                 )
+                        enriched["_resolver"] = {
+                            "confidence": decision.confidence,
+                            "rationale": decision.rationale,
+                        }
                 except Exception as e:
                     import logging
                     logger = logging.getLogger(__name__)
