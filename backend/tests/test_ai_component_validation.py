@@ -28,8 +28,9 @@ def test_auto_standard_code_generated():
     actions = orch._validate_actions(
         [
             {
-                "action": "add_component",
+                "action": "addComponent",
                 "payload": {"name": "Panel", "type": "panel"},
+                "version": 1,
             }
         ]
     )
@@ -42,8 +43,9 @@ def test_invalid_component_payload_returns_422():
         orch._validate_actions(
             [
                 {
-                    "action": "add_component",
+                    "action": "addComponent",
                     "payload": {"type": "panel"},  # missing name
+                    "version": 1,
                 }
             ]
         )

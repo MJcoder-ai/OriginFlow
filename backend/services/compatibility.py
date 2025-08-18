@@ -53,12 +53,20 @@ class ValidationResult(BaseModel):
 class CompatibilityReport(BaseModel):
     """Aggregated results across multiple rule categories."""
 
-    results: Dict[str, ValidationResult]
+    electrical: ValidationResult
+    mechanical: ValidationResult  
+    thermal: ValidationResult
+    communication: ValidationResult
 
     def total_issues(self) -> int:
         """Return the total number of issues across all categories."""
 
-        return sum(len(result.issues) for result in self.results.values())
+        return (
+            len(self.electrical.issues) + 
+            len(self.mechanical.issues) + 
+            len(self.thermal.issues) + 
+            len(self.communication.issues)
+        )
 
 
 class ElectricalCompatibilityRules:
@@ -187,7 +195,12 @@ class CompatibilityEngine:
                 result = ValidationResult(issues=[issue])
             results[name] = result
 
-        report = CompatibilityReport(results=results)
+        report = CompatibilityReport(
+            electrical=results["electrical"],
+            mechanical=results["mechanical"],
+            thermal=results["thermal"],
+            communication=results["communication"]
+        )
 
         if snapshot.session_id and snapshot.version:
             cache_key = (snapshot.session_id, snapshot.version)
