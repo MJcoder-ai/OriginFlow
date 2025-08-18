@@ -29,6 +29,8 @@ class CanvasComponent(BaseModel):
     # Accept int or float for coordinates
     x: Union[int, float]
     y: Union[int, float]
+    locked_in_layers: Optional[Dict[str, bool]] = None
+    layout: Optional[Dict[str, Dict[str, float]]] = None
 
     @field_validator("x", "y", mode="before")
     def _coerce_numeric(cls, v: Any) -> float:

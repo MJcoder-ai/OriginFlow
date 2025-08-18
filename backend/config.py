@@ -6,6 +6,16 @@ Defines environment-driven settings using Pydantic for the backend application.
 from __future__ import annotations
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+import os
+
+# ---- Layout provider configuration ----
+# LAYOUT_PROVIDER: "elk" | "dagre" | "builtin"
+# - "elk": server will call an HTTP ELK endpoint to compute positions.
+# - "dagre": server delegates to client (frontend) for layout; server API returns 501.
+# - "builtin": server uses the simple layered fallback from layout_engine.py.
+LAYOUT_PROVIDER = os.getenv("LAYOUT_PROVIDER", "builtin").lower()
+# For "elk" provider, set an ELK HTTP service URL (e.g., http://localhost:7777/elk/layout)
+LAYOUT_HTTP_URL = os.getenv("LAYOUT_HTTP_URL", "").strip()
 
 
 class Settings(BaseSettings):

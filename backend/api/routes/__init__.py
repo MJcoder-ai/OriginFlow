@@ -22,3 +22,4 @@ from . import agents  # noqa: F401  pylint: disable=unused-import
 from . import compatibility  # noqa: F401  pylint: disable=unused-import
 from . import snapshots  # noqa: F401  pylint: disable=unused-import
 from . import metrics  # noqa: F401  pylint: disable=unused-import
+from . import layout  # noqa: F401  pylint: disable=unused-import
