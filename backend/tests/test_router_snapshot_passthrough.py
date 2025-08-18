@@ -1,7 +1,12 @@
 import pytest
+import sys
+from pathlib import Path
 
-from backend.agents.router_agent import RouterAgent
-from backend.agents.component_agent import ComponentAgent
+# Add project root to Python path for imports
+sys.path.append(str(Path(__file__).resolve().parents[2]))
+
+from backend.agents.router_agent import RouterAgent  # noqa: E402
+from backend.agents.component_agent import ComponentAgent  # noqa: E402
 
 
 @pytest.mark.asyncio

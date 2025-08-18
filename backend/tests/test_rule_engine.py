@@ -10,7 +10,13 @@ pytest -q backend/tests/test_rule_engine.py
 ```
 """
 
-from backend.services.rule_engine import RuleEngine
+import sys
+from pathlib import Path
+
+# Add project root to Python path for imports
+sys.path.append(str(Path(__file__).resolve().parents[2]))
+
+from backend.services.rule_engine import RuleEngine  # noqa: E402
 
 
 def test_size_wire_nominal_case() -> None:

@@ -1,11 +1,16 @@
 import pytest
+import sys
+from pathlib import Path
 
-from backend.agents.learning_agent import LearningAgent
-from backend.agents import learning_agent as learning_agent_module
-from backend.schemas.ai import AiAction, AiActionType
-from backend.services.anonymizer_service import AnonymizerService
-from backend.services.embedding_service import EmbeddingService
-from backend.services.reference_confidence_service import ReferenceConfidenceService
+# Add project root to Python path for imports
+sys.path.append(str(Path(__file__).resolve().parents[2]))
+
+from backend.agents.learning_agent import LearningAgent  # noqa: E402
+from backend.agents import learning_agent as learning_agent_module  # noqa: E402
+from backend.schemas.ai import AiAction, AiActionType  # noqa: E402
+from backend.services.anonymizer_service import AnonymizerService  # noqa: E402
+from backend.services.embedding_service import EmbeddingService  # noqa: E402
+from backend.services.reference_confidence_service import ReferenceConfidenceService  # noqa: E402
 
 
 class DummyEmbedder(EmbeddingService):

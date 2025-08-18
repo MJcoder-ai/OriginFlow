@@ -1,6 +1,11 @@
 import asyncio
+import sys
+from pathlib import Path
 
-from backend.services.component_db_service import ComponentDBService
+# Add project root to Python path for imports
+sys.path.append(str(Path(__file__).resolve().parents[2]))
+
+from backend.services.component_db_service import ComponentDBService  # noqa: E402
 
 
 def test_get_by_part_number():

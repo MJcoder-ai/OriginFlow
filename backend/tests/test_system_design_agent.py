@@ -1,9 +1,14 @@
 from types import SimpleNamespace
+import sys
+from pathlib import Path
 
 import pytest
 
-from backend.agents import system_design_agent as sda
-from backend.schemas.ai import AiActionType
+# Add project root to Python path for imports
+sys.path.append(str(Path(__file__).resolve().parents[2]))
+
+from backend.agents import system_design_agent as sda  # noqa: E402
+from backend.schemas.ai import AiActionType  # noqa: E402
 
 
 class EmptyService:
