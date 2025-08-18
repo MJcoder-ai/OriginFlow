@@ -20,13 +20,12 @@ os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///./test.db")
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 
-# Import rule_engine directly to avoid services package dependencies
-import importlib.util
-rule_engine_path = Path(__file__).resolve().parent.parent / "services" / "rule_engine.py"
-spec = importlib.util.spec_from_file_location("rule_engine", rule_engine_path)
-rule_engine_module = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(rule_engine_module)
-RuleEngine = rule_engine_module.RuleEngine
+# Add services directory to path to import rule_engine directly
+services_dir = Path(__file__).resolve().parent.parent / "services"
+if str(services_dir) not in sys.path:
+    sys.path.insert(0, str(services_dir))
+
+from rule_engine import RuleEngine  # noqa: E402
 
 
 def test_size_wire_nominal_case() -> None:
