@@ -16,7 +16,7 @@ Recent updates introduce a **Multi-Domain Platform** with placeholder component 
   - **Requirements Management**: Comprehensive form-based requirement collection and validation
   - **Version Control**: Complete graph versioning with patch history and revert capabilities
   - **Enhanced APIs**: 15+ new endpoints for ODL session management, component selection, and analysis
-  - **Governance & Safety Policies**: Risk-based auto‑approval based on agent classifications and confidence scores, ensuring high‑risk actions always require human review
+  - **Governance & Safety Policies**: Risk-based auto‑approval based on agent classifications and confidence scores, with per‑tenant thresholds, whitelists and a manual approval queue for high‑risk actions
   - **Extended Multi‑Domain Support**: Battery and monitoring agents automatically design energy storage and telemetry systems, deepening the placeholder‑first multi‑domain framework
   - **Observability & Learning**: Lightweight telemetry helpers and instrumented orchestrators provide visibility into latency and approval rates, laying the groundwork for continuous confidence calibration and adaptive learning
   - **Error Handling & Concurrency**: Custom exception types, idempotent graph updates with per‑session locks, and safe agent wrappers ensure robustness in the face of failures and concurrent access
@@ -24,6 +24,8 @@ Recent updates introduce a **Multi-Domain Platform** with placeholder component 
   - **Enhanced Rule Engine**: Deterministic sizing extended to conduits and structural mounts; new functions compute recommended conduit cross‑sections and mount load capacities and validate installed components for NEC/IEC compliance
   - **Compliance & Rule Engine**: Enhanced rule engine with validation of installed wires and fuses; cross-layer validation agent now checks for unconnected components
   - **ADPF Integration**: All AI agents return results in a standard JSON envelope with meta-cognitive reasoning (`thought`), structured output and status.  See `backend/utils/adpf.py` for details.
+
+For additional governance details, see [docs/governance-approvals.md](docs/governance-approvals.md).
 
 ### Planner and Domain Agents
 

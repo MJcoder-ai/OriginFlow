@@ -39,26 +39,30 @@ class AnalyzeOrchestrator(AiOrchestrator):
         except Exception as e:
             logger.warning(f"Failed to assign confidence scores: {e}")
         
-        # Apply risk- and confidence-driven autonomy (gated by env flag)
         import logging
         logger = logging.getLogger(__name__)
-        AI_AUTO_APPROVE = os.getenv("AI_AUTO_APPROVE", "false").lower() == "true"
-        if AI_AUTO_APPROVE:
-            logger.info(f"Applying risk-based autonomy to {len(actions)} actions")
-            # Import here to avoid circular dependencies at module load time
+        try:
+            from backend.database.session import SessionMaker  # type: ignore
+            from backend.services.config_service import ConfigService  # type: ignore
             from backend.policy.risk_policy import RiskPolicy  # type: ignore
-            # Measure how long it takes to determine auto-approval
+
+            thresholds = None
+            whitelist: set[str] | None = None
+            async with SessionMaker() as _sess:
+                settings = await ConfigService.get_or_create(_sess, tenant_id=None)
+                thresholds = settings.thresholds()
+                whitelist = settings.whitelist_set()
+
             with trace_span("analyze_service.auto_approval", action_count=len(actions)):
                 for action in actions:
-                    # Use the risk policy to determine auto-approval; since AnalyzeOrchestrator
-                    # does not propagate agent names, we default to a synthetic "analyze_agent".
                     auto = RiskPolicy.is_auto_approved(
                         agent_name="analyze_agent",
                         action_type=action.action,
                         confidence=action.confidence,
+                        thresholds_override=thresholds,
+                        whitelist=whitelist,
                     )
                     action.auto_approved = bool(auto)
-                    # Record a metric for each approval decision
                     record_metric(
                         "action.auto_approved.decision",
                         1 if auto else 0,
@@ -68,8 +72,8 @@ class AnalyzeOrchestrator(AiOrchestrator):
                         f"{'AUTO-APPROVED' if auto else 'MANUAL APPROVAL'}: "
                         f"{action.action} (confidence {action.confidence})"
                     )
-        else:
-            logger.info("Risk-based autonomy disabled; routing all actions to human review")
+        except Exception:
+            logger.info("Risk-based autonomy configuration unavailable; routing all actions to manual review")
             for action in actions:
                 action.auto_approved = False
         

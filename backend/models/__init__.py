@@ -18,6 +18,8 @@ from .design_vector import DesignVector  # noqa: F401
 from .ai_action_vector import AiActionVector  # noqa: F401
 from .memory import Memory  # noqa: F401
 from .trace_event import TraceEvent  # noqa: F401
+from .tenant_settings import TenantSettings  # noqa: F401
+from .pending_action import PendingAction  # noqa: F401
 
 # Import auth models
 try:
@@ -36,5 +38,7 @@ __all__ = [
     "AiActionVector",
     "Memory",
     "TraceEvent",
+    "TenantSettings",
+    "PendingAction",
     "User",
 ]

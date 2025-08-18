@@ -22,6 +22,8 @@ from .calculation_engines import (  # noqa: F401
 )
 from .workflow_engine import WorkflowEngine, SagaStep  # noqa: F401
 from .snapshot_service import SnapshotService  # noqa: F401
+from .config_service import ConfigService  # noqa: F401
+from .approval_service import ApprovalService  # noqa: F401
 
 __all__ = [
     "PlannerOrchestrator",
@@ -34,4 +36,6 @@ __all__ = [
     "HVACCalculationEngine",
     "WaterCalculationEngine",
     "SnapshotService",
+    "ConfigService",
+    "ApprovalService",
 ]
