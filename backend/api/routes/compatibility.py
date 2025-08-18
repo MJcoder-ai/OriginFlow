@@ -23,6 +23,7 @@ from fastapi import APIRouter
 
 from backend.schemas.analysis import DesignSnapshot
 from backend.services.compatibility import CompatibilityEngine, CompatibilityReport
+from backend.services.metrics_service import metrics
 
 
 router = APIRouter()
@@ -51,5 +52,12 @@ async def validate_compatibility(snapshot: DesignSnapshot) -> CompatibilityRepor
         A :class:`CompatibilityReport` with validation results.
     """
 
-    return await _engine.validate_system_compatibility(snapshot)
+    import time
+
+    start = time.perf_counter()
+    report = await _engine.validate_system_compatibility(snapshot)
+    duration = time.perf_counter() - start
+    metrics.record_latency("validate_compatibility", duration)
+    metrics.increment_counter("compatibility_validations")
+    return report
 
