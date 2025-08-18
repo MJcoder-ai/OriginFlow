@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -52,6 +52,16 @@ class CanvasLink(BaseModel):
     id: str
     source_id: str
     target_id: str
+    # Per-layer orthogonal waypoints persisted to keep canvas and ODL aligned
+    path_by_layer: Dict[
+        Literal["single_line", "high_level", "civil", "networking", "physical"],
+        List[Dict[str, float]],
+    ] = Field(default_factory=dict)
+    # Lock flag per layer; when true, router should not alter this link's path
+    locked_in_layers: Dict[
+        Literal["single_line", "high_level", "civil", "networking", "physical"],
+        bool,
+    ] = Field(default_factory=dict)
 
 
 class LayerSnapshot(BaseModel):
@@ -79,3 +89,6 @@ class DesignSnapshot(BaseModel):
 
 
 DesignSnapshot.model_rebuild()
+
+# Backwards compatibility for modules expecting `Link`
+Link = CanvasLink

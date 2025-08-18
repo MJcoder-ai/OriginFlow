@@ -14,6 +14,7 @@ import SubAssemblyButton from './SubAssemblyButton';
 import ODLCodeView from './ODLCodeView';
 import clsx from 'clsx';
 import { suggestLayout } from '../layout/LayoutManager';
+import { routeEdgesElk } from '../layout/EdgeRouter';
 
 /** A component card rendered on the canvas with a connection handle */
 const PortHandle: React.FC<{
@@ -249,6 +250,56 @@ const Workspace: React.FC = () => {
     }
   };
 
+  // Auto route edges on the current layer
+  const onAutoRoute = async () => {
+    const layerMap: Record<string, string> = {
+      'Single-Line Diagram': 'single_line',
+      'High-Level Overview': 'high_level',
+      'Civil/Structural': 'civil',
+      'Networking/Monitoring': 'networking',
+      'ODL Code': 'physical',
+    };
+    const layerName = layerMap[currentLayer] || 'single_line';
+    try {
+      const resp = await fetch(
+        `/api/v1/layout/route?session_id=${sessionId}&layer=${layerName}`,
+        { method: 'POST' },
+      );
+      if (resp.status === 501) throw new Error('client router');
+      if (!resp.ok) throw new Error(await resp.text());
+      return;
+    } catch {
+      const lockedLinks: Record<string, boolean> = {};
+      links.forEach(
+        (e) => (lockedLinks[e.id] = e.locked_in_layers?.[layerName] ?? false),
+      );
+      const nodes = canvasComponents.map((c) => ({
+        id: c.id,
+        width: 120,
+        height: 72,
+        layout: { [layerName]: { x: c.x, y: c.y } },
+      }));
+      const edges = links.map((l) => ({
+        id: l.id,
+        source: l.source_id,
+        target: l.target_id,
+      }));
+      const paths = await routeEdgesElk(nodes, edges, layerName as any, lockedLinks);
+      await Promise.all(
+        Object.entries(paths).map(([id, pts]) =>
+          fetch(`/api/v1/links/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              path_by_layer: { [layerName]: pts },
+              locked_in_layers: { [layerName]: false },
+            }),
+          }),
+        ),
+      );
+    }
+  };
+
 
 
   // Render ODL Code View for the ODL Code layer
@@ -288,6 +339,12 @@ const Workspace: React.FC = () => {
           className="px-3 py-1 rounded-md text-sm bg-gray-100 text-gray-700 hover:bg-gray-200"
         >
           Auto Layout
+        </button>
+        <button
+          onClick={onAutoRoute}
+          className="px-3 py-1 rounded-md text-sm bg-gray-100 text-gray-700 hover:bg-gray-200"
+        >
+          Auto Route
         </button>
       </div>
       <div className="flex-grow relative">
