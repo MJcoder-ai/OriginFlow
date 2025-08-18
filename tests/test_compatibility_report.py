@@ -8,18 +8,11 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))
 
-import importlib.util
-
-spec = importlib.util.spec_from_file_location(
-    "compatibility", ROOT / "backend" / "services" / "compatibility.py"
+from backend.schemas.compatibility import (
+    CompatibilityIssue,
+    CompatibilityReport,
+    ValidationResult,
 )
-module = importlib.util.module_from_spec(spec)
-assert spec and spec.loader
-spec.loader.exec_module(module)
-
-CompatibilityIssue = module.CompatibilityIssue
-CompatibilityReport = module.CompatibilityReport
-ValidationResult = module.ValidationResult
 
 
 def test_total_issues_counts_all() -> None:
