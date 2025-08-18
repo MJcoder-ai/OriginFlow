@@ -142,26 +142,26 @@ class DesignCard(BaseModel):
 
 class TaskExecutionResponse(BaseModel):
     """Enhanced response model for task execution with status updates."""
-    card: Dict[str, Any]
-    patch: Dict[str, Any] | None = None
-    status: str
-    version: int | None = None
-    updated_tasks: List[Dict[str, Any]] | None = None
-    next_recommended_task: str | None = None
-    execution_time_ms: int | None = None
+    card: DesignCard
+    patch: Optional[Dict[str, Any]] = None
+    status: str = Field(..., pattern="^(pending|in_progress|complete|blocked)$")
+    version: Optional[int] = None
+    updated_tasks: Optional[List[Dict[str, Any]]] = None
+    next_recommended_task: Optional[str] = None
+    execution_time_ms: Optional[int] = Field(None, ge=0)
 
 
 class VersionDiffResponse(BaseModel):
     """Response model for version difference queries."""
-    from_version: int
-    to_version: int
+    from_version: int = Field(..., ge=1)
+    to_version: int = Field(..., ge=1)
     changes: List[Dict[str, Any]]
     summary: str
 
 
 class VersionRevertRequest(BaseModel):
     """Request model for version revert operations."""
-    target_version: int
+    target_version: int = Field(..., ge=1)
 
 
 class VersionRevertResponse(BaseModel):

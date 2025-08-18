@@ -129,7 +129,9 @@ class ComponentSelectorAgent:
                         )
                         all_candidates.append(candidate)
                 except Exception as e:
-                    print(f"Error searching for {category}: {e}")
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.warning(f"Error searching for {category}: {e}")
                     continue
             
             if not all_candidates:
@@ -146,7 +148,9 @@ class ComponentSelectorAgent:
             return ranked_candidates[:5]  # Return top 5 candidates
         
         except Exception as e:
-            print(f"Error finding candidates for {placeholder_type}: {e}")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Error finding candidates for {placeholder_type}: {e}")
             return []
     
     def _filter_candidates(self, candidates: List[ComponentCandidate], placeholder_type: str, 
@@ -210,7 +214,9 @@ class ComponentSelectorAgent:
             return filtered
         
         except Exception as e:
-            print(f"Error filtering candidates: {e}")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Error filtering candidates: {e}")
             return candidates
     
     def _rank_candidates(self, candidates: List[ComponentCandidate], requirements: Dict) -> List[ComponentCandidate]:
@@ -251,7 +257,9 @@ class ComponentSelectorAgent:
             return sorted(candidates, key=lambda x: x.suitability_score, reverse=True)
         
         except Exception as e:
-            print(f"Error ranking candidates: {e}")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Error ranking candidates: {e}")
             return candidates
     
     async def _create_selection_card(self, session_id: str, placeholders_by_type: Dict, 
@@ -375,7 +383,9 @@ class ComponentSelectorAgent:
             
             return alternatives
         except Exception as e:
-            print(f"Error creating alternatives list: {e}")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Error creating alternatives list: {e}")
             return []
 
     async def replace_placeholder(self, session_id: str, placeholder_id: str, 

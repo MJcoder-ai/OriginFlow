@@ -23,10 +23,48 @@ export interface PlanResponse {
   quick_actions?: QuickAction[];
 }
 
+export interface GraphPatch {
+  add_nodes?: Array<{
+    id: string;
+    type: string;
+    data?: Record<string, any>;
+    layer?: string;
+  }>;
+  add_edges?: Array<{
+    source: string;
+    target: string;
+    data?: Record<string, any>;
+  }>;
+  remove_nodes?: string[];
+  remove_edges?: Array<{
+    source: string;
+    target: string;
+  }>;
+}
+
 export interface TaskExecutionResponse {
-  patch?: { add_nodes?: any[]; add_edges?: any[]; remove_nodes?: any[]; remove_edges?: any[] };
-  card?: any;
-  status: string;
+  patch?: GraphPatch;
+  card?: {
+    title: string;
+    body: string;
+    confidence?: number;
+    specs?: Array<{
+      label: string;
+      value: string;
+      unit?: string;
+      confidence?: number;
+    }>;
+    actions?: Array<{
+      label: string;
+      command: string;
+      variant?: string;
+      enabled?: boolean;
+      icon?: string;
+    }>;
+    warnings?: string[];
+    recommendations?: string[];
+  };
+  status: 'pending' | 'in_progress' | 'complete' | 'blocked';
   version?: number;
   updated_tasks?: any[];
   next_recommended_task?: string | null;

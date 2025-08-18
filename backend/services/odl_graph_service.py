@@ -642,7 +642,9 @@ async def get_graph_with_text(session_id: str) -> Optional[Dict[str, Any]]:
         }
     
     except Exception as e:
-        print(f"Error getting graph with text for session {session_id}: {e}")
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error getting graph with text for session {session_id}: {e}", exc_info=True)
         return None
 
 
@@ -697,7 +699,9 @@ def analyze_placeholder_status(graph: nx.DiGraph) -> Dict[str, Any]:
         }
     
     except Exception as e:
-        print(f"Error analyzing placeholder status: {e}")
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error analyzing placeholder status: {e}", exc_info=True)
         return {
             "total_placeholders": 0,
             "placeholders_by_type": {},
@@ -734,7 +738,9 @@ async def update_requirements(session_id: str, requirements: Dict[str, Any]) -> 
         return True
     
     except Exception as e:
-        print(f"Error updating requirements for session {session_id}: {e}")
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error updating requirements for session {session_id}: {e}", exc_info=True)
         return False
 
 

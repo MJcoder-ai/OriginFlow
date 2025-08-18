@@ -45,10 +45,14 @@ async def lifespan(app: FastAPI):
             await conn.run_sync(Base.metadata.create_all)
     except Exception as exc:
         # Do not crash if table creation fails; log an error
-        print(f"Database table creation failed: {exc}")
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Database table creation failed: {exc}", exc_info=True)
 
     yield
-    print("Cleaning up AI services.")
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info("Cleaning up AI services.")
 
 
 app = FastAPI(title="OriginFlow API", lifespan=lifespan)

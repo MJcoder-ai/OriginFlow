@@ -34,29 +34,63 @@ router = APIRouter(prefix="/odl", tags=["odl"])
 @router.post("/sessions", response_model=CreateSessionResponse)
 async def create_session(request: CreateSessionRequest = Body(...)) -> CreateSessionResponse:
     """Create a new ODL design session."""
+    import logging
+    logger = logging.getLogger(__name__)
+    
     try:
+        # Validate session_id format if provided
         session_id = request.session_id or str(uuid.uuid4())
         
+        if request.session_id and (len(request.session_id) < 3 or len(request.session_id) > 100):
+            raise HTTPException(
+                status_code=400, 
+                detail="Session ID must be between 3 and 100 characters"
+            )
+        
         # Create the graph
+        logger.info(f"Creating ODL session: {session_id}")
         graph = await odl_graph_service.create_graph(session_id)
 
         if graph is None:
+            logger.error(f"Failed to create graph for session: {session_id}")
             raise HTTPException(status_code=500, detail="Failed to create session")
         
+        logger.info(f"Successfully created ODL session: {session_id}")
         return CreateSessionResponse(session_id=session_id)
     
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating session: {str(e)}")
+        logger.error(f"Unexpected error creating session: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/sessions/{session_id}/plan")
 async def get_session_plan(session_id: str, command: str = "design system") -> Dict[str, Any]:
     """Get the current planning state for a session."""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Validate inputs
+    if not session_id or len(session_id.strip()) == 0:
+        raise HTTPException(status_code=400, detail="Session ID is required")
+    
+    if len(session_id) > 100:
+        raise HTTPException(status_code=400, detail="Session ID too long")
+    
+    if len(command) > 500:
+        raise HTTPException(status_code=400, detail="Command too long (max 500 characters)")
+    
     try:
+        logger.info(f"Getting plan for session: {session_id}, command: {command}")
         planner = PlannerAgent()
         tasks = await planner.plan(session_id, command)
         
-        return {
+        if not isinstance(tasks, list):
+            logger.error(f"Planner returned invalid tasks type: {type(tasks)}")
+            raise HTTPException(status_code=500, detail="Invalid planner response")
+        
+        result = {
             "session_id": session_id,
             "tasks": tasks,
             "total_tasks": len(tasks),
@@ -64,17 +98,37 @@ async def get_session_plan(session_id: str, command: str = "design system") -> D
             "blocked_tasks": len([t for t in tasks if t.get("status") == "blocked"]),
             "pending_tasks": len([t for t in tasks if t.get("status") == "pending"])
         }
+        
+        logger.info(f"Plan generated for {session_id}: {len(tasks)} tasks")
+        return result
     
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting plan: {str(e)}")
+        logger.error(f"Error getting plan for session {session_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to generate plan")
 
 
 @router.post("/sessions/{session_id}/act", response_model=GraphResponse)
 async def act_on_task(session_id: str, request: ActOnTaskRequest) -> GraphResponse:
     """Execute a task from the dynamic plan."""
+    import logging
+    logger = logging.getLogger(__name__)
     start_time = time.time()
     
+    # Validate inputs
+    if not session_id or len(session_id.strip()) == 0:
+        raise HTTPException(status_code=400, detail="Session ID is required")
+    
+    if not request.task_id or len(request.task_id.strip()) == 0:
+        raise HTTPException(status_code=400, detail="Task ID is required")
+    
+    if len(request.task_id) > 100:
+        raise HTTPException(status_code=400, detail="Task ID too long")
+    
     try:
+        logger.info(f"Executing task {request.task_id} for session {session_id}")
+        
         # Check for version conflicts
         if request.graph_version is not None:
             current_graph = await odl_graph_service.get_graph(session_id)
@@ -82,6 +136,7 @@ async def act_on_task(session_id: str, request: ActOnTaskRequest) -> GraphRespon
                 current_version = current_graph.graph.get("version", 1)
                 
                 if request.graph_version != current_version:
+                    logger.warning(f"Version conflict detected: client={request.graph_version}, server={current_version}")
                     raise HTTPException(
                         status_code=409, 
                         detail=f"Version conflict: client has {request.graph_version}, server has {current_version}"
@@ -122,7 +177,7 @@ async def act_on_task(session_id: str, request: ActOnTaskRequest) -> GraphRespon
                 if updated_graph is not None:
                     result["version"] = updated_graph.graph.get("version", 1)
             except Exception as e:
-                print(f"Error applying patch: {e}")
+                logger.warning(f"Error applying patch: {e}")
                 # Continue with the response even if patch fails
         
         # Add execution time
@@ -144,7 +199,8 @@ async def act_on_task(session_id: str, request: ActOnTaskRequest) -> GraphRespon
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error executing task: {str(e)}")
+        logger.error(f"Unexpected error executing task {request.task_id} for session {session_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Task execution failed")
 
 
 @router.put("/sessions/{session_id}/requirements", response_model=RequirementsUpdateResponse)

@@ -219,7 +219,10 @@ class ComponentAgent(AgentBase):
                                     f"No {category} in the library; using a generic placeholder. "
                                     f"Please upload a {category} datasheet for more accurate results."
                                 )
-                except Exception:
+                except Exception as e:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.warning(f"Component enrichment failed: {e}")
                     enriched = dict(payload)
                 actions.append(
                     AiAction(

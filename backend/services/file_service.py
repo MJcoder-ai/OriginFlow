@@ -656,8 +656,9 @@ async def run_parsing_job(asset_id: str, session: AsyncSession, ai_client: Async
                 # exists, the UNIQUE constraint will trigger an update instead.
                 await ai_comp_service.create(ingest_record)
             except Exception as ingest_err:  # pragma: no cover - log and continue
-                # TODO: replace print with structured logging once available
-                print(f"Datasheet ingestion failed: {ingest_err}")
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Datasheet ingestion failed: {ingest_err}")
         except Exception:
             # Swallow any errors during enrichment so that parsing continues
             pass

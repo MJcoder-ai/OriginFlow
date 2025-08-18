@@ -34,8 +34,10 @@ class AnalyzeOrchestrator(AiOrchestrator):
                 req.snapshot.model_dump(),
                 [],
             )
-        except Exception:
-            pass
+        except ImportError as e:
+            logger.warning(f"LearningAgent not available: {e}")
+        except Exception as e:
+            logger.warning(f"Failed to assign confidence scores: {e}")
         
         # Apply risk- and confidence-driven autonomy (gated by env flag)
         import logging

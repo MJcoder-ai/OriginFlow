@@ -543,7 +543,9 @@ Return a JSON array of tasks with reasoning for each decision."""
                 
         except Exception as e:
             # Fall back gracefully if LLM fails
-            print(f"LLM-enhanced planning failed: {e}")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"LLM-enhanced planning failed, using rule-based fallback: {e}")
             return None
         
         return None
@@ -628,7 +630,9 @@ Return a JSON array of tasks with reasoning for each decision."""
             }
         
         except Exception as e:
-            print(f"Error analyzing graph state: {e}")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error analyzing graph state: {e}", exc_info=True)
             # Return safe defaults
             return {
                 "has_panels": False,

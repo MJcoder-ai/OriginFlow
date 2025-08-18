@@ -445,7 +445,24 @@ export const useAppStore = create<AppState>((set, get) => ({
   async performPlanTask(task) {
     const sessionId = (get() as any).sessionId || 'global';
     // Helper to apply a graph patch to local state.
-    const applyPatch = (patch: any) => {
+    const applyPatch = (patch: {
+      add_nodes?: Array<{
+        id: string;
+        type: string;
+        data?: Record<string, any>;
+        layer?: string;
+      }>;
+      add_edges?: Array<{
+        source: string;
+        target: string;
+        data?: Record<string, any>;
+      }>;
+      remove_nodes?: string[];
+      remove_edges?: Array<{
+        source: string;
+        target: string;
+      }>;
+    }) => {
       if (!patch) return;
       if (patch.add_nodes) {
         set((s) => ({
