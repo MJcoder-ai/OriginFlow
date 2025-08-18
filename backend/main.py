@@ -129,6 +129,7 @@ from backend.api.routes import (
     snapshots,
     versioning,
     agents,
+    metrics,
 )
 
 # Import authentication components
@@ -192,6 +193,7 @@ app.include_router(requirements.router, prefix=settings.api_prefix)
 app.include_router(snapshots.router, prefix=settings.api_prefix)
 app.include_router(versioning.router, prefix=settings.api_prefix)
 app.include_router(agents.router, prefix=settings.api_prefix)
+app.include_router(metrics.router, prefix=settings.api_prefix)
 
 # Include new enhanced feedback routes
 from backend.api.routes import feedback as enhanced_feedback

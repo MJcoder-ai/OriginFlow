@@ -36,3 +36,16 @@ async def test_compatibility_engine_returns_empty_report() -> None:
     assert report.total_issues() == 0
     assert set(report.results.keys()) == {"electrical", "mechanical", "thermal", "communication"}
 
+
+@pytest.mark.asyncio
+async def test_compatibility_engine_caches_results() -> None:
+    component = CanvasComponent(id="c1", name="Comp", type="generic", x=0, y=0)
+    snapshot = DesignSnapshot(components=[component], links=[], session_id="s1", version=1)
+
+    CompatibilityEngine = _load_engine_class()
+    engine = CompatibilityEngine()
+    report1 = await engine.validate_system_compatibility(snapshot)
+    report2 = await engine.validate_system_compatibility(snapshot)
+
+    assert report1 is report2
+

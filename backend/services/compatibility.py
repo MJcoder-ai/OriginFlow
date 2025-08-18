@@ -142,6 +142,8 @@ class CompatibilityEngine:
             "thermal": ThermalCompatibilityRules(),
             "communication": CommunicationCompatibilityRules(),
         }
+        # Cache of previous validation results keyed by (session_id, version)
+        self._cache: Dict[tuple[str, int], CompatibilityReport] = {}
 
     async def validate_system_compatibility(self, snapshot: "DesignSnapshot") -> CompatibilityReport:
         """Validate all compatibility rules against a design snapshot.
@@ -153,6 +155,13 @@ class CompatibilityEngine:
             A ``CompatibilityReport`` summarising validation results across
             all rule categories.
         """
+
+        # Attempt to return cached result when session and version are provided
+        if snapshot.session_id and snapshot.version:
+            cache_key = (snapshot.session_id, snapshot.version)
+            cached = self._cache.get(cache_key)
+            if cached:
+                return cached
 
         # Local import to avoid circular dependencies
         from backend.schemas.analysis import DesignSnapshot  # noqa: F401
@@ -177,7 +186,14 @@ class CompatibilityEngine:
                 )
                 result = ValidationResult(issues=[issue])
             results[name] = result
-        return CompatibilityReport(results=results)
+
+        report = CompatibilityReport(results=results)
+
+        if snapshot.session_id and snapshot.version:
+            cache_key = (snapshot.session_id, snapshot.version)
+            self._cache[cache_key] = report
+
+        return report
 
 
 CompatibilityIssue.model_rebuild()
