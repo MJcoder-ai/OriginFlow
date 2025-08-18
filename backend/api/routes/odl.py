@@ -396,3 +396,55 @@ async def list_agents() -> Dict[str, Any]:
             "refine_validate"
         ]
     }
+ 
+# --- ODL round-trip authoritative update ------------------------------------
+from pydantic import BaseModel
+from typing import Literal
+from backend.services.odl_parser import parse_odl_text
+from backend.services.odl_sync import rebuild_odl_for_session
+
+try:  # pragma: no cover - optional repos
+    from backend.repositories.components import ComponentRepo  # type: ignore
+    from backend.repositories.links import LinkRepo  # type: ignore
+    from backend.services.snapshot_provider import get_current_snapshot  # type: ignore
+except Exception:  # pragma: no cover
+    ComponentRepo = None  # type: ignore
+    LinkRepo = None  # type: ignore
+    get_current_snapshot = None  # type: ignore
+
+
+class OdlUpdate(BaseModel):
+    session_id: str
+    odl_text: str
+    mode: Literal["merge", "replace"] = "merge"
+
+
+@router.post("/set")
+async def set_odl(update: OdlUpdate):
+    if get_current_snapshot is None or ComponentRepo is None or LinkRepo is None:
+        raise HTTPException(status_code=500, detail="Repositories unavailable")
+    snap = await get_current_snapshot(session_id=update.session_id)  # type: ignore
+    if snap is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    desired = parse_odl_text(update.odl_text)
+    comp_repo = ComponentRepo()  # type: ignore
+    link_repo = LinkRepo()  # type: ignore
+    for dc in desired.components:
+        cur = next((c for c in snap.components if c.id == dc.id), None)
+        if cur:
+            for lay, pos in (dc.layout or {}).items():
+                cur.layout = {**(cur.layout or {}), lay: {"x": pos["x"], "y": pos["y"]}}
+                cur.locked_in_layers = {**(cur.locked_in_layers or {}), lay: True}
+            await comp_repo.save_component(cur)  # type: ignore
+        elif update.mode == "replace":
+            await comp_repo.create_component_for_session(update.session_id, dc)  # type: ignore
+    for dl in desired.links:
+        cur = next((l for l in snap.links if l.source_id == dl.source_id and l.target_id == dl.target_id), None)
+        if cur:
+            for lay, pts in (dl.path_by_layer or {}).items():
+                cur.path_by_layer[lay] = pts
+            await link_repo.save_link(cur)  # type: ignore
+        else:
+            await link_repo.create_link_for_session(update.session_id, dl)  # type: ignore
+    await rebuild_odl_for_session(update.session_id)
+    return {"status": "ok"}

@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.services.layout_provider import suggest_positions
 from backend.services.edge_router import route_edges
 from backend.services.odl_sync import rebuild_odl_for_session
+from backend.services.wiring import AutoWiringService
 from backend.api.deps import get_session
 
 try:
@@ -83,3 +84,15 @@ async def route_orthogonal(
         pass
 
     return {"layer": layer, "routed": list(routes.keys())}
+
+
+@router.post("/wire")
+async def wire_missing(
+    session_id: str,
+    layer: Literal["single_line", "high_level", "civil", "networking", "physical"] = Query("single_line"),
+):
+    """Create missing links deterministically and route them orthogonally."""
+
+    svc = AutoWiringService()
+    result = await svc.wire_missing_and_route(session_id=session_id, layer=layer)
+    return {"layer": layer, **result}

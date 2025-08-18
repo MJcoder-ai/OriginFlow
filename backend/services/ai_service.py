@@ -91,6 +91,7 @@ class AiOrchestrator:
             AiActionType.suggest_link: 0.3,
             AiActionType.remove_component: 0.4,
             AiActionType.remove_link: 0.4,
+            AiActionType.wire: 0.5,
         }
         # Instrument validation and approval of raw AI actions
         with trace_span("ai_service.validate_actions", action_count=len(raw)):
