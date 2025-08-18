@@ -13,6 +13,7 @@ import LayerSelector from './LayerSelector';
 import SubAssemblyButton from './SubAssemblyButton';
 import ODLCodeView from './ODLCodeView';
 import clsx from 'clsx';
+import { suggestLayout } from '../layout/LayoutManager';
 
 /** A component card rendered on the canvas with a connection handle */
 const PortHandle: React.FC<{
@@ -172,6 +173,8 @@ const Workspace: React.FC = () => {
     deleteComponent,
     currentLayer,
     sessionId, // Use the main sessionId for ODL view
+    canvasComponents,
+    links,
   } = useAppStore();
   useEffect(() => {
     fetchProject();
@@ -220,6 +223,32 @@ const Workspace: React.FC = () => {
     setPendingLink(null);
   };
 
+  const onAutoLayout = async () => {
+    const layerMap: Record<string, string> = {
+      'Single-Line Diagram': 'single_line',
+      'High-Level Overview': 'high_level',
+      'Civil/Structural': 'civil',
+      'Networking/Monitoring': 'networking',
+      'ODL Code': 'physical',
+    };
+    const layerName = layerMap[currentLayer] || 'single_line';
+    const nodes = canvasComponents.map((c) => ({
+      id: c.id,
+      width: 120,
+      height: 72,
+      layout: { [layerName]: { x: c.x, y: c.y } },
+    }));
+    const edges = links.map((l) => ({ id: l.id, source: l.source_id, target: l.target_id }));
+    const locked: Record<string, boolean> = {};
+    const positions = await suggestLayout(nodes, edges, layerName as any, locked);
+    for (const [id, pos] of Object.entries(positions)) {
+      const comp = canvasComponents.find((c) => c.id === id);
+      if (!comp) continue;
+      const delta = { x: pos.x - comp.x, y: pos.y - comp.y };
+      await updateComponentPosition(id, delta);
+    }
+  };
+
 
 
   // Render ODL Code View for the ODL Code layer
@@ -254,6 +283,12 @@ const Workspace: React.FC = () => {
       <div className="p-2 flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
         <LayerSelector />
         <SubAssemblyButton />
+        <button
+          onClick={onAutoLayout}
+          className="px-3 py-1 rounded-md text-sm bg-gray-100 text-gray-700 hover:bg-gray-200"
+        >
+          Auto Layout
+        </button>
       </div>
       <div className="flex-grow relative">
         {renderLayerContent()}
