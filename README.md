@@ -433,6 +433,7 @@ part number while leaving the rest of the data intact.  To reset the table:
 * **remove _{name}_** – Deletes components by name
 * **what is the bill of materials** – Shows modal with unique part list
 * **organise / optimise layout** – Neatly re-positions nodes
+* **auto route connections** – Orthogonal edge routing with obstacle avoidance
 
 **✅ Basic Implementation:**
 * **design a 5 kW solar system** – Suggests major components (pattern matching + hardcoded components)

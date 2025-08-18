@@ -44,3 +44,32 @@ async def read_link(link_id: str, session: AsyncSession = Depends(get_session)) 
     if result is None:
         raise HTTPException(status_code=404, detail="Link not found")
     return Link.model_validate(result)
+
+
+@router.patch("/links/{link_id}", response_model=Link)
+async def update_link(
+    link_id: str, update: dict, session: AsyncSession = Depends(get_session)
+) -> Link:
+    """Update an existing link, merging path and lock metadata."""
+
+    obj = await session.get(LinkModel, link_id)
+    if obj is None:
+        raise HTTPException(status_code=404, detail="Link not found")
+
+    path = update.pop("path_by_layer", None)
+    locked = update.pop("locked_in_layers", None)
+    for key, value in update.items():
+        setattr(obj, key, value)
+    if path:
+        merged = obj.path_by_layer or {}
+        merged.update(path)
+        obj.path_by_layer = merged
+    if locked:
+        merged_locks = obj.locked_in_layers or {}
+        merged_locks.update(locked)
+        obj.locked_in_layers = merged_locks
+
+    session.add(obj)
+    await session.commit()
+    await session.refresh(obj)
+    return Link.model_validate(obj)

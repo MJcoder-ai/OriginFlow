@@ -17,6 +17,13 @@ LAYOUT_PROVIDER = os.getenv("LAYOUT_PROVIDER", "builtin").lower()
 # For "elk" provider, set an ELK HTTP service URL (e.g., http://localhost:7777/elk/layout)
 LAYOUT_HTTP_URL = os.getenv("LAYOUT_HTTP_URL", "").strip()
 
+# ---- Edge routing configuration ----
+# EDGE_ROUTER_PROVIDER: "elk" | "builtin" | "client"
+# - "elk": server calls an ELK HTTP endpoint and parses edge sections.
+# - "builtin": server uses a Manhattan router with obstacle avoidance.
+# - "client": frontend routes using elkjs and PATCHes paths; server returns 501.
+EDGE_ROUTER_PROVIDER = os.getenv("EDGE_ROUTER_PROVIDER", "builtin").lower()
+
 
 class Settings(BaseSettings):
     """Central configuration accessed across the backend."""
