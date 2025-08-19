@@ -289,6 +289,71 @@ export const api = {
     return res.json();
   },
 
+  // ---- Agents Catalog (persistence/RBAC) ----
+  async listTenantAgentState(tenantId?: string) {
+    const url = tenantId
+      ? `/api/v1/odl/agents/state?tenant_id=${encodeURIComponent(tenantId)}`
+      : `/api/v1/odl/agents/state`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Failed to list tenant agent state');
+    return res.json();
+  },
+
+  async createAgentDraft(spec: any) {
+    const res = await fetch(`/api/v1/odl/agents/drafts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ spec }),
+    });
+    if (!res.ok) throw new Error('Failed to create draft');
+    return res.json();
+  },
+
+  async publishAgent(agentName: string, version?: number, notes?: string) {
+    const res = await fetch(`/api/v1/odl/agents/${encodeURIComponent(agentName)}/publish`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ version, notes }),
+    });
+    if (!res.ok) throw new Error('Failed to publish agent');
+    return res.json();
+  },
+
+  async updateTenantAgentState(
+    agentName: string,
+    patch: { enabled?: boolean; pinned_version?: number; config_override?: any },
+    tenantId?: string
+  ) {
+    const url = `/api/v1/odl/agents/${encodeURIComponent(agentName)}/state${tenantId ? `?tenant_id=${encodeURIComponent(tenantId)}` : ''}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    });
+    if (!res.ok) throw new Error('Failed to update tenant agent state');
+    return res.json();
+  },
+
+  async assistSynthesizeSpec(idea: string, target_domain?: string, target_actions?: string[]) {
+    const res = await fetch(`/api/v1/odl/agents/assist/synthesize-spec`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idea, target_domain, target_actions }),
+    });
+    if (!res.ok) throw new Error('Failed to synthesize spec');
+    return res.json();
+  },
+
+  async assistRefineSpec(current_spec: any, critique: string) {
+    const res = await fetch(`/api/v1/odl/agents/assist/refine-spec`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ current_spec, critique }),
+    });
+    if (!res.ok) throw new Error('Failed to refine spec');
+    return res.json();
+  },
+
   // --- Agents Catalog (MVP) ---
   listAgents: async (): Promise<
     Array<{ name: string; display_name?: string; version?: string; domain?: string; risk_class?: string; capabilities?: string[] }>
