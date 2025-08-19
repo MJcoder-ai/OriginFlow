@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional, Literal
+from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -31,29 +31,4 @@ class TenantSettingsUpdate(BaseModel):
     enabled_domains: Optional[dict] = None
     feature_flags: Optional[dict] = None
 
-
-class PendingActionRead(BaseModel):
-    id: int
-    tenant_id: str
-    project_id: str | None
-    session_id: str | None
-    trace_id: str | None
-    agent_name: str
-    action_type: str
-    risk_class: str
-    confidence: float
-    payload: dict
-    status: Literal["pending", "approved", "rejected"]
-    created_by: str | None
-    decided_by: str | None
-    decision_reason: str | None
-    created_at: datetime
-    decided_at: datetime | None
-
-    class Config:
-        from_attributes = True
-
-
-class PendingActionDecision(BaseModel):
-    reason: Optional[str] = None
 

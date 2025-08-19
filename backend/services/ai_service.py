@@ -24,7 +24,8 @@ from backend.policy.capabilities import ACTION_REQUIRED_SCOPES
 from backend.services.ai_clients import get_openai_client
 from backend.utils.logging import get_logger
 from backend.utils.observability import trace_span, record_metric
-from backend.policy.risk_policy import RiskPolicy
+from backend.services.approval_policy_service import ApprovalPolicyService
+from backend.services.approval_queue_service import ApprovalQueueService
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -133,26 +134,25 @@ class AiOrchestrator:
                 # store agent name for downstream approval queueing
                 obj._agent_name = agent_name  # type: ignore[attr-defined]
 
-                thresholds_override = None
-                whitelist: set[str] | None = None
+                auto = False
+                reason = None
                 try:
                     from backend.database.session import SessionMaker  # type: ignore
-                    from backend.services.config_service import ConfigService  # type: ignore
 
                     async with SessionMaker() as _sess:
-                        _settings = await ConfigService.get_or_create(_sess, tenant_id)
-                        thresholds_override = _settings.thresholds()
-                        whitelist = _settings.whitelist_set()
-                except Exception:
-                    pass
+                        auto, reason = await ApprovalPolicyService.evaluate(
+                            tenant_id=tenant_id or "tenant_default",
+                            action_type=obj.action.value,
+                            confidence=obj.confidence,
+                            session=_sess,
+                        )
+                except Exception as e:  # pragma: no cover - policy failure fallback
+                    logger.warning("Approval policy evaluation failed: %s", e)
+                    auto, reason = False, str(e)
 
-                obj.auto_approved = RiskPolicy.is_auto_approved(
-                    agent_name=agent_name,
-                    action_type=obj.action,
-                    confidence=obj.confidence,
-                    thresholds_override=thresholds_override,
-                    whitelist=whitelist,
-                )
+                obj.auto_approved = bool(auto)
+                if not auto:
+                    obj._approval_reason = reason  # type: ignore[attr-defined]
 
                 record_metric("action.processed", 1, {"agent": agent_name, "type": obj.action.value})
                 validated.append(obj)
@@ -247,31 +247,23 @@ class AiOrchestrator:
         # Queue non-auto-approved actions for manual approval
         try:
             from backend.database.session import SessionMaker  # type: ignore
-            from backend.services.approval_service import ApprovalService  # type: ignore
-            from backend.agents.registry import get_spec  # type: ignore
 
             async with SessionMaker() as q_sess:
                 for act in validated:
                     if not getattr(act, "auto_approved", False):
-                        agent = getattr(act, "_agent_name", "unknown")
-                        try:
-                            _spec = get_spec(agent)
-                            risk = _spec.risk_class or "medium"
-                        except Exception:
-                            risk = "medium"
-                        await ApprovalService.queue(
+                        await ApprovalQueueService.enqueue(
                             q_sess,
                             tenant_id=tenant_id or "tenant_default",
+                            action_type=act.action.value,
+                            payload=act.payload or {},
+                            confidence=float(act.confidence or 0.0),
                             project_id=project_id,
                             session_id=session_id,
-                            trace_id=ctx.trace_id,
-                            agent_name=agent,
-                            action_type=act.action.value,
-                            risk_class=risk,
-                            confidence=float(act.confidence or 0.0),
-                            payload=act.payload or {},
-                            created_by=None,
+                            agent_name=getattr(act, "_agent_name", "unknown"),
+                            requested_by_id=None,
+                            reason=getattr(act, "_approval_reason", None),
                         )
+                await q_sess.commit()
         except Exception:
             pass
         return validated
