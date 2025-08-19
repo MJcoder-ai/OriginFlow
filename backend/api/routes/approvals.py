@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.deps import get_current_user, get_session
 from backend.auth.dependencies import require_permission
+from backend.api.deps_tenant import seed_tenant_context
 from backend.schemas.approvals import ApprovalDecision, BatchDecisionRequest
 from backend.services.approval_queue_service import ApprovalQueueService
 from backend.services.ai_service import AiOrchestrator
@@ -82,7 +83,7 @@ async def get_diff(
             },
         }
 
-@router.get("/", dependencies=[Depends(require_permission("approvals.read"))])
+@router.get("/", dependencies=[Depends(require_permission("approvals.read")), Depends(seed_tenant_context)])
 async def list_pending(
     status: Optional[str] = None,
     session_id: Optional[str] = None,

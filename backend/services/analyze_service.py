@@ -2,6 +2,7 @@ from __future__ import annotations
 import os
 
 from openai import OpenAIError
+import logging
 
 from backend.services.ai_service import AiOrchestrator
 from backend.schemas.ai import AnalyzeCommandRequest, AiAction, AiActionType
@@ -12,6 +13,12 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 from backend.utils.openai_helpers import map_openai_error
 from backend.utils.observability import trace_span, record_metric
+from backend.services.approval_policy_service import ApprovalPolicyService
+from backend.services.approval_queue_service import ApprovalQueueService
+from backend.utils.tenant_context import get_tenant_id
+
+
+logger = logging.getLogger(__name__)
 
 
 class AnalyzeOrchestrator(AiOrchestrator):
@@ -38,45 +45,68 @@ class AnalyzeOrchestrator(AiOrchestrator):
             logger.warning(f"LearningAgent not available: {e}")
         except Exception as e:
             logger.warning(f"Failed to assign confidence scores: {e}")
-        
-        import logging
-        logger = logging.getLogger(__name__)
+
+        tenant_id = get_tenant_id()
         try:
             from backend.database.session import SessionMaker  # type: ignore
-            from backend.services.config_service import ConfigService  # type: ignore
-            from backend.policy.risk_policy import RiskPolicy  # type: ignore
 
-            thresholds = None
-            whitelist: set[str] | None = None
             async with SessionMaker() as _sess:
-                settings = await ConfigService.get_or_create(_sess, tenant_id=None)
-                thresholds = settings.thresholds()
-                whitelist = settings.whitelist_set()
-
-            with trace_span("analyze_service.auto_approval", action_count=len(actions)):
-                for action in actions:
-                    auto = RiskPolicy.is_auto_approved(
-                        agent_name="analyze_agent",
-                        action_type=action.action,
-                        confidence=action.confidence,
-                        thresholds_override=thresholds,
-                        whitelist=whitelist,
-                    )
-                    action.auto_approved = bool(auto)
-                    record_metric(
-                        "action.auto_approved.decision",
-                        1 if auto else 0,
-                        {"type": action.action.value, "confidence": action.confidence},
-                    )
-                    logger.info(
-                        f"{'AUTO-APPROVED' if auto else 'MANUAL APPROVAL'}: "
-                        f"{action.action} (confidence {action.confidence})"
-                    )
-        except Exception:
-            logger.info("Risk-based autonomy configuration unavailable; routing all actions to manual review")
+                policy = await ApprovalPolicyService.for_tenant(_sess, tenant_id)
+                with trace_span(
+                    "analyze_service.auto_approval", action_count=len(actions)
+                ):
+                    for action in actions:
+                        auto, reason, _, _ = await ApprovalPolicyService.is_auto_approved(
+                            policy,
+                            action.action.value,
+                            action.confidence,
+                            getattr(action, "_agent_name", None),
+                        )
+                        action.auto_approved = bool(auto)
+                        if not auto:
+                            action._approval_reason = reason  # type: ignore[attr-defined]
+                        else:
+                            action._approval_reason = reason
+                        record_metric(
+                            "action.auto_approved.decision",
+                            1 if auto else 0,
+                            {"type": action.action.value, "confidence": action.confidence},
+                        )
+        except Exception as e:
+            logger.info(
+                "Approval policy evaluation failed; routing all actions to manual review: %s",
+                e,
+            )
             for action in actions:
                 action.auto_approved = False
-        
+
+        try:
+            from backend.database.session import SessionMaker  # type: ignore
+
+            async with SessionMaker() as q_sess:
+                queued_rows = []
+                for act in actions:
+                    if not getattr(act, "auto_approved", False):
+                        row = await ApprovalQueueService.enqueue_from_action(
+                            q_sess,
+                            tenant_id=tenant_id,
+                            action_obj=act,
+                            reason=getattr(act, "_approval_reason", None) or "",
+                            confidence=act.confidence,
+                        )
+                        queued_rows.append(row.to_dict())
+                await q_sess.commit()
+            try:
+                if queued_rows:
+                    from backend.services.approvals_events import ApprovalsEventBus
+
+                    for qi in queued_rows:
+                        ApprovalsEventBus.publish_created(tenant_id, qi)
+            except Exception:
+                pass
+        except Exception:
+            pass
+
         return actions
 
     @staticmethod
@@ -114,9 +144,11 @@ class AnalyzeOrchestrator(AiOrchestrator):
         }
         
         for action in raw:
+            agent_name = action.pop("agent_name", "unknown")
             obj = AiAction.model_validate(action)
             # Assign initial heuristic confidence score
             obj.confidence = _CONFIDENCE_MAP.get(obj.action, 0.5)
+            obj._agent_name = agent_name  # type: ignore[attr-defined]
             
             if obj.action == AiActionType.add_component:
                 payload = obj.payload or {}

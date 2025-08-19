@@ -1,51 +1,51 @@
 from __future__ import annotations
 
-import os
-from typing import Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
-from backend.utils.feature_flags import is_enabled
+from sqlalchemy.ext.asyncio import AsyncSession
 
-DEFAULT_THRESHOLD = 0.85  # fallback if no tenant setting
+from backend.services.policy_cache import PolicyCache
+from backend.utils.tenant_context import get_tenant_id
+
+DEFAULT_THRESHOLD = 0.85
 
 
 class ApprovalPolicyService:
-    """
-    Tenant-scoped approval policy.
-    Sources:
-      - TenantSettingsService (if present) keys:
-           approvals.threshold (float 0..1)
-           approvals.allowlist (list of action_type strings)
-           approvals.denylist (list of action_type strings)
-      - ENV fallbacks:
-           APPROVALS_THRESHOLD, APPROVALS_ALLOWLIST, APPROVALS_DENYLIST
-    """
+    """Tenant-scoped approval policy served from ``PolicyCache``."""
 
     @staticmethod
-    async def _get_threshold(tenant_id: str, session=None) -> float:
-        # Prefer tenant settings if available
-        try:
-            from backend.services.tenant_settings_service import TenantSettingsService  # type: ignore
-
-            val = await TenantSettingsService.get_float(session, tenant_id, "approvals.threshold")
-            if val is not None:
-                return float(val)
-        except Exception:
-            pass
-        raw = os.getenv("APPROVALS_THRESHOLD")
-        return float(raw) if raw else DEFAULT_THRESHOLD
+    async def for_tenant(session: AsyncSession, tenant_id: str) -> Dict[str, Any]:
+        return await PolicyCache.get(session, tenant_id)
 
     @staticmethod
-    async def _get_list(tenant_id: str, key: str, env_key: str, session=None) -> list[str]:
-        try:
-            from backend.services.tenant_settings_service import TenantSettingsService  # type: ignore
+    async def for_request(session: AsyncSession) -> Dict[str, Any]:
+        return await PolicyCache.get(session, get_tenant_id())
 
-            arr = await TenantSettingsService.get_list(session, tenant_id, key)
-            if arr:
-                return [str(x) for x in arr]
-        except Exception:
-            pass
-        raw = os.getenv(env_key, "")
-        return [x.strip() for x in raw.split(",") if x.strip()]
+    @staticmethod
+    async def is_auto_approved(
+        policy: Dict[str, Any],
+        action_type: str,
+        confidence: Optional[float],
+        agent_name: Optional[str] = None,
+    ) -> Tuple[bool, str, float, Optional[str]]:
+        """Evaluate an action against the provided policy."""
+        if not policy.get("auto_approve_enabled", True):
+            thr = float(policy.get("risk_threshold_default", DEFAULT_THRESHOLD))
+            return False, "Auto-approval disabled", thr, None
+
+        deny = set((policy.get("action_blacklist") or {}).get("actions", []))
+        allow = set((policy.get("action_whitelist") or {}).get("actions", []))
+        thr = float(policy.get("risk_threshold_default", DEFAULT_THRESHOLD))
+
+        if action_type in deny:
+            return False, f"Denied by policy denylist: {action_type}", thr, "denylist"
+        if action_type in allow:
+            return True, f"Allowed by policy allowlist: {action_type}", thr, "allowlist"
+        if confidence is None:
+            return False, "No confidence score; manual approval required", thr, None
+
+        auto = confidence >= thr
+        return auto, f"Confidence {confidence:.2f} vs threshold {thr:.2f}", thr, None
 
     @staticmethod
     async def evaluate(
@@ -53,30 +53,11 @@ class ApprovalPolicyService:
         tenant_id: str,
         action_type: str,
         confidence: Optional[float],
-        session=None,
+        session: AsyncSession,
     ) -> Tuple[bool, str]:
-        """
-        Returns (auto_approve: bool, reason: str)
-        Rules:
-          - If action_type in denylist -> False
-          - If action_type in allowlist -> True
-          - Else compare confidence against threshold
-        """
-
-        deny = await ApprovalPolicyService._get_list(
-            tenant_id, "approvals.denylist", "APPROVALS_DENYLIST", session
+        """Backward compatible helper used in legacy code paths."""
+        policy = await ApprovalPolicyService.for_tenant(session, tenant_id)
+        auto, reason, _, _ = await ApprovalPolicyService.is_auto_approved(
+            policy, action_type, confidence, None
         )
-        if action_type in deny:
-            return False, f"Denied by policy denylist: {action_type}"
-
-        allow = await ApprovalPolicyService._get_list(
-            tenant_id, "approvals.allowlist", "APPROVALS_ALLOWLIST", session
-        )
-        if action_type in allow:
-            return True, f"Allowed by policy allowlist: {action_type}"
-
-        threshold = await ApprovalPolicyService._get_threshold(tenant_id, session)
-        if confidence is None:
-            return False, "No confidence score; manual approval required"
-        return (confidence >= threshold, f"Confidence {confidence:.2f} vs threshold {threshold:.2f}")
-
+        return auto, reason

@@ -8,11 +8,12 @@ from backend.services.analyze_service import AnalyzeOrchestrator
 from backend.services.ai_service import limiter
 from backend.services.agent_hydrator import AgentHydrator
 from backend.api.deps import get_session, get_current_user
+from backend.api.deps_tenant import seed_tenant_context
 
 router = APIRouter()
 
 
-@router.post("/ai/analyze-design", response_model=list[AiAction])
+@router.post("/ai/analyze-design", response_model=list[AiAction], dependencies=[Depends(seed_tenant_context)])
 @limiter.limit("20/minute")
 async def analyze_design(
     request: Request,

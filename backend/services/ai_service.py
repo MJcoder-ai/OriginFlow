@@ -140,11 +140,14 @@ class AiOrchestrator:
                     from backend.database.session import SessionMaker  # type: ignore
 
                     async with SessionMaker() as _sess:
-                        auto, reason = await ApprovalPolicyService.evaluate(
-                            tenant_id=tenant_id or "tenant_default",
-                            action_type=obj.action.value,
-                            confidence=obj.confidence,
-                            session=_sess,
+                        policy = await ApprovalPolicyService.for_tenant(
+                            _sess, tenant_id or "tenant_default"
+                        )
+                        auto, reason, _, _ = await ApprovalPolicyService.is_auto_approved(
+                            policy,
+                            obj.action.value,
+                            obj.confidence,
+                            getattr(obj, "_agent_name", None),
                         )
                 except Exception as e:  # pragma: no cover - policy failure fallback
                     logger.warning("Approval policy evaluation failed: %s", e)
@@ -153,6 +156,8 @@ class AiOrchestrator:
                 obj.auto_approved = bool(auto)
                 if not auto:
                     obj._approval_reason = reason  # type: ignore[attr-defined]
+                else:
+                    obj._approval_reason = reason  # retain info
 
                 record_metric("action.processed", 1, {"agent": agent_name, "type": obj.action.value})
                 validated.append(obj)
