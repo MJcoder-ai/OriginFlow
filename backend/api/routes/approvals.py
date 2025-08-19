@@ -10,10 +10,40 @@ from backend.auth.dependencies import require_permission
 from backend.schemas.approvals import ApprovalDecision, BatchDecisionRequest
 from backend.services.approval_queue_service import ApprovalQueueService
 from backend.services.ai_service import AiOrchestrator
+from backend.services.approvals_events import ApprovalsEventBus
+from starlette.responses import StreamingResponse
+import asyncio
+import json
 
 
 router = APIRouter(prefix="/api/v1/approvals", tags=["Approvals"])
 
+@router.get("/stream", dependencies=[Depends(require_permission("approvals.read"))])
+async def stream_approvals(
+    session: AsyncSession = Depends(get_session),
+    user = Depends(get_current_user),
+):
+    """Server-Sent Events (SSE) stream of approval updates for the caller's tenant.
+    Events: pending.created | pending.updated | pending.approved | pending.rejected | pending.applied | heartbeat
+    """
+    tenant_id = getattr(user, "tenant_id", None) or "default"
+    q = ApprovalsEventBus.subscribe(tenant_id)
+
+    async def event_generator():
+        try:
+            yield f"data: {json.dumps({'type': 'hello', 'tenant_id': tenant_id})}\n\n"
+            while True:
+                try:
+                    item = await asyncio.wait_for(q.get(), timeout=15.0)
+                    yield f"data: {json.dumps(item)}\n\n"
+                except asyncio.TimeoutError:
+                    yield f"data: {json.dumps({'type': 'heartbeat'})}\n\n"
+        except asyncio.CancelledError:
+            pass
+        finally:
+            ApprovalsEventBus.unsubscribe(tenant_id, q)
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 @router.get("/", dependencies=[Depends(require_permission("approvals.read"))])
 async def list_pending(
@@ -80,6 +110,13 @@ async def approve_one(
             await session.commit()
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Apply failed: {e}")
     await session.commit()
+    try:
+        if body.approve_and_apply and row.status == "applied":
+            ApprovalsEventBus.publish_applied(tenant_id, row.to_dict())
+        else:
+            ApprovalsEventBus.publish_approved(tenant_id, row.to_dict())
+    except Exception:
+        pass
     return {
         "approved": row.to_dict(),
         "apply_client_side": not body.approve_and_apply,
@@ -107,6 +144,10 @@ async def reject_one(
         session, row=row, approver_id=getattr(user, "id", None), note=body.note
     )
     await session.commit()
+    try:
+        ApprovalsEventBus.publish_rejected(tenant_id, row.to_dict())
+    except Exception:
+        pass
     return {"rejected": row.to_dict()}
 
 
@@ -158,5 +199,20 @@ async def batch_decide(
         except Exception as e:  # pragma: no cover - best effort
             results.append({"id": item.id, "error": str(e)})
     await session.commit()
+    try:
+        for r in results:
+            if "error" in r:
+                continue
+            row = await ApprovalQueueService.get(session, id=r["id"], tenant_id=tenant_id)
+            if not row:
+                continue
+            if row.status == "applied":
+                ApprovalsEventBus.publish_applied(tenant_id, row.to_dict())
+            elif row.status == "approved":
+                ApprovalsEventBus.publish_approved(tenant_id, row.to_dict())
+            elif row.status == "rejected":
+                ApprovalsEventBus.publish_rejected(tenant_id, row.to_dict())
+    except Exception:
+        pass
     return {"results": results}
 
