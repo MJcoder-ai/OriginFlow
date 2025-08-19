@@ -7,7 +7,8 @@ from alembic import context
 
 # Import application models so Alembic can detect them
 from backend.models import Base
-from backend.models import component, link, file_asset
+# Import all models by importing the main models module
+import backend.models
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
