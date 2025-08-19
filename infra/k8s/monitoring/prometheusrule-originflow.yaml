@@ -50,15 +50,14 @@ spec:
           annotations:
             summary: "Spike in approvals enqueued"
             description: "Tenant {{ $labels.tenant_id }} enqueue rate > 5/min; review router accuracy and thresholds."
-    # Optional HTTP 5xx alert (uncomment when HTTP metrics are exported)
-    # - name: originflow-http
-    #   rules:
-    #     - alert: Backend5xxRateHigh
-    #       expr: |
-    #         sum(rate(http_server_requests_seconds_count{code=~"5.."}[5m])) /
-    #         clamp_min(sum(rate(http_server_requests_seconds_count[5m])), 1) > 0.02
-    #       for: 15m
-    #       labels: { severity: page }
-    #       annotations:
-    #         summary: "5xx error rate > 2%"
-    #         description: "Backend 5xx error rate is elevated across tenants."
+    - name: originflow-http
+      rules:
+        - alert: Backend5xxRateHigh
+          expr: |
+            sum by (tenant_id) (rate(http_requests_total{code=~"5.."}[5m])) /
+            clamp_min(sum by (tenant_id) (rate(http_requests_total[5m])), 1) > 0.02
+          for: 15m
+          labels: { severity: page }
+          annotations:
+            summary: "5xx error rate > 2%"
+            description: "Backend 5xx error rate is elevated for tenant {{ $labels.tenant_id }}."
