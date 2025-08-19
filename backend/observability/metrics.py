@@ -109,6 +109,58 @@ except NameError:  # pragma: no cover - module import guard
         labelnames=("method", "route", "tenant_id"),
     )
 
+# ---------------------------------------------------------------------------
+# HTTP payload sizes & exceptions
+# ---------------------------------------------------------------------------
+try:
+    http_request_size_bytes  # type: ignore[name-defined]
+except NameError:
+    http_request_size_bytes = Histogram(
+        "http_request_size_bytes",
+        "HTTP request size in bytes",
+        labelnames=("method", "route", "code", "tenant_id"),
+        buckets=(
+            256,
+            1024,
+            4096,
+            16384,
+            65536,
+            262144,
+            1048576,
+            4194304,
+            16777216,
+        ),
+    )
+
+try:
+    http_response_size_bytes  # type: ignore[name-defined]
+except NameError:
+    http_response_size_bytes = Histogram(
+        "http_response_size_bytes",
+        "HTTP response size in bytes",
+        labelnames=("method", "route", "code", "tenant_id"),
+        buckets=(
+            256,
+            1024,
+            4096,
+            16384,
+            65536,
+            262144,
+            1048576,
+            4194304,
+            16777216,
+        ),
+    )
+
+try:
+    http_exceptions_total  # type: ignore[name-defined]
+except NameError:
+    http_exceptions_total = Counter(
+        "http_exceptions_total",
+        "Total ASGI exceptions during request handling",
+        labelnames=("exception", "method", "route", "tenant_id"),
+    )
+
 approval_decisions = Counter(
     "approval_decisions_total",
     "Approval decision outcomes",

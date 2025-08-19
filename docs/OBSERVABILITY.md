@@ -73,6 +73,9 @@ cardinality using the route template and tenant ID:
 - `http_requests_total{method,route,code,tenant_id}`
 - `http_request_duration_seconds_bucket{method,route,code,tenant_id}`
 - `http_requests_in_flight{method,route,tenant_id}`
+- `http_request_size_bytes_bucket{method,route,code,tenant_id}` (+ `_sum`, `_count`)
+- `http_response_size_bytes_bucket{method,route,code,tenant_id}` (+ `_sum`, `_count`)
+- `http_exceptions_total{exception,method,route,tenant_id}`
 
 If tenant context is unset, `tenant_id` defaults to `"unknown"`.
 
@@ -85,6 +88,24 @@ If tenant context is unset, `tenant_id` defaults to `"unknown"`.
 ```promql
 sum by (tenant_id) (rate(http_requests_total{code=~"5.."}[5m])) /
 clamp_min(sum by (tenant_id) (rate(http_requests_total[5m])), 1) > 0.02
+```
+
+### Useful PromQL
+
+**Avg request size (last 5m) by route**
+```promql
+sum by (route) (rate(http_request_size_bytes_sum[5m])) /
+clamp_min(sum by (route) (rate(http_request_size_bytes_count[5m])), 1)
+```
+
+**Exception rate by class (5m)**
+```promql
+sum by (exception) (rate(http_exceptions_total[5m]))
+```
+
+**Top routes by response size (5m)**
+```promql
+topk(5, sum by (route) (rate(http_response_size_bytes_sum[5m])))
 ```
 
 ## Dashboards & Alerts
@@ -113,12 +134,14 @@ This defines:
 
 Run:
 ```bash
-poetry run pytest -q tests/e2e/test_metrics_and_decisions.py
 poetry run pytest -q tests/e2e/test_http_metrics.py
+poetry run pytest -q tests/e2e/test_http_sizes_and_exceptions.py
+poetry run pytest -q tests/e2e/test_metrics_and_decisions.py
 ```
 These tests verify that:
 - Policy cache metrics increment on **memory/redis hits** and **DB miss/dogpile**
 - Approval decision metrics increment for **allow/deny** paths
 - HTTP metrics export request counters and latency histograms
+- Request/response size histograms and exception counters increment
 - `/metrics` endpoint returns Prometheus exposition format
 
