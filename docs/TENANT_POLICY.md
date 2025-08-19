@@ -32,6 +32,25 @@ All changes are **audit-logged** and guarded by RBAC.
 - Unsaved change detection and versioned saves (optimistic concurrency).
 
 ## Notes
-- Existing consumers of `tenant_settings.data` continue to work; the structured fields are **additive**.  
-- If `ApprovalPolicyService` is present, `test` delegates to it; otherwise a safe fallback is used.  
+- Existing consumers of `tenant_settings.data` continue to work; the structured fields are **additive**.
+- If `ApprovalPolicyService` is present, `test` delegates to it; otherwise a safe fallback is used.
 - Feature flags can be read at request time (e.g., to hydrate agent registry per tenant).
+
+## Caching
+
+Policies are served via an in-memory `PolicyCache` with a short TTL.
+If the cache is unavailable, the system falls back to database reads.
+
+## Where policy is enforced (runtime)
+
+- **Analyze/Orchestration** – every proposed action is evaluated through
+  `ApprovalPolicyService.is_auto_approved` using the cached policy.
+- **Approvals Queue** – non auto-approved actions are persisted via
+  `ApprovalQueueService.enqueue_from_action`.
+- **Agent Registry Hydration** – agent specs are filtered by
+  `enabled_domains` and conditioned by `feature_flags` when hydrating
+  per-tenant registries.
+- **Router Agent (optional)** – domain suggestions may be gated by
+  enabled domains to avoid surfacing disabled capabilities.
+- **All policy reads** go through `PolicyCache`; runtime decisions should
+  never query the database directly.

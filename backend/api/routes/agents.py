@@ -3,9 +3,10 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.agents.registry import registry
 from backend.api.deps import get_current_user
 from backend.api.deps import get_session
+from backend.api.deps_tenant import seed_tenant_context
+from backend.services.agent_registry import AgentRegistry
 from backend.schemas.agent_spec import (
     AgentDraftCreate,
     AgentPublishRequest,
@@ -21,23 +22,19 @@ from backend.auth.dependencies import require_permission
 
 router = APIRouter(prefix="/api/v1/odl/agents", tags=["Agents"])
 
-@router.get("/")
-async def list_agents():
-    """
-    Returns the currently registered agents in memory (runtime registry).
-    This is unchanged and remains the quick way to introspect active agents.
-    """
-    return [
-        {
-            "name": a.name,
-            "domain": a.domain,
-            "patterns": [p.value for p in a.patterns],
-            "llm_tools": list(a.llm_tools),
-            "capabilities": a.capabilities,
-            "config": a.config,
-        }
-        for a in registry.get_agents()
-    ]
+
+@router.get("/", dependencies=[Depends(seed_tenant_context)])
+async def list_agents(
+    session: AsyncSession = Depends(get_session),
+    user=Depends(get_current_user),
+):
+    """Returns hydrated agent specs for the current tenant."""
+    specs = await AgentCatalogService.list_published_specs(
+        session=session, tenant_id=getattr(user, "tenant_id", "default")
+    )
+    reg = AgentRegistry()
+    await reg.hydrate_from_specs(session, specs)
+    return reg.list()
 
 
 @router.get("/state")

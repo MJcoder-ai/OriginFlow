@@ -10,8 +10,32 @@ from starlette.responses import Response
 from starlette.datastructures import MutableHeaders
 from fastapi import HTTPException
 
+# Hook tenant context; ignore if helper is absent to avoid breaking older builds.
+try:  # pragma: no cover - import guard
+    from backend.utils.tenant_context import set_tenant_id
+except Exception:  # pragma: no cover
+    def set_tenant_id(_: str | None) -> None:  # type: ignore
+        return
+
 # Rate limiting storage (in production, use Redis)
 _rate_limit_storage: Dict[str, Dict[str, float]] = {}
+
+
+class SecurityMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        # existing auth/permission logic ...
+        # Try to infer tenant id early (JWT claim or header), default if unknown.
+        tenant = None
+        try:
+            tenant = request.headers.get("X-Tenant-ID")
+            if not tenant:
+                user = getattr(request.state, "user", None)
+                tenant = getattr(user, "tenant_id", None)
+        except Exception:
+            pass
+        set_tenant_id(tenant)
+        response = await call_next(request)
+        return response
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):

@@ -17,10 +17,11 @@ from slowapi.errors import RateLimitExceeded
 from backend.routes.components_attributes import include_component_attributes_routes
 from backend.middleware.request_id import request_id_middleware
 from backend.middleware.security import (
+    SecurityMiddleware,
     SecurityHeadersMiddleware,
     RateLimitMiddleware,
     RequestValidationMiddleware,
-    CORSSecurityMiddleware
+    CORSSecurityMiddleware,
 )
 
 
@@ -57,6 +58,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="OriginFlow API", lifespan=lifespan)
 
 # Add security middleware (order matters!)
+app.add_middleware(SecurityMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 # Relax rate limits for common read-only endpoints in dev
 app.add_middleware(

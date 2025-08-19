@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -41,6 +41,42 @@ class ApprovalQueueService:
         session.add(row)
         await session.flush()
         return row
+
+    @staticmethod
+    async def enqueue_from_action(
+        session: AsyncSession,
+        tenant_id: str,
+        action_obj: Any,
+        reason: str,
+        confidence: Optional[float] = None,
+    ) -> PendingAction:
+        """Persist a ``PendingAction`` from a heterogeneous object."""
+        action_type = getattr(action_obj, "action", None) or getattr(action_obj, "action_type", None)
+        agent_name = getattr(action_obj, "_agent_name", None) or getattr(action_obj, "agent_name", None)
+        session_id = getattr(action_obj, "session_id", None)
+        project_id = getattr(action_obj, "project_id", None)
+        payload = getattr(action_obj, "payload", None)
+        if isinstance(action_obj, dict):
+            action_type = action_type or action_obj.get("action") or action_obj.get("action_type")
+            agent_name = agent_name or action_obj.get("agent_name")
+            session_id = session_id or action_obj.get("session_id")
+            project_id = project_id or action_obj.get("project_id")
+            payload = payload or action_obj.get("payload")
+            confidence = confidence if confidence is not None else action_obj.get("confidence")
+        pa = PendingAction(
+            tenant_id=tenant_id,
+            project_id=project_id,
+            session_id=session_id,
+            agent_name=agent_name,
+            action_type=action_type,
+            payload=payload,
+            confidence=confidence,
+            status="pending",
+            reason=reason,
+        )
+        session.add(pa)
+        await session.flush()
+        return pa
 
     @staticmethod
     async def list(
