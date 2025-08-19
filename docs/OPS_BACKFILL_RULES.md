@@ -88,3 +88,31 @@ See `infra/k8s/tools/promtool-backfill-job.yaml` for a template.
 - For multi-tenant data, ensure your source Prometheus has **all** tenant labels and retention required.
 - If you run **Thanos** or long-term storage, you can also backfill using a Thanos Ruler workflow—but that’s more involved and not covered here.
 
+
+---
+## One-liner via Makefile + helper script
+If you prefer a simple, parameterized command:
+
+```bash
+# Make the helper executable once
+chmod +x scripts/backfill_rules.sh
+
+# Run backfill in one line (keeps defaults for ns/pvc/prom-url/etc.)
+make -f Makefile.backfill.mk backfill-rules \
+  BACKFILL_START=2025-08-01T00:00:00Z \
+  BACKFILL_END=2025-08-19T00:00:00Z
+```
+
+Advanced options:
+```bash
+make -f Makefile.backfill.mk backfill-rules \
+  BACKFILL_START=2025-08-01T00:00:00Z BACKFILL_END=2025-08-19T00:00:00Z \
+  BACKFILL_STEP=60s NS=monitoring \
+  PROM_QUERY_URL=http://prometheus-k8s.monitoring.svc.cluster.local:9090 \
+  PROM_PVC=prometheus-prometheus-k8s-db-prometheus-k8s-0 \
+  RULES_CM=originflow-recording-rules \
+  RULES_FILE=infra/prometheus/rules/originflow-recording.rules.yml \
+  PROM_STS=prometheus-k8s \
+  IMAGE=prom/prometheus:v2.52.0 \
+  KEEP_JOB=1
+```
