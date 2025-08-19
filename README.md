@@ -826,6 +826,7 @@ BSD License (pending legal review).
 - **Slack**: `#originflow-dev`.
 - **Email**: `maintainers@originflow.dev`.
 - **Docs**: [https://docs.originflow.dev](https://docs.originflow.dev).
+- **Monitoring Guide**: [docs/DEPLOY_MONITORING.md](docs/DEPLOY_MONITORING.md)
 
 Happy designing! 🚀
 # <codex-marker>

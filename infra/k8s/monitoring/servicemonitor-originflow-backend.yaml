@@ -1,0 +1,22 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: originflow-backend
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack   # Adjust to match your Prometheus Operator "release" label selector
+spec:
+  namespaceSelector:
+    any: true                        # Or restrict: matchNames: ["your-app-namespace"]
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: originflow-backend   # Must match your Service labels
+  endpoints:
+    - interval: 15s
+      scrapeTimeout: 10s
+      path: /metrics
+      scheme: http
+      port: http                           # Prefer named port if your Service defines it
+      # If your Service doesn't use a named port, delete "port" and uncomment "targetPort"
+      # targetPort: 8000
+      honorLabels: true

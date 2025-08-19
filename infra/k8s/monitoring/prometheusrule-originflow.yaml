@@ -1,0 +1,64 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: originflow-rules
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack   # Adjust to match your Prometheus Operator "release" label selector
+spec:
+  groups:
+    - name: originflow-slo
+      rules:
+        - alert: AnalyzeLatencyHighShort
+          expr: histogram_quantile(0.95, sum by (le, tenant_id) (rate(analyze_process_latency_seconds_bucket[5m]))) > 0.25
+          for: 10m
+          labels: { severity: page }
+          annotations:
+            summary: "Analyze p95 latency > 250ms (short window)"
+            description: "Tenant {{ $labels.tenant_id }} p95 > 250ms for 10m."
+        - alert: AnalyzeLatencyHighLong
+          expr: histogram_quantile(0.95, sum by (le, tenant_id) (rate(analyze_process_latency_seconds_bucket[1h]))) > 0.20
+          for: 2h
+          labels: { severity: ticket }
+          annotations:
+            summary: "Analyze p95 latency > 200ms (sustained)"
+            description: "Tenant {{ $labels.tenant_id }} p95 > 200ms for 2h."
+    - name: originflow-cache
+      rules:
+        - alert: PolicyCacheRedisMissRateHigh
+          expr: |
+            (sum by (tenant_id) (rate(policy_cache_misses_total{layer="redis"}[10m]))) /
+            clamp_min(sum by (tenant_id) (rate(policy_cache_hits_total{layer="redis"}[10m])) + sum by (tenant_id) (rate(policy_cache_misses_total{layer="redis"}[10m])), 1) > 0.30
+          for: 30m
+          labels: { severity: warn }
+          annotations:
+            summary: "Redis miss rate > 30% (policy cache)"
+            description: "Tenant {{ $labels.tenant_id }} redis miss rate is elevated. Check caching, TTLs, and redis health."
+        - alert: PolicyCacheDBFallbackRateHigh
+          expr: sum by (tenant_id) (rate(policy_cache_misses_total{layer="db"}[10m])) > 0.05
+          for: 30m
+          labels: { severity: warn }
+          annotations:
+            summary: "DB fallback rate high"
+            description: "Tenant {{ $labels.tenant_id }} hitting DB for policy cache frequently. Investigate redis, TTL, and dogpile."
+    - name: originflow-approvals
+      rules:
+        - alert: ApprovalsEnqueueSpike
+          expr: sum by (tenant_id) (rate(approvals_enqueued_total[5m])) > 5
+          for: 15m
+          labels: { severity: info }
+          annotations:
+            summary: "Spike in approvals enqueued"
+            description: "Tenant {{ $labels.tenant_id }} enqueue rate > 5/min; review router accuracy and thresholds."
+    # Optional HTTP 5xx alert (uncomment when HTTP metrics are exported)
+    # - name: originflow-http
+    #   rules:
+    #     - alert: Backend5xxRateHigh
+    #       expr: |
+    #         sum(rate(http_server_requests_seconds_count{code=~"5.."}[5m])) /
+    #         clamp_min(sum(rate(http_server_requests_seconds_count[5m])), 1) > 0.02
+    #       for: 15m
+    #       labels: { severity: page }
+    #       annotations:
+    #         summary: "5xx error rate > 2%"
+    #         description: "Backend 5xx error rate is elevated across tenants."
