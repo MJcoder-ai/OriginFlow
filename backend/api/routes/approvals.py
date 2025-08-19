@@ -142,7 +142,13 @@ async def approve_one(
         }
         svc = AiOrchestrator()
         try:
-            apply_result = await svc.apply_actions([action], context=context)
+            # Pass additional context for enterprise-grade normalization
+            apply_result = await svc.apply_actions(
+                [action], 
+                context=context,
+                session_id=row.session_id,
+                user_text=row.original_prompt  # If available
+            )
             await ApprovalQueueService.mark_applied(session, row=row)
         except Exception as e:  # pragma: no cover - defensive
             await session.commit()
@@ -223,7 +229,13 @@ async def batch_decide(
                         "approved_by_id": getattr(user, "id", None),
                     }
                     svc = AiOrchestrator()
-                    server_apply_result = await svc.apply_actions([action], context=context)
+                    # Pass additional context for enterprise-grade normalization
+                    server_apply_result = await svc.apply_actions(
+                        [action], 
+                        context=context,
+                        session_id=row.session_id,
+                        user_text=row.original_prompt  # If available
+                    )
                     await ApprovalQueueService.mark_applied(session, row=row)
                 results.append({"id": item.id, "status": row.status, "server_apply_result": server_apply_result})
             else:

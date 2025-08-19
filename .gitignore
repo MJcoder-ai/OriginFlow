@@ -1,4 +1,22 @@
+# Node / frontend
+frontend/node_modules/
+frontend/.next/
+frontend/.turbo/
+frontend/dist/
+frontend/build/
+
+# Python
 .venv/
 __pycache__/
 originflow.db
 alembic/versions/__pycache__/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

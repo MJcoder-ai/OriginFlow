@@ -82,31 +82,13 @@ async def normalize_add_component(
         return payload
 
 
+# Use the canonical implementation from StateAwareActionResolver
 def explicit_class_from_text(text: str) -> Optional[str]:
-    """Detect explicitly mentioned component class from user text.
-    
-    Args:
-        text: User input text to analyze
-        
-    Returns:
-        Component class if exactly one is mentioned, None otherwise
-    """
+    """Detect explicitly mentioned component class from user text."""
     try:
-        from backend.ai.ontology import ONTOLOGY
-        
-        text_lower = text.lower()
-        hits = []
-        
-        for cls, synonyms in ONTOLOGY.classes.items():
-            # Check class name and all synonyms
-            all_terms = [cls.lower()] + [syn.lower() for syn in synonyms]
-            if any(term in text_lower for term in all_terms):
-                hits.append(cls)
-        
-        # Return class only if exactly one is mentioned (unambiguous)
-        unique_hits = list(set(hits))
-        return unique_hits[0] if len(unique_hits) == 1 else None
-        
+        from backend.services.ai.state_action_resolver import StateAwareActionResolver
+        resolver = StateAwareActionResolver()
+        return resolver._explicit_class_from_text(text)
     except Exception as e:
         logger.warning(f"Failed to detect explicit class from text '{text}': {e}")
         return None

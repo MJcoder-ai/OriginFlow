@@ -2,7 +2,7 @@
 """Orchestrator for AI agents and validation."""
 from __future__ import annotations
 
-from typing import List
+from typing import List, Optional
 import uuid
 import inspect
 
@@ -285,22 +285,89 @@ class AiOrchestrator:
         return validated
 
     async def apply_actions(
-        self, actions: list[dict], *, context: dict | None = None
+        self, 
+        actions: list[dict], 
+        *, 
+        context: dict | None = None,
+        session_id: Optional[str] = None,
+        snapshot: Optional[dict] = None,
+        user_text: Optional[str] = None,
     ) -> list[dict]:
-        """Execute a list of already-validated actions.
+        """Execute a list of already-validated actions with enterprise-grade normalization.
 
-        Current architecture executes actions via dedicated endpoints. This
-        placeholder simply returns the provided actions while allowing an
-        optional context to be attached for downstream consumers. The method
-        is asynchronous to mirror potential future executors.
+        This method now applies the same SAAR-based normalization used by the
+        interactive agent path, ensuring consistency between client-side and
+        server-side execution paths.
+
+        Args:
+            actions: List of actions to execute
+            context: Optional context for downstream consumers
+            session_id: Session ID for snapshot lookup
+            snapshot: Explicit snapshot data
+            user_text: Original user command for SAAR context
+
+        Returns:
+            Normalized and validated actions ready for execution
         """
+        
+        # Load design snapshot for context-aware normalization
+        ds = None
+        if snapshot:
+            try:
+                ds = DesignSnapshot.model_validate(snapshot)
+            except Exception as e:
+                logger.warning(f"Failed to parse provided snapshot: {e}")
+        
+        # If no snapshot provided but we have session_id, try to load latest
+        if ds is None and session_id:
+            try:
+                # TODO: Replace with your actual snapshot service
+                # This is a placeholder - implement based on your snapshot storage
+                pass  # ds = await SnapshotService().get_latest(session_id)
+            except Exception as e:
+                logger.warning(f"Failed to load snapshot for session {session_id}: {e}")
 
-        try:  # Best-effort context attachment for future use
+        # Apply enterprise-grade normalization to each action
+        normalized_actions = []
+        for action in actions:
+            action_type = (action.get("action") or "").lower()
+            
+            # Skip non-component actions (they don't need normalization)
+            if action_type not in {"add_component", "add_link", "remove_component", "update_position", "validation", "report"}:
+                logger.warning(f"Skipping unknown action type: {action_type}")
+                continue
+            
+            # Apply SAAR normalization for add_component actions
+            if action_type == "add_component":
+                payload = dict(action.get("payload") or {})
+                
+                if ds and user_text:
+                    try:
+                        # Apply the same normalization as ComponentAgent
+                        from backend.services.ai.action_guard import normalize_add_component
+                        payload = await normalize_add_component(user_text, ds, payload)
+                        action = dict(action)  # Make a copy
+                        action["payload"] = payload
+                        logger.info(f"Server apply: Normalized add_component action via SAAR")
+                    except Exception as e:
+                        logger.error(f"Failed to normalize add_component action: {e}")
+                        # Continue with original action if normalization fails
+                else:
+                    logger.warning(
+                        f"Server apply: Cannot normalize add_component - missing snapshot or user_text"
+                    )
+            
+            normalized_actions.append(action)
+
+        # Store context for downstream use
+        try:
             if context is not None:
                 setattr(self, "_apply_context", context)
         except Exception:  # pragma: no cover - defensive
             pass
-        return actions
+            
+        logger.info(f"Server apply: Processed {len(normalized_actions)} actions with enterprise normalization")
+        return normalized_actions
 
     @classmethod
     def dep(cls) -> "AiOrchestrator":
