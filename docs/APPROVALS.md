@@ -33,6 +33,12 @@ Evaluation order: **denylist → allowlist → threshold(compare confidence)**.
 - `POST /api/v1/approvals/{id}/reject` — reject (RBAC: `approvals.approve`)
 - `POST /api/v1/approvals/batch` — batch approve/reject (RBAC: `approvals.approve`)
 - `GET /api/v1/approvals/stream` — **SSE live updates** (RBAC: `approvals.read`)
+- `GET /api/v1/approvals/{id}/diff` — **Preview impact** (RBAC: `approvals.read`)
+  - Returns:
+    - `before_snapshot`: latest snapshot for the action’s `session_id`, or `null` if none
+    - `after_preview`: heuristic simulation (`graph`, `note`)
+    - `diff`: `added_nodes`, `removed_nodes`, `modified_nodes`, `added_edges`, `removed_edges`
+  - Non-destructive; if the action type isn’t supported, returns the same graph with a note.
   - Events (`data: {...}`):
     - `{"type":"hello","tenant_id":"..."}` – initial handshake
     - `{"type":"pending.created","item":{...}}`
@@ -64,5 +70,7 @@ via `EventSource` and updates live when items are created/approved/rejected/appl
 
 ## Notes
 - This patch is additive and safe. If anything in policy evaluation fails, the service logs a warning and continues with the original execute path.
+- The diff preview uses conservative heuristics for common action families (add/update/remove component/link). For complex domain actions, you may plug a richer
+  domain-aware simulator later; this endpoint and the UI won’t need to change.
 - You can tune thresholds/allowlists per tenant via settings or env immediately—no redeploy required.
 

@@ -384,6 +384,11 @@ export const api = {
     if (!res.ok) throw new Error('Failed to reject');
     return res.json();
   },
+  async getApprovalDiff(id: number) {
+    const res = await fetch(`/api/v1/approvals/${id}/diff`);
+    if (!res.ok) throw new Error('Failed to get diff');
+    return res.json();
+  },
   async postSessionAct(sessionId: string, action: any) {
     const res = await fetch(`/api/v1/odl/sessions/${encodeURIComponent(sessionId)}/act`, {
       method: 'POST',
