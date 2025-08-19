@@ -32,6 +32,14 @@ Evaluation order: **denylist → allowlist → threshold(compare confidence)**.
   - If `approve_and_apply=true` the backend executes the action and marks it `applied`.
 - `POST /api/v1/approvals/{id}/reject` — reject (RBAC: `approvals.approve`)
 - `POST /api/v1/approvals/batch` — batch approve/reject (RBAC: `approvals.approve`)
+- `GET /api/v1/approvals/stream` — **SSE live updates** (RBAC: `approvals.read`)
+  - Events (`data: {...}`):
+    - `{"type":"hello","tenant_id":"..."}` – initial handshake
+    - `{"type":"pending.created","item":{...}}`
+    - `{"type":"pending.approved","item":{...}}`
+    - `{"type":"pending.rejected","item":{...}}`
+    - `{"type":"pending.applied","item":{...}}`
+    - `{"type":"heartbeat"}` – periodic heartbeat
 
 > Approve response includes `apply_client_side: true` when the server did not
 > execute the action. Clients may then POST to `/api/v1/odl/sessions/{session_id}/act`
@@ -47,6 +55,8 @@ On Approve, the client can choose to:
    client-side.
 
 Polling is used initially (no WS dependency). SSE/WS can be added later.
+Now upgraded: the Approvals panel subscribes to `/api/v1/approvals/stream`
+via `EventSource` and updates live when items are created/approved/rejected/applied.
 
 ## RBAC
 - `approvals.read` to view the queue

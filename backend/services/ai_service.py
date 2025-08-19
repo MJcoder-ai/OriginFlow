@@ -249,9 +249,10 @@ class AiOrchestrator:
             from backend.database.session import SessionMaker  # type: ignore
 
             async with SessionMaker() as q_sess:
+                queued_rows = []
                 for act in validated:
                     if not getattr(act, "auto_approved", False):
-                        await ApprovalQueueService.enqueue(
+                        row = await ApprovalQueueService.enqueue(
                             q_sess,
                             tenant_id=tenant_id or "tenant_default",
                             action_type=act.action.value,
@@ -263,7 +264,17 @@ class AiOrchestrator:
                             requested_by_id=None,
                             reason=getattr(act, "_approval_reason", None),
                         )
+                        queued_rows.append(row.to_dict())
                 await q_sess.commit()
+
+            # After commit, broadcast created events (no DB access needed).
+            try:
+                if queued_rows:
+                    from backend.services.approvals_events import ApprovalsEventBus
+                    for qi in queued_rows:
+                        ApprovalsEventBus.publish_created(tenant_id or "tenant_default", qi)
+            except Exception:
+                pass
         except Exception:
             pass
         return validated

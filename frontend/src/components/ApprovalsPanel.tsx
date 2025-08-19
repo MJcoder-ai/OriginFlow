@@ -47,8 +47,50 @@ export default function ApprovalsPanel() {
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Live updates via SSE
+  useEffect(() => {
+    const es = new EventSource('/api/v1/approvals/stream');
+    es.onmessage = (ev) => {
+      try {
+        const msg = JSON.parse(ev.data || '{}');
+        if (!msg || !msg.type) return;
+        if (msg.type === 'heartbeat' || msg.type === 'hello') return;
+        const item = msg.item;
+        if (!item) return;
+        setItems((prev) => {
+          const idx = prev.findIndex((p) => p.id === item.id);
+          const matches =
+            (!status || status === '' || item.status === status) &&
+            (!filterSession || item.session_id === filterSession) &&
+            (!filterProject || item.project_id === filterProject);
+          if (idx === -1) {
+            return matches ? [item, ...prev] : prev;
+          }
+          const next = prev.slice();
+          next[idx] = { ...prev[idx], ...item };
+          const stillMatches =
+            (!status || status === '' || next[idx].status === status) &&
+            (!filterSession || next[idx].session_id === filterSession) &&
+            (!filterProject || next[idx].project_id === filterProject);
+          if (!stillMatches) {
+            next.splice(idx, 1);
+          }
+          return next;
+        });
+      } catch (_e) {
+        // ignore malformed payloads
+      }
+    };
+    es.onerror = () => {
+      // browser will auto-reconnect
+    };
+    return () => {
+      es.close();
+    };
+  }, [status, filterSession, filterProject]);
 
   async function approve(it: Item) {
     const r = await api.approveApproval(it.id, note || undefined, serverApply);

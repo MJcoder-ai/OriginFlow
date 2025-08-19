@@ -39,6 +39,7 @@ class ApprovalQueueService:
             requested_by_id=requested_by_id,
         )
         session.add(row)
+        await session.flush()
         return row
 
     @staticmethod
