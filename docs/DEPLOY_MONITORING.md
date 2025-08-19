@@ -24,6 +24,19 @@ Apply:
 kubectl apply -f infra/k8s/monitoring/prometheusrule-originflow.yaml
 ```
 
+### Recording rules (Operator)
+The same CR also includes recording rules under `originflow-recording-5m` and `originflow-recording-1h`.
+Prometheus will evaluate and store the resulting time series for faster dashboard queries.
+
+### Recording rules (non-Operator Prometheus)
+If you manage Prometheus without the Operator, include:
+```bash
+kubectl create configmap originflow-recording-rules \
+  --from-file=infra/prometheus/rules/originflow-recording.rules.yml \
+  -n monitoring --dry-run=client -o yaml | kubectl apply -f -
+```
+And reference the ConfigMap in your Prometheus config `.rules` files mount.
+
 ## 3) Grafana datasource (Prometheus)
 Set an environment variable on Grafana: `PROMETHEUS_URL` (e.g., `http://prometheus-operated:9090`).
 Then apply:
