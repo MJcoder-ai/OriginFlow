@@ -200,47 +200,46 @@ export default function ApprovalsPanel() {
             <div>Decide</div>
           </div>
           {items.map((it) => (
-            <div
-              key={it.id}
-              className="grid grid-cols-8 gap-2 px-3 py-2 border-t items-center text-sm"
-            >
-              <div>{it.id}</div>
-              <div className="truncate" title={it.session_id || ''}>
-                {it.session_id || '-'}
+            <React.Fragment key={it.id}>
+              <div className="grid grid-cols-8 gap-2 px-3 py-2 border-t items-center text-sm">
+                <div>{it.id}</div>
+                <div className="truncate" title={it.session_id || ''}>
+                  {it.session_id || '-'}
+                </div>
+                <div>{it.agent_name || '-'}</div>
+                <div>{it.action_type}</div>
+                <div>{it.confidence != null ? it.confidence.toFixed(2) : '-'}</div>
+                <div>{it.status}</div>
+                <div className="truncate" title={it.reason || ''}>
+                  {it.reason || '-'}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => openPreview(it)}
+                    className="px-2 py-1 rounded bg-gray-700 text-white"
+                  >
+                    Preview
+                  </button>
+                  <button
+                    onClick={() => approve(it)}
+                    className="px-2 py-1 rounded bg-emerald-600 text-white"
+                  >
+                    Approve
+                  </button>
+                  <button
+                    onClick={() => reject(it)}
+                    className="px-2 py-1 rounded bg-rose-600 text-white"
+                  >
+                    Reject
+                  </button>
+                </div>
               </div>
-              <div>{it.agent_name || '-'}</div>
-              <div>{it.action_type}</div>
-              <div>{it.confidence != null ? it.confidence.toFixed(2) : '-'}</div>
-              <div>{it.status}</div>
-              <div className="truncate" title={it.reason || ''}>
-                {it.reason || '-'}
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => openPreview(it)}
-                  className="px-2 py-1 rounded bg-gray-700 text-white"
-                >
-                  Preview
-                </button>
-                <button
-                  onClick={() => approve(it)}
-                  className="px-2 py-1 rounded bg-emerald-600 text-white"
-                >
-                  Approve
-                </button>
-                <button
-                  onClick={() => reject(it)}
-                  className="px-2 py-1 rounded bg-rose-600 text-white"
-                >
-                  Reject
-                </button>
-              </div>
-              <div className="col-span-8 bg-gray-50 rounded p-2 text-xs font-mono overflow-auto">
+              <div className="col-span-8 bg-gray-50 rounded p-2 text-xs font-mono overflow-auto mx-3 mb-2">
                 <pre className="whitespace-pre-wrap">
                   {JSON.stringify(it.payload, null, 2)}
                 </pre>
               </div>
-            </div>
+            </React.Fragment>
           ))}
           {!loading && items.length === 0 && (
             <div className="px-3 py-4 text-sm text-gray-500">No items</div>
