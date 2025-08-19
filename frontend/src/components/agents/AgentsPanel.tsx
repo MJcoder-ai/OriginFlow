@@ -30,10 +30,9 @@ export default function AgentsPanel() {
     }
   }
 
-  useEffect(() => {
-    load();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    useEffect(() => {
+      load();
+    }, []);
 
   async function toggleEnabled(row: TenantAgentRow) {
     await api.updateTenantAgentState(row.agent_name, { enabled: !row.enabled }, tenantId || undefined);

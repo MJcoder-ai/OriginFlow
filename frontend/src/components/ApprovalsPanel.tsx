@@ -54,10 +54,9 @@ export default function ApprovalsPanel() {
     }
   }
 
-  useEffect(() => {
-    load();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    useEffect(() => {
+      load();
+    }, []);
 
   // Live updates via SSE
   useEffect(() => {
@@ -146,47 +145,48 @@ export default function ApprovalsPanel() {
   }
 
   return (
-    <div className="p-4 space-y-4">
-      <h1 className="text-xl font-semibold">Approvals</h1>
-      <div className="flex flex-wrap gap-2 items-center">
-        <label className="text-sm text-gray-500">Status</label>
-        <select
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-          className="border rounded px-2 py-1"
-        >
-          <option value="pending">pending</option>
-          <option value="">(all)</option>
-          <option value="approved">approved</option>
-          <option value="rejected">rejected</option>
-          <option value="applied">applied</option>
-        </select>
-        <input
-          placeholder="session id"
-          value={filterSession}
-          onChange={(e) => setFilterSession(e.target.value)}
-          className="border rounded px-2 py-1"
-        />
-        <input
-          placeholder="project id"
-          value={filterProject}
-          onChange={(e) => setFilterProject(e.target.value)}
-          className="border rounded px-2 py-1"
-        />
-        <button onClick={load} className="px-3 py-1 rounded bg-blue-600 text-white">
-          Reload
-        </button>
-        <input
-          placeholder="decision note..."
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          className="border rounded px-2 py-1 flex-1"
-        />
-        <label className="ml-2 text-sm flex items-center gap-2">
-          <input type="checkbox" checked={serverApply} onChange={(e) => setServerApply(e.target.checked)} />
-          Apply server-side
-        </label>
-      </div>
+    <>
+      <div className="p-4 space-y-4">
+        <h1 className="text-xl font-semibold">Approvals</h1>
+        <div className="flex flex-wrap gap-2 items-center">
+          <label className="text-sm text-gray-500">Status</label>
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            className="border rounded px-2 py-1"
+          >
+            <option value="pending">pending</option>
+            <option value="">(all)</option>
+            <option value="approved">approved</option>
+            <option value="rejected">rejected</option>
+            <option value="applied">applied</option>
+          </select>
+          <input
+            placeholder="session id"
+            value={filterSession}
+            onChange={(e) => setFilterSession(e.target.value)}
+            className="border rounded px-2 py-1"
+          />
+          <input
+            placeholder="project id"
+            value={filterProject}
+            onChange={(e) => setFilterProject(e.target.value)}
+            className="border rounded px-2 py-1"
+          />
+          <button onClick={load} className="px-3 py-1 rounded bg-blue-600 text-white">
+            Reload
+          </button>
+          <input
+            placeholder="decision note..."
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            className="border rounded px-2 py-1 flex-1"
+          />
+          <label className="ml-2 text-sm flex items-center gap-2">
+            <input type="checkbox" checked={serverApply} onChange={(e) => setServerApply(e.target.checked)} />
+            Apply server-side
+          </label>
+        </div>
       {error && <div className="text-red-600 text-sm">{error}</div>}
       <div className="border rounded">
         <div className="grid grid-cols-8 gap-2 px-3 py-2 bg-gray-50 text-xs font-medium">
@@ -258,6 +258,7 @@ export default function ApprovalsPanel() {
       diff={previewDiff}
       onApproveAndApply={approveAndApplyFromModal}
     />
+    </>
   );
 }
 
