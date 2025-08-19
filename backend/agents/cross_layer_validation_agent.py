@@ -54,8 +54,8 @@ class CrossLayerValidationAgent(AgentBase):
 
         from backend.schemas.analysis import DesignSnapshot  # local import avoids circular reference
 
-        snapshot_dict = kwargs.get("snapshot")
-        if not snapshot_dict:
+        snapshot_data = kwargs.get("snapshot")
+        if not snapshot_data:
             # Without a snapshot we cannot inspect connectivity; ask user to provide one.
             return [
                 AiAction(
@@ -68,7 +68,10 @@ class CrossLayerValidationAgent(AgentBase):
                 ).model_dump()
             ]
         try:
-            snapshot = DesignSnapshot.model_validate(snapshot_dict)
+            if isinstance(snapshot_data, dict):
+                snapshot = DesignSnapshot.model_validate(snapshot_data)
+            else:
+                snapshot = snapshot_data
         except Exception:
             return [
                 AiAction(

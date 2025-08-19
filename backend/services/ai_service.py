@@ -75,7 +75,7 @@ class AiOrchestrator:
         handle_params = inspect.signature(self.router_agent.handle).parameters
         kwargs: dict = {}
         if "snapshot" in handle_params:
-            kwargs["snapshot"] = ctx.snapshot
+            kwargs["snapshot"] = ctx.snapshot.model_dump() if ctx.snapshot else None
         if "trace_id" in handle_params:
             kwargs["trace_id"] = ctx.trace_id
         try:

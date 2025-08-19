@@ -146,7 +146,14 @@ class ComponentAgent(AgentBase):
     async def handle(self, command: str, **kwargs) -> List[Dict[str, Any]]:
         """Return validated component actions."""
 
-        snapshot: Optional[DesignSnapshot] = kwargs.get("snapshot")
+        snapshot_data = kwargs.get("snapshot")
+        snapshot: Optional[DesignSnapshot] = None
+        if snapshot_data:
+            if isinstance(snapshot_data, dict):
+                from backend.schemas.analysis import DesignSnapshot
+                snapshot = DesignSnapshot.model_validate(snapshot_data)
+            else:
+                snapshot = snapshot_data
         db_actions = await self._lookup_component(command, snapshot)
         if db_actions is not None:
             return db_actions

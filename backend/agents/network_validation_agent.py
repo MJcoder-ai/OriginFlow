@@ -37,8 +37,8 @@ class NetworkValidationAgent(AgentBase):
 
         from backend.schemas.analysis import DesignSnapshot  # local import to avoid circular
 
-        snapshot_dict = kwargs.get("snapshot")
-        if not snapshot_dict:
+        snapshot_data = kwargs.get("snapshot")
+        if not snapshot_data:
             return [
                 AiAction(
                     action=AiActionType.validation,
@@ -50,7 +50,10 @@ class NetworkValidationAgent(AgentBase):
                 ).model_dump()
             ]
         try:
-            snapshot = DesignSnapshot.model_validate(snapshot_dict)
+            if isinstance(snapshot_data, dict):
+                snapshot = DesignSnapshot.model_validate(snapshot_data)
+            else:
+                snapshot = snapshot_data
         except Exception:
             return [
                 AiAction(
