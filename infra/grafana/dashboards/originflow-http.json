@@ -1,0 +1,121 @@
+{
+  "id": null,
+  "uid": "of-http",
+  "title": "OriginFlow • HTTP & Errors",
+  "tags": ["originflow","http","errors","sizes","exceptions"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "editable": true,
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "tenant",
+        "type": "query",
+        "label": "Tenant",
+        "includeAll": true,
+        "refresh": 1,
+        "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+        "query": "label_values(http_request_size_bytes_count, tenant_id)",
+        "current": { "selected": true, "text": "All", "value": "$__all" }
+      },
+      {
+        "name": "route",
+        "type": "query",
+        "label": "Route",
+        "includeAll": true,
+        "refresh": 2,
+        "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+        "query": "label_values(http_requests_total{tenant_id=~\"$tenant\"}, route)",
+        "current": { "selected": true, "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Avg request size (last 5m)",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "sum(rate(http_request_size_bytes_sum{tenant_id=~\"$tenant\",route=~\"$route\"}[5m])) / clamp_min(sum(rate(http_request_size_bytes_count{tenant_id=~\"$tenant\",route=~\"$route\"}[5m])), 1)",
+          "legendFormat": "avg",
+          "instant": true
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "none", "justifyMode": "auto" },
+      "fieldConfig": { "defaults": { "unit": "bytes", "decimals": 1 } }
+    },
+    {
+      "type": "stat",
+      "title": "Avg response size (last 5m)",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "sum(rate(http_response_size_bytes_sum{tenant_id=~\"$tenant\",route=~\"$route\"}[5m])) / clamp_min(sum(rate(http_response_size_bytes_count{tenant_id=~\"$tenant\",route=~\"$route\"}[5m])), 1)",
+          "legendFormat": "avg",
+          "instant": true
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "none", "justifyMode": "auto" },
+      "fieldConfig": { "defaults": { "unit": "bytes", "decimals": 1 } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Request size p95",
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_request_size_bytes_bucket{tenant_id=~\"$tenant\",route=~\"$route\"}[5m])))",
+          "legendFormat": "p95"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes", "decimals": 0 } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Response size p95",
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_response_size_bytes_bucket{tenant_id=~\"$tenant\",route=~\"$route\"}[5m])))",
+          "legendFormat": "p95"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes", "decimals": 0 } }
+    },
+    {
+      "type": "bargauge",
+      "title": "Exception rate by class (5m)",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "sum by (exception) (rate(http_exceptions_total{tenant_id=~\"$tenant\",route=~\"$route\"}[5m]))",
+          "legendFormat": "{{exception}}",
+          "instant": true
+        }
+      ],
+      "options": { "orientation": "horizontal", "displayMode": "basic", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": { "defaults": { "unit": "req/s", "min": 0 } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Exceptions over time (by class)",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "sum by (exception) (rate(http_exceptions_total{tenant_id=~\"$tenant\",route=~\"$route\"}[5m]))",
+          "legendFormat": "{{exception}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "req/s", "min": 0 } }
+    }
+  ]
+}

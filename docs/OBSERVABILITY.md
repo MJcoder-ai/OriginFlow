@@ -115,6 +115,7 @@ Import these JSON files into Grafana (Dashboards → New → Import):
 
 - `infra/grafana/dashboards/originflow-policy-approvals.json`
 - `infra/grafana/dashboards/originflow-slo.json`
+- `infra/grafana/dashboards/originflow-http.json`  ← sizes & exceptions
 
 Set the Prometheus datasource variable (`DS_PROMETHEUS`) during import if prompted.
 
