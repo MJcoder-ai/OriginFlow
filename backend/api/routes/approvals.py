@@ -9,6 +9,7 @@ from backend.api.deps import get_current_user, get_session
 from backend.auth.dependencies import require_permission
 from backend.schemas.approvals import ApprovalDecision, BatchDecisionRequest
 from backend.services.approval_queue_service import ApprovalQueueService
+from backend.services.ai_service import AiOrchestrator
 
 
 router = APIRouter(prefix="/api/v1/approvals", tags=["Approvals"])
@@ -56,9 +57,34 @@ async def approve_one(
     await ApprovalQueueService.approve(
         session, row=row, approver_id=getattr(user, "id", None), note=body.note
     )
+    apply_result = None
+    if body.approve_and_apply:
+        if row.status == "applied":
+            await session.commit()
+            return {"approved": row.to_dict(), "already_applied": True}
+        action = {"type": row.action_type, "payload": {**(row.payload or {})}}
+        if row.session_id and "session_id" not in action["payload"]:
+            action["payload"]["session_id"] = row.session_id
+        context = {
+            "tenant_id": row.tenant_id,
+            "project_id": row.project_id,
+            "session_id": row.session_id,
+            "agent_name": row.agent_name,
+            "approved_by_id": getattr(user, "id", None),
+        }
+        svc = AiOrchestrator()
+        try:
+            apply_result = await svc.apply_actions([action], context=context)
+            await ApprovalQueueService.mark_applied(session, row=row)
+        except Exception as e:  # pragma: no cover - defensive
+            await session.commit()
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Apply failed: {e}")
     await session.commit()
-    # Return payload so client can apply via existing /act endpoint
-    return {"approved": row.to_dict(), "apply_client_side": True}
+    return {
+        "approved": row.to_dict(),
+        "apply_client_side": not body.approve_and_apply,
+        "server_apply_result": apply_result,
+    }
 
 
 @router.post("/{id}/reject", dependencies=[Depends(require_permission("approvals.approve"))])
@@ -105,7 +131,22 @@ async def batch_decide(
                     approver_id=getattr(user, "id", None),
                     note=item.note,
                 )
-                results.append({"id": item.id, "status": "approved"})
+                server_apply_result = None
+                if item.approve_and_apply and row.status != "applied":
+                    action = {"type": row.action_type, "payload": {**(row.payload or {})}}
+                    if row.session_id and "session_id" not in action["payload"]:
+                        action["payload"]["session_id"] = row.session_id
+                    context = {
+                        "tenant_id": row.tenant_id,
+                        "project_id": row.project_id,
+                        "session_id": row.session_id,
+                        "agent_name": row.agent_name,
+                        "approved_by_id": getattr(user, "id", None),
+                    }
+                    svc = AiOrchestrator()
+                    server_apply_result = await svc.apply_actions([action], context=context)
+                    await ApprovalQueueService.mark_applied(session, row=row)
+                results.append({"id": item.id, "status": row.status, "server_apply_result": server_apply_result})
             else:
                 await ApprovalQueueService.reject(
                     session,

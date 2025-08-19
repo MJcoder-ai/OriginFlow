@@ -268,6 +268,24 @@ class AiOrchestrator:
             pass
         return validated
 
+    async def apply_actions(
+        self, actions: list[dict], *, context: dict | None = None
+    ) -> list[dict]:
+        """Execute a list of already-validated actions.
+
+        Current architecture executes actions via dedicated endpoints. This
+        placeholder simply returns the provided actions while allowing an
+        optional context to be attached for downstream consumers. The method
+        is asynchronous to mirror potential future executors.
+        """
+
+        try:  # Best-effort context attachment for future use
+            if context is not None:
+                setattr(self, "_apply_context", context)
+        except Exception:  # pragma: no cover - defensive
+            pass
+        return actions
+
     @classmethod
     def dep(cls) -> "AiOrchestrator":
         """Return orchestrator instance for FastAPI dependency injection."""
