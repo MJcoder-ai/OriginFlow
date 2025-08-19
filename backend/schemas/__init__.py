@@ -12,9 +12,9 @@ another:contentReference[oaicite:2]{index=2}.
 
 from .component_master import ComponentMasterCreate, ComponentMasterInDB  # noqa: F401
 from .memory import Memory as MemorySchema  # noqa: F401
-from .governance import (  # noqa: F401
-    TenantSettingsRead,
-    TenantSettingsUpdate,
-    PendingActionRead,
-    PendingActionDecision,
-)
+from .governance import TenantSettingsRead, TenantSettingsUpdate  # noqa: F401
+from .approvals import (
+    ApprovalListQuery,
+    ApprovalDecision,
+    BatchDecisionRequest,
+)  # noqa: F401

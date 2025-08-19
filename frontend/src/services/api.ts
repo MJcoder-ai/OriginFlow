@@ -354,6 +354,46 @@ export const api = {
     return res.json();
   },
 
+  // ---- Approvals ----
+  async listApprovals(params: { status?: string; session_id?: string; project_id?: string; limit?: number; offset?: number } = {}) {
+    const qs = new URLSearchParams();
+    if (params.status) qs.set('status', params.status);
+    if (params.session_id) qs.set('session_id', params.session_id);
+    if (params.project_id) qs.set('project_id', params.project_id);
+    if (params.limit) qs.set('limit', String(params.limit));
+    if (params.offset) qs.set('offset', String(params.offset));
+    const res = await fetch(`/api/v1/approvals/?${qs.toString()}`);
+    if (!res.ok) throw new Error('Failed to list approvals');
+    return res.json();
+  },
+  async approveApproval(id: number, note?: string) {
+    const res = await fetch(`/api/v1/approvals/${id}/approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note, approve_and_apply: false }),
+    });
+    if (!res.ok) throw new Error('Failed to approve');
+    return res.json();
+  },
+  async rejectApproval(id: number, note?: string) {
+    const res = await fetch(`/api/v1/approvals/${id}/reject`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note }),
+    });
+    if (!res.ok) throw new Error('Failed to reject');
+    return res.json();
+  },
+  async postSessionAct(sessionId: string, action: any) {
+    const res = await fetch(`/api/v1/odl/sessions/${encodeURIComponent(sessionId)}/act`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(action),
+    });
+    if (!res.ok) throw new Error('Failed to apply approved action');
+    return res.json();
+  },
+
   // --- Agents Catalog (MVP) ---
   listAgents: async (): Promise<
     Array<{ name: string; display_name?: string; version?: string; domain?: string; risk_class?: string; capabilities?: string[] }>

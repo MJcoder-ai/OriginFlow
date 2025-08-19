@@ -68,3 +68,8 @@ we call `AgentHydrator.invalidate(...)` to ensure fresh hydration.
 - Validation is conservative (regex, shape, required fields). You can extend `AgentSpecModel` with stricter
   action schemas and tool registries when you finalize domain-specific tools.
 
+## Approvals integration
+When agents propose actions, `AnalyzeService` evaluates tenant policy:
+- **Auto-approved** actions execute immediately.
+- Others are enqueued in `pending_actions` for manual review (see `docs/APPROVALS.md`).
+

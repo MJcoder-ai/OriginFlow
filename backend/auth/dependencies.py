@@ -99,3 +99,7 @@ def get_current_user(current_user: AuthenticatedUser) -> User:
 # - agents.read: allow reading catalog/state
 # - agents.edit: allow creating drafts, updating tenant state
 # - agents.publish: allow publishing versions
+
+# Approvals permissions:
+# - approvals.read: list/view pending actions
+# - approvals.approve: approve/reject/batch

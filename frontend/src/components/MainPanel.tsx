@@ -7,6 +7,7 @@ import ComponentCanvas from './ComponentCanvas';
 import SettingsLayout from './settings/SettingsLayout';
 import { useAppStore } from '../appStore';
 import AgentsPanel from './agents/AgentsPanel';
+import ApprovalsPanel from './ApprovalsPanel';
 
 const MainPanel: React.FC = () => {
   const route = useAppStore((s) => s.route);
@@ -19,6 +20,7 @@ const MainPanel: React.FC = () => {
       )}
       {route === 'settings' && <SettingsLayout />}
       {route === 'agents' && <AgentsPanel />}
+      {route === 'approvals' && <ApprovalsPanel />}
     </main>
   );
 };
