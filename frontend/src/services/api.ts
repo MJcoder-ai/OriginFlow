@@ -289,6 +289,37 @@ export const api = {
     return res.json();
   },
 
+  // --- Agents Catalog (MVP) ---
+  listAgents: async (): Promise<
+    Array<{ name: string; display_name?: string; version?: string; domain?: string; risk_class?: string; capabilities?: string[] }>
+  > => {
+    const res = await fetch(`${API_BASE_URL}/agents`);
+    if (!res.ok) throw new Error('Failed to list agents');
+    const data = await res.json();
+    return Array.isArray(data) ? data : data?.agents ?? [];
+  },
+  getAgent: async (name: string): Promise<any> => {
+    const res = await fetch(`${API_BASE_URL}/agents/${encodeURIComponent(name)}`);
+    if (!res.ok) throw new Error(`Failed to get agent ${name}`);
+    return res.json();
+  },
+  enableAgent: async (name: string): Promise<void> => {
+    const res = await fetch(`${API_BASE_URL}/agents/${encodeURIComponent(name)}/enable`, { method: 'POST' });
+    if (!res.ok) throw new Error('Failed to enable agent');
+  },
+  disableAgent: async (name: string): Promise<void> => {
+    const res = await fetch(`${API_BASE_URL}/agents/${encodeURIComponent(name)}/disable`, { method: 'POST' });
+    if (!res.ok) throw new Error('Failed to disable agent');
+  },
+  registerAgent: async (spec: any): Promise<void> => {
+    const res = await fetch(`${API_BASE_URL}/agents/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(spec),
+    });
+    if (!res.ok) throw new Error('Failed to register agent');
+  },
+
   /** Requirements status helper for blocked gather step. */
   async getRequirementsStatus(sessionId: string): Promise<{
     missing_requirements: string[];

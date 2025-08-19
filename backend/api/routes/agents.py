@@ -32,6 +32,7 @@ class AgentInfo(BaseModel):
     description: Optional[str] = None
     examples: List[str] = Field(default_factory=list)
     version: Optional[str] = None
+    display_name: Optional[str] = None
     enabled: bool = True
 
 
@@ -48,6 +49,8 @@ class AgentRegistrationRequest(BaseModel):
     """Request to register a new agent."""
     name: str
     domain: str
+    display_name: Optional[str] = None
+    version: Optional[str] = None
     risk_class: str = "medium"
     capabilities: List[str] = Field(default_factory=list)
     description: Optional[str] = None
@@ -80,6 +83,7 @@ async def list_agents(
                 description=getattr(spec, 'description', None),
                 examples=getattr(spec, 'examples', []),
                 version=getattr(spec, 'version', None),
+                display_name=getattr(spec, 'display_name', None),
                 enabled=True
             ))
         except KeyError:
@@ -138,25 +142,66 @@ async def list_tasks(
     return tasks
 
 
+@router.get("/templates")
+async def agent_templates(current_user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    """Provide starter templates for the New Agent modal."""
+    templates = [
+        {
+            "id": "pv_assistant_basic",
+            "title": "PV Assistant (basic)",
+            "spec": {
+                "name": "pv_assistant",
+                "display_name": "PV Assistant",
+                "version": "0.1.0",
+                "domain": "pv",
+                "risk_class": "low",
+                "capabilities": ["suggest_components", "validate_single_line"],
+                "examples": [
+                    "add a generic PV module",
+                    "suggest inverter for 5kW rooftop",
+                ],
+            },
+        },
+        {
+            "id": "battery_advisor",
+            "title": "Battery Advisor (basic)",
+            "spec": {
+                "name": "battery_advisor",
+                "display_name": "Battery Advisor",
+                "version": "0.1.0",
+                "domain": "battery",
+                "risk_class": "medium",
+                "capabilities": ["size_storage", "estimate_runtime"],
+                "examples": [
+                    "size battery for 4-hour backup",
+                    "estimate runtime at 2kW load",
+                ],
+            },
+        },
+    ]
+    return {"templates": templates}
+
+
 @router.get("/{agent_name}")
 async def get_agent_info(
     agent_name: str,
     current_user: User = Depends(get_current_user)
-) -> AgentInfo:
+) -> Dict[str, Any]:
     """Get detailed information about a specific agent."""
-    
+
     try:
         spec = get_spec(agent_name)
-        return AgentInfo(
-            name=spec.name,
-            domain=spec.domain,
-            risk_class=spec.risk_class,
-            capabilities=spec.capabilities,
-            description=getattr(spec, 'description', None),
-            examples=getattr(spec, 'examples', []),
-            version=getattr(spec, 'version', None),
-            enabled=True
-        )
+        spec_dict = {
+            "name": spec.name,
+            "domain": spec.domain,
+            "risk_class": spec.risk_class,
+            "capabilities": spec.capabilities,
+            "description": getattr(spec, 'description', None),
+            "examples": getattr(spec, 'examples', []),
+            "version": getattr(spec, 'version', None),
+            "display_name": getattr(spec, 'display_name', None),
+        }
+        return {"name": spec.name, "spec": spec_dict, "enabled": True}
     except KeyError:
         raise HTTPException(status_code=404, detail=f"Agent {agent_name} not found")
 
@@ -214,6 +259,8 @@ async def register_agent(
         spec = register_spec(
             name=request.name,
             domain=request.domain,
+            display_name=request.display_name,
+            version=request.version,
             risk_class=request.risk_class,
             capabilities=request.capabilities,
             description=request.description or "",

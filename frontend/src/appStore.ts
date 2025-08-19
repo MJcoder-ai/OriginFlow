@@ -22,7 +22,7 @@ export interface UploadEntry {
   is_human_verified: boolean;
 }
 
-export type Route = 'projects' | 'components' | 'settings';
+export type Route = 'projects' | 'components' | 'settings' | 'agents';
 
 /** Connection port available on a component. */
 export interface Port {
