@@ -52,6 +52,16 @@ numpy = "^1.24.0"
 python-magic = "^0.4.27"
 jsonschema = "^4.21.1"
 
+# Observability
+prometheus-client = "^0.20.0"
+opentelemetry-api = "^1.26.0"
+opentelemetry-sdk = "^1.26.0"
+opentelemetry-exporter-otlp = "^1.26.0"
+opentelemetry-instrumentation = "^0.47b0"
+opentelemetry-instrumentation-fastapi = "^0.47b0"
+opentelemetry-instrumentation-starlette = "^0.47b0"
+opentelemetry-instrumentation-logging = "^0.47b0"
+
 # Added for image extraction from PDFs
 pypdf = "^4.0.1"
 Pillow = "^10.3.0"

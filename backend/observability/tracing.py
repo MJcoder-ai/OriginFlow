@@ -1,61 +1,37 @@
-"""Lightweight tracing utilities.
-
-The ``Tracer`` and ``Span`` classes provide minimal instrumentation for
-recording execution spans.  Each span captures its name, start and end
-times, a status and arbitrary key‑value attributes.  Finished spans can
-be collected for reporting or further processing.
-
-This module intentionally avoids external dependencies and is suitable
-for unit tests or local development.  It can be extended or replaced
-with a full OpenTelemetry implementation in the future.
-"""
 from __future__ import annotations
+import os
+import logging
 
-import time
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+TRACING_ENABLED = os.getenv("TRACING_ENABLED", "false").lower() in ("1","true","yes")
+SERVICE_NAME = os.getenv("OTEL_SERVICE_NAME", "originflow-backend")
+OTLP_ENDPOINT = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318")
 
+def init_tracing(app=None):
+    """
+    Safe initializer. If OpenTelemetry libs are missing or TRACING_ENABLED=false, this is a no-op.
+    """
+    if not TRACING_ENABLED:
+        return
+    try:
+        from opentelemetry import trace
+        from opentelemetry.sdk.resources import SERVICE_NAME as _SN, Resource
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+        from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+        from opentelemetry.instrumentation.starlette import StarletteInstrumentor
 
-@dataclass
-class Span:
-    """Represents a unit of work within a trace."""
+        resource = Resource.create({_SN: SERVICE_NAME})
+        provider = TracerProvider(resource=resource)
+        processor = BatchSpanProcessor(OTLPSpanExporter(endpoint=f"{OTLP_ENDPOINT}/v1/traces"))
+        provider.add_span_processor(processor)
+        trace.set_tracer_provider(provider)
 
-    name: str
-    start_time: float
-    attributes: Dict[str, Any] = field(default_factory=dict)
-    end_time: Optional[float] = None
-    status: str = "unknown"
-
-    @property
-    def duration_ms(self) -> float:
-        """Return the duration of the span in milliseconds."""
-        if self.end_time is None:
-            return 0.0
-        return (self.end_time - self.start_time) * 1000.0
-
-
-class Tracer:
-    """Manage spans for simple tracing."""
-
-    def __init__(self) -> None:
-        self._active: List[Span] = []
-        self._finished: List[Span] = []
-
-    def start_span(self, name: str, **attributes: Any) -> Span:
-        span = Span(name=name, start_time=time.time(), attributes=dict(attributes))
-        self._active.append(span)
-        return span
-
-    def end_span(self, span: Span, status: str = "ok") -> None:
-        span.end_time = time.time()
-        span.status = status
-        try:
-            self._active.remove(span)
-        except ValueError:
-            pass
-        self._finished.append(span)
-
-    def collect_finished(self) -> List[Span]:
-        spans = self._finished[:]
-        self._finished.clear()
-        return spans
+        if app is not None:
+            # Instrument the FastAPI/Starlette app
+            try:
+                FastAPIInstrumentor.instrument_app(app)
+            except Exception:
+                StarletteInstrumentor().instrument()
+    except Exception as e:  # pragma: no cover
+        logging.getLogger(__name__).warning("Tracing init failed: %s", e)

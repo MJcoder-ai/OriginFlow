@@ -19,7 +19,7 @@ Recent updates introduce a **Multi-Domain Platform** with placeholder component 
   - **Enhanced APIs**: 15+ new endpoints for ODL session management, component selection, and analysis
   - **Governance & Safety Policies**: Risk-based auto‑approval based on agent classifications and confidence scores, with per‑tenant thresholds, whitelists and a manual approval queue for high‑risk actions
   - **Extended Multi‑Domain Support**: Battery and monitoring agents automatically design energy storage and telemetry systems, deepening the placeholder‑first multi‑domain framework
-  - **Observability & Learning**: Lightweight telemetry helpers and instrumented orchestrators provide visibility into latency and approval rates, laying the groundwork for continuous confidence calibration and adaptive learning
+  - **Observability & Learning**: Prometheus metrics (`/metrics`), optional OpenTelemetry tracing, and instrumented orchestrators provide visibility into latency and approval rates, laying the groundwork for continuous confidence calibration and adaptive learning
   - **Error Handling & Concurrency**: Custom exception types, idempotent graph updates with per‑session locks, and safe agent wrappers ensure robustness in the face of failures and concurrent access
   - **Sagas & Workflow Engine**: A lightweight saga engine orchestrates multi‑step design workflows, automatically rolling back applied patches on failure, and prepares the system for integration with Temporal.io or similar workflow orchestrators
   - **Enhanced Rule Engine**: Deterministic sizing extended to conduits and structural mounts; new functions compute recommended conduit cross‑sections and mount load capacities and validate installed components for NEC/IEC compliance
@@ -526,6 +526,8 @@ class NewWorkflow(WorkflowEngine):
 docker compose -f docker-compose.yml -f docker-compose.observability.yml up
 ```
 Access Grafana at `http://localhost:3000`.
+
+See [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md) for built-in Prometheus metrics and optional OpenTelemetry tracing configuration.
 
 ### 6.7 Troubleshooting Drag-and-Drop
 If dragging new components onto the canvas stops working after customizations,
