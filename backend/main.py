@@ -57,6 +57,18 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="OriginFlow API", lifespan=lifespan)
 
+# ---- Observability (safe no-ops if disabled/missing) ----
+try:
+    from backend.observability.tracing import init_tracing
+    init_tracing(app)
+except Exception:
+    pass
+try:
+    from backend.api.routes.metrics import router as metrics_router
+    app.include_router(metrics_router)  # /metrics (see RBAC flag)
+except Exception:
+    pass
+
 # Add security middleware (order matters!)
 app.add_middleware(SecurityMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
@@ -134,7 +146,7 @@ from backend.api.routes import (
     snapshots,
     versioning,
     agents,
-    metrics,
+    metrics_json,
     layout,
     governance,
     tenant_settings,
@@ -201,7 +213,7 @@ app.include_router(requirements.router, prefix=settings.api_prefix)
 app.include_router(snapshots.router, prefix=settings.api_prefix)
 app.include_router(versioning.router, prefix=settings.api_prefix)
 app.include_router(agents.router, prefix=settings.api_prefix)
-app.include_router(metrics.router, prefix=settings.api_prefix)
+app.include_router(metrics_json.router, prefix=settings.api_prefix)
 app.include_router(layout.router, prefix=settings.api_prefix)
 app.include_router(governance.router, prefix=settings.api_prefix)
 app.include_router(tenant_settings.router, prefix=settings.api_prefix)

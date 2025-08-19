@@ -16,6 +16,12 @@ from backend.utils.observability import trace_span, record_metric
 from backend.services.approval_policy_service import ApprovalPolicyService
 from backend.services.approval_queue_service import ApprovalQueueService
 from backend.utils.tenant_context import get_tenant_id
+from backend.observability.metrics import (
+    analyze_actions_processed,
+    analyze_process_latency,
+    approvals_enqueued,
+    now,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -26,6 +32,7 @@ class AnalyzeOrchestrator(AiOrchestrator):
 
     async def process(self, req: AnalyzeCommandRequest) -> list[AiAction]:
         prompt = self._serialize_snapshot(req)
+        t0 = now()
         try:
             raw = await self.router_agent.handle(
                 f"{prompt}\n\n{req.command}", req.snapshot.model_dump()
@@ -95,6 +102,14 @@ class AnalyzeOrchestrator(AiOrchestrator):
                             confidence=act.confidence,
                         )
                         queued_rows.append(row.to_dict())
+                        try:
+                            approvals_enqueued.labels(
+                                getattr(act, "_approval_reason", None) or "",
+                                act.action.value,
+                                tenant_id,
+                            ).inc()
+                        except Exception:
+                            pass
                 await q_sess.commit()
             try:
                 if queued_rows:
@@ -107,6 +122,11 @@ class AnalyzeOrchestrator(AiOrchestrator):
         except Exception:
             pass
 
+        try:
+            analyze_actions_processed.labels(tenant_id).inc(len(actions))
+            analyze_process_latency.labels(tenant_id).observe(now() - t0)
+        except Exception:
+            pass
         return actions
 
     @staticmethod
