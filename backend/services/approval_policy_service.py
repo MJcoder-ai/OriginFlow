@@ -40,7 +40,7 @@ class ApprovalPolicyService:
             try:
                 approval_decisions.labels(
                     "deny",
-                    "auto_approval_disabled",
+                    "below_threshold_or_disabled",
                     action_type or "-",
                     agent_name or "-",
                     get_tenant_id(),
@@ -83,10 +83,11 @@ class ApprovalPolicyService:
             return False, "No confidence score; manual approval required", thr, None
 
         auto = confidence >= thr
+        reason_label = "threshold" if auto else "below_threshold_or_disabled"
         try:
             approval_decisions.labels(
                 "allow" if auto else "deny",
-                "threshold",
+                reason_label,
                 action_type or "-",
                 agent_name or "-",
                 get_tenant_id(),
