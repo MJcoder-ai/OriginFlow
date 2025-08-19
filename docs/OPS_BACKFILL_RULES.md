@@ -116,3 +116,22 @@ make -f Makefile.backfill.mk backfill-rules \
   IMAGE=prom/prometheus:v2.52.0 \
   KEEP_JOB=1
 ```
+
+### Auto-detect Prometheus STS/PVC, then backfill
+If you use kube-prometheus-stack or upstream kube-prometheus and don’t want to
+manually pass the StatefulSet and PVC names:
+```bash
+make -f Makefile.backfill.mk backfill-rules-auto \
+  BACKFILL_START=2025-08-01T00:00:00Z \
+  BACKFILL_END=2025-08-19T00:00:00Z \
+  RELEASE=kube-prometheus-stack   # optional; narrows by app.k8s.io/instance
+```
+To only print detected values:
+```bash
+make -f Makefile.backfill.mk detect-prom-vars [RELEASE=kube-prometheus-stack]
+```
+The target:
+- Looks for StatefulSets with `app.kubernetes.io/name=prometheus` (and `app.kubernetes.io/instance=$RELEASE` if provided),
+- Picks the most recent one,
+- Reads its first `volumeClaimTemplates[].metadata.name`,
+- Forms the PVC name as `<template>-<sts>-0`.
