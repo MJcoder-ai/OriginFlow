@@ -37,6 +37,16 @@ kubectl create configmap originflow-recording-rules \
 ```
 And reference the ConfigMap in your Prometheus config `.rules` files mount.
 
+## Backfilling the recorded series (optional)
+If you want dashboards to show historical values immediately after rollout,
+follow the playbook in:
+
+- docs/OPS_BACKFILL_RULES.md
+
+It covers a simple warm-up (no backfill), plus an offline promtool backfill
+that generates TSDB blocks for a chosen window. A Kubernetes Job template is
+provided to write blocks directly into the Prometheus PVC.
+
 ## 3) Grafana datasource (Prometheus)
 Set an environment variable on Grafana: `PROMETHEUS_URL` (e.g., `http://prometheus-operated:9090`).
 Then apply:
