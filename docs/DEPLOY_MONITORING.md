@@ -43,6 +43,8 @@ follow the playbook in:
 
 - docs/OPS_BACKFILL_RULES.md
 
+For a one-line helper that wraps scaling and job creation, see `Makefile.backfill.mk` and `scripts/backfill_rules.sh` in the repo.
+
 It covers a simple warm-up (no backfill), plus an offline promtool backfill
 that generates TSDB blocks for a chosen window. A Kubernetes Job template is
 provided to write blocks directly into the Prometheus PVC.
