@@ -135,3 +135,12 @@ The target:
 - Picks the most recent one,
 - Reads its first `volumeClaimTemplates[].metadata.name`,
 - Forms the PVC name as `<template>-<sts>-0`.
+
+## CI-driven backfill (GitHub Actions)
+You can run the entire detection → cache → backfill flow from CI:
+
+- See [CI_BACKFILL.md](CI_BACKFILL.md)
+- Workflow file: `.github/workflows/backfill-recording-rules.yml`
+
+This is the recommended approach for repeatable, auditable operations.
+
