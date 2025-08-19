@@ -49,6 +49,15 @@ Env vars:
 Set `TRACING_ENABLED=true` and point `OTEL_EXPORTER_OTLP_ENDPOINT` at your collector.
 The app instruments FastAPI/Starlette automatically. Spans include approval decision points and can be correlated with logs via OTEL context.
 
+## Log Correlation
+
+Structured logging is initialized at startup (`backend/observability/logging.py`), adding:
+
+- `trace_id`, `span_id`, `trace_sampled` (when tracing is enabled)  
+- `tenant_id` (from context) and `request_id` (from `X-Request-ID`)  
+
+See `docs/LOGGING.md` for env toggles and examples.
+
 ## Grafana Ideas
 
 - **SLO**: p95 of `analyze_process_latency_seconds` < 250ms, alert on burn rate.

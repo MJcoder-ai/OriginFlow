@@ -8,5 +8,13 @@ OpenTelemetry tracing while keeping lightweight ``Tracer`` and
 from .legacy import Tracer, Span, MetricsCollector  # backward compat
 from .tracing import init_tracing
 from .metrics import METRICS_ENABLED
+from .logging import init_logging
 
-__all__ = ["Tracer", "Span", "MetricsCollector", "init_tracing", "METRICS_ENABLED"]
+__all__ = [
+    "Tracer",
+    "Span",
+    "MetricsCollector",
+    "init_tracing",
+    "METRICS_ENABLED",
+    "init_logging",
+]
