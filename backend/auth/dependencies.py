@@ -2,7 +2,7 @@
 """Authentication dependencies for route protection."""
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Callable
 import uuid
 
 from fastapi import Depends, HTTPException, status
@@ -86,7 +86,18 @@ require_user_role = require_role("user")
 
 # Convenience dependencies
 AdminUser = Annotated[User, Depends(current_superuser)]
-AuthenticatedUser = Annotated[User, Depends(current_active_user)]
+
+# When auth is disabled (e.g., tests/dev), inject a dev user instead of enforcing JWT
+def _dev_user_dep() -> User:
+    return _dev_user()
+
+AuthenticatedUser = (
+    Annotated[User, Depends(current_active_user)]
+    if settings.enable_auth
+    else Annotated[User, Depends(_dev_user_dep)]
+)
+
+# Permission-based deps already bypass internally when enable_auth is False
 AIUser = Annotated[User, Depends(require_ai_access)]
 AdminRoleUser = Annotated[User, Depends(require_admin_role)]
 
