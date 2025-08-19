@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Book, Settings as SettingsIcon, Bot, CheckCircle2 } from 'lucide-react';
+import { Box, Book, Settings as SettingsIcon, Bot, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { useAppStore, Route } from '../appStore';
 import { FileStagingArea } from './FileStagingArea';
 
@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { name: 'components', label: 'Components', icon: Box },
   { name: 'agents', label: 'Agents', icon: Bot },
   { name: 'approvals', label: 'Approvals', icon: CheckCircle2 },
+  { name: 'policy', label: 'Tenant Policy', icon: ShieldCheck },
   { name: 'settings', label: 'Settings', icon: SettingsIcon },
 ];
 

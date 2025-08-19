@@ -8,6 +8,7 @@ import SettingsLayout from './settings/SettingsLayout';
 import { useAppStore } from '../appStore';
 import AgentsPanel from './agents/AgentsPanel';
 import ApprovalsPanel from './ApprovalsPanel';
+import TenantPolicyPage from '../pages/TenantPolicyPage';
 
 const MainPanel: React.FC = () => {
   const route = useAppStore((s) => s.route);
@@ -21,6 +22,7 @@ const MainPanel: React.FC = () => {
       {route === 'settings' && <SettingsLayout />}
       {route === 'agents' && <AgentsPanel />}
       {route === 'approvals' && <ApprovalsPanel />}
+      {route === 'policy' && <TenantPolicyPage />}
     </main>
   );
 };

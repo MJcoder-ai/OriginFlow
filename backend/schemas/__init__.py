@@ -13,6 +13,12 @@ another:contentReference[oaicite:2]{index=2}.
 from .component_master import ComponentMasterCreate, ComponentMasterInDB  # noqa: F401
 from .memory import Memory as MemorySchema  # noqa: F401
 from .governance import TenantSettingsRead, TenantSettingsUpdate  # noqa: F401
+from .tenant_policy import (
+    PolicyDoc,
+    PolicyUpdate,
+    PolicyTestRequest,
+    PolicyTestResult,
+)  # noqa: F401
 from .approvals import (
     ApprovalListQuery,
     ApprovalDecision,

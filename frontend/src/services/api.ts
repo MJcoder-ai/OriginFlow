@@ -389,6 +389,33 @@ export const api = {
     if (!res.ok) throw new Error('Failed to get diff');
     return res.json();
   },
+  // ---- Tenant settings / policy ----
+  async getTenantPolicy() {
+    const res = await fetch(`/api/v1/tenant/settings`);
+    if (!res.ok) throw new Error('Failed to load tenant policy');
+    return res.json();
+  },
+  async updateTenantPolicy(payload: any) {
+    const res = await fetch(`/api/v1/tenant/settings`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const t = await res.text();
+      throw new Error(t || 'Failed to update tenant policy');
+    }
+    return res.json();
+  },
+  async testTenantPolicy(payload: { action_type: string; confidence: number; agent_name?: string }) {
+    const res = await fetch(`/api/v1/tenant/settings/test`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error('Failed to test policy');
+    return res.json();
+  },
   async postSessionAct(sessionId: string, action: any) {
     const res = await fetch(`/api/v1/odl/sessions/${encodeURIComponent(sessionId)}/act`, {
       method: 'POST',
