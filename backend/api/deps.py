@@ -12,6 +12,7 @@ from backend.services.ai_service import AiOrchestrator
 from backend.services.anonymizer_service import AnonymizerService
 from backend.services.embedding_service import EmbeddingService
 from backend.config import settings
+from backend.auth.dependencies import get_current_user
 
 
 @lru_cache
@@ -31,4 +32,11 @@ def get_embedder(request: Request) -> EmbeddingService:
     return request.app.state.embedder
 
 
-__all__ = ["get_session", "AiOrchestrator", "get_ai_client", "get_anonymizer", "get_embedder"]
+__all__ = [
+    "get_session",
+    "AiOrchestrator",
+    "get_ai_client",
+    "get_anonymizer",
+    "get_embedder",
+    "get_current_user",
+]
