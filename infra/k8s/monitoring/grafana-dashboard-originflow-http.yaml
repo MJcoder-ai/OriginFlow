@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-originflow-http
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  originflow-http.json: |
+{{- if .Files }}{{- end }}
+{{- /* Use kubectl --from-file to populate JSON; this stub is provided for clarity. */ -}}
+{{"\n"}}

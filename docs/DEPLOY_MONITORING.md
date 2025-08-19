@@ -43,6 +43,10 @@ kubectl -n monitoring create configmap grafana-dashboard-originflow-policy-appro
 kubectl -n monitoring create configmap grafana-dashboard-originflow-slo \
   --from-file=originflow-slo.json=infra/grafana/dashboards/originflow-slo.json \
   --dry-run=client -o yaml | kubectl apply -f -
+
+kubectl -n monitoring create configmap grafana-dashboard-originflow-http \
+  --from-file=originflow-http.json=infra/grafana/dashboards/originflow-http.json \
+  --dry-run=client -o yaml | kubectl apply -f -
 ```
 The sidecar will auto-import them within ~30s.
 
