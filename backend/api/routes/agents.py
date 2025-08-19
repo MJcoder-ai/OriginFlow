@@ -1,412 +1,160 @@
-# backend/api/routes/agents.py
-"""Dynamic agent discovery and registration API."""
 from __future__ import annotations
-
-from typing import Dict, List, Any, Optional
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel, Field
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.agents.registry import registry
+from backend.api.deps import get_current_user
 from backend.api.deps import get_session
-from backend.auth.dependencies import get_current_user
-from backend.auth.models import User
-from backend.agents.registry import (
-    get_agent_names, 
-    get_spec, 
-    register, 
-    register_spec,
-    AgentSpec,
-    registry as agent_registry
+from backend.schemas.agent_spec import (
+    AgentDraftCreate,
+    AgentPublishRequest,
+    TenantAgentStateUpdate,
+    AgentAssistSynthesizeRequest,
+    AgentAssistRefineRequest,
+    AgentSpecModel,
 )
-from backend.agents.base import AgentBase
+from backend.services.agent_catalog_service import AgentCatalogService
+from backend.services.agent_author_service import AgentAuthorService
+from backend.auth.dependencies import require_permission
 
-router = APIRouter(prefix="/agents", tags=["agents"])
+router = APIRouter(prefix="/api/v1/odl/agents", tags=["Agents"])
 
-
-class AgentInfo(BaseModel):
-    """Agent information model."""
-    name: str
-    domain: str
-    risk_class: str
-    capabilities: List[str]
-    description: Optional[str] = None
-    examples: List[str] = Field(default_factory=list)
-    version: Optional[str] = None
-    display_name: Optional[str] = None
-    enabled: bool = True
-
-
-class TaskInfo(BaseModel):
-    """Task information model."""
-    task_id: str
-    agent_name: str
-    description: Optional[str] = None
-    required_capabilities: List[str] = []
-    auto_executable: bool = False
-
-
-class AgentRegistrationRequest(BaseModel):
-    """Request to register a new agent."""
-    name: str
-    domain: str
-    display_name: Optional[str] = None
-    version: Optional[str] = None
-    risk_class: str = "medium"
-    capabilities: List[str] = Field(default_factory=list)
-    description: Optional[str] = None
-    examples: List[str] = Field(default_factory=list)
-
-
-@router.get("/", response_model=List[AgentInfo])
-async def list_agents(
-    domain: Optional[str] = None,
-    current_user: User = Depends(get_current_user)
-) -> List[AgentInfo]:
-    """List all registered agents with their capabilities."""
-    
-    agent_names = get_agent_names()
-    agents = []
-    
-    for name in agent_names:
-        try:
-            spec = get_spec(name)
-            
-            # Filter by domain if specified
-            if domain and spec.domain.lower() != domain.lower():
-                continue
-            
-            agents.append(AgentInfo(
-                name=spec.name,
-                domain=spec.domain,
-                risk_class=spec.risk_class,
-                capabilities=spec.capabilities,
-                description=getattr(spec, 'description', None),
-                examples=getattr(spec, 'examples', []),
-                version=getattr(spec, 'version', None),
-                display_name=getattr(spec, 'display_name', None),
-                enabled=True
-            ))
-        except KeyError:
-            # Agent doesn't have a spec - create a basic one
-            agents.append(AgentInfo(
-                name=name,
-                domain="general",
-                risk_class="unknown",
-                capabilities=[],
-                description=f"Legacy agent: {name}",
-                examples=[],
-                enabled=True
-            ))
-    
-    return agents
-
-
-@router.get("/tasks", response_model=List[TaskInfo])
-async def list_tasks(
-    current_user: User = Depends(get_current_user)
-) -> List[TaskInfo]:
-    """List all available tasks and their assigned agents."""
-    
-    tasks = []
-    
-    # Get tasks from the ODL registry
-    available_tasks = agent_registry.available_tasks()
-    
-    for task_id in available_tasks:
-        agent = agent_registry.get_agent(task_id)
-        agent_name = getattr(agent, '__class__', {}).get('__name__', 'unknown')
-        
-        # Determine if task can be auto-executed
-        auto_executable = task_id in [
-            'generate_design',  # Low risk
-            'refine_validate'   # Medium risk with high confidence
-        ]
-        
-        # Get required capabilities from agent spec if available
-        required_capabilities = []
-        try:
-            if hasattr(agent, 'name'):
-                spec = get_spec(agent.name)
-                required_capabilities = spec.capabilities
-        except KeyError:
-            pass
-        
-        tasks.append(TaskInfo(
-            task_id=task_id,
-            agent_name=agent_name,
-            description=f"Task handled by {agent_name}",
-            required_capabilities=required_capabilities,
-            auto_executable=auto_executable
-        ))
-    
-    return tasks
-
-
-@router.get("/templates")
-async def agent_templates(current_user: User = Depends(get_current_user)) -> Dict[str, Any]:
-    """Provide starter templates for the New Agent modal."""
-    templates = [
+@router.get("/")
+async def list_agents():
+    """
+    Returns the currently registered agents in memory (runtime registry).
+    This is unchanged and remains the quick way to introspect active agents.
+    """
+    return [
         {
-            "id": "pv_assistant_basic",
-            "title": "PV Assistant (basic)",
-            "spec": {
-                "name": "pv_assistant",
-                "display_name": "PV Assistant",
-                "version": "0.1.0",
-                "domain": "pv",
-                "risk_class": "low",
-                "capabilities": ["suggest_components", "validate_single_line"],
-                "examples": [
-                    "add a generic PV module",
-                    "suggest inverter for 5kW rooftop",
-                ],
-            },
-        },
-        {
-            "id": "battery_advisor",
-            "title": "Battery Advisor (basic)",
-            "spec": {
-                "name": "battery_advisor",
-                "display_name": "Battery Advisor",
-                "version": "0.1.0",
-                "domain": "battery",
-                "risk_class": "medium",
-                "capabilities": ["size_storage", "estimate_runtime"],
-                "examples": [
-                    "size battery for 4-hour backup",
-                    "estimate runtime at 2kW load",
-                ],
-            },
-        },
+            "name": a.name,
+            "domain": a.domain,
+            "patterns": [p.value for p in a.patterns],
+            "llm_tools": list(a.llm_tools),
+            "capabilities": a.capabilities,
+            "config": a.config,
+        }
+        for a in registry.get_agents()
     ]
-    return {"templates": templates}
 
 
-@router.get("/{agent_name}")
-async def get_agent_info(
-    agent_name: str,
-    current_user: User = Depends(get_current_user)
-) -> Dict[str, Any]:
-    """Get detailed information about a specific agent."""
-
-    try:
-        spec = get_spec(agent_name)
-        spec_dict = {
-            "name": spec.name,
-            "domain": spec.domain,
-            "risk_class": spec.risk_class,
-            "capabilities": spec.capabilities,
-            "description": getattr(spec, 'description', None),
-            "examples": getattr(spec, 'examples', []),
-            "version": getattr(spec, 'version', None),
-            "display_name": getattr(spec, 'display_name', None),
-        }
-        return {"name": spec.name, "spec": spec_dict, "enabled": True}
-    except KeyError:
-        raise HTTPException(status_code=404, detail=f"Agent {agent_name} not found")
-
-
-@router.get("/{agent_name}/capabilities")
-async def get_agent_capabilities(
-    agent_name: str,
-    current_user: User = Depends(get_current_user)
-) -> Dict[str, Any]:
-    """Get detailed capabilities of an agent."""
-    
-    try:
-        spec = get_spec(agent_name)
-        
-        # Get the actual agent instance for more details
-        from backend.agents.registry import get_agent
-        agent = get_agent(agent_name)
-        
-        capabilities_detail = {}
-        for capability in spec.capabilities:
-            capabilities_detail[capability] = {
-                "enabled": True,
-                "description": f"Agent supports {capability}",
-                "risk_level": spec.risk_class
-            }
-        
-        return {
-            "agent_name": agent_name,
-            "domain": spec.domain,
-            "risk_class": spec.risk_class,
-            "capabilities": capabilities_detail,
-            "methods": [
-                method for method in dir(agent) 
-                if not method.startswith('_') and callable(getattr(agent, method))
-            ] if agent else []
-        }
-        
-    except KeyError:
-        raise HTTPException(status_code=404, detail=f"Agent {agent_name} not found")
-
-
-@router.post("/register")
-async def register_agent(
-    request: AgentRegistrationRequest,
-    current_user: User = Depends(get_current_user)
+@router.get("/state")
+async def list_tenant_agent_state(
+    tenant_id: Optional[str] = None,
+    session: AsyncSession = Depends(get_session),
+    user=Depends(get_current_user),
+    _=Depends(require_permission("agents.read")),
 ):
-    """Register a new agent dynamically."""
-    
-    # Only allow admin users to register agents
-    if not getattr(current_user, 'is_superuser', False):
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
-    try:
-        # Register the agent spec
-        spec = register_spec(
-            name=request.name,
-            domain=request.domain,
-            display_name=request.display_name,
-            version=request.version,
-            risk_class=request.risk_class,
-            capabilities=request.capabilities,
-            description=request.description or "",
-            examples=request.examples or [],
+    """
+    Return tenant-scoped enablement and effective published spec (if any).
+    If tenant_id omitted, derive from user (if your auth model carries it).
+    """
+    # Derive tenant if not explicitly provided
+    t_id = tenant_id or getattr(user, "tenant_id", None) or "default"
+    out: list[dict] = []
+    # Use catalog to list known agents
+    from sqlalchemy import select
+    from backend.models.agent_catalog import AgentCatalog
+    rows = (await session.execute(select(AgentCatalog))).scalars().all()
+    for cat in rows:
+        effective, state = await AgentCatalogService.resolved_agent_for_tenant(session, t_id, cat.name)
+        out.append(
+            {
+                "agent_name": cat.name,
+                "display_name": cat.display_name,
+                "enabled": bool(state.enabled) if state else True,
+                "pinned_version": state.pinned_version if state else None,
+                "effective_version": effective.version if effective else None,
+                "status": effective.status if effective else None,
+                "domain": cat.domain,
+                "capabilities": cat.capabilities,
+            }
         )
-        
-        return {
-            "status": "success",
-            "message": f"Agent {request.name} registered successfully",
-            "spec": {
-                "name": spec.name,
-                "domain": spec.domain,
-                "risk_class": spec.risk_class,
-                "capabilities": spec.capabilities
-            }
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to register agent: {str(e)}")
+    return out
 
 
-@router.get("/domains/available")
-async def get_available_domains(
-    current_user: User = Depends(get_current_user)
-) -> Dict[str, Any]:
-    """Get all available domains and their agents."""
-    
-    agents = await list_agents()
-    domains = {}
-    
-    for agent in agents:
-        domain = agent.domain
-        if domain not in domains:
-            domains[domain] = {
-                "name": domain,
-                "agents": [],
-                "capabilities": set(),
-                "risk_levels": set()
-            }
-        
-        domains[domain]["agents"].append({
-            "name": agent.name,
-            "capabilities": agent.capabilities,
-            "risk_class": agent.risk_class
-        })
-        domains[domain]["capabilities"].update(agent.capabilities)
-        domains[domain]["risk_levels"].add(agent.risk_class)
-    
-    # Convert sets to lists for JSON serialization
-    for domain_info in domains.values():
-        domain_info["capabilities"] = list(domain_info["capabilities"])
-        domain_info["risk_levels"] = list(domain_info["risk_levels"])
-    
-    return {
-        "domains": domains,
-        "total_domains": len(domains),
-        "total_agents": len(agents)
-    }
-
-
-@router.post("/{agent_name}/enable")
-async def enable_agent(
-    agent_name: str,
-    current_user: User = Depends(get_current_user)
+@router.post("/drafts", status_code=201)
+async def create_draft_version(
+    payload: AgentDraftCreate,
+    session: AsyncSession = Depends(get_session),
+    user=Depends(get_current_user),
+    _=Depends(require_permission("agents.edit")),
 ):
-    """Enable an agent for use."""
-    
-    # Only allow admin users to enable/disable agents
-    if not getattr(current_user, 'is_superuser', False):
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
-    try:
-        # In a real implementation, you'd update agent status in the registry
-        return {
-            "status": "success",
-            "message": f"Agent {agent_name} enabled"
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to enable agent: {str(e)}")
+    """
+    Validate and persist a new DRAFT version of an agent spec.
+    """
+    spec: AgentSpecModel = payload.spec
+    draft = await AgentCatalogService.create_or_update_draft(session, spec, getattr(user, "id", None))
+    await session.commit()
+    return {"agent_name": draft.agent_name, "version": draft.version, "status": draft.status}
 
 
-@router.post("/{agent_name}/disable")
-async def disable_agent(
+@router.post("/{agent_name}/publish", status_code=200)
+async def publish_agent_version(
     agent_name: str,
-    current_user: User = Depends(get_current_user)
+    payload: AgentPublishRequest,
+    session: AsyncSession = Depends(get_session),
+    _=Depends(require_permission("agents.publish")),
 ):
-    """Disable an agent from use."""
-    
-    # Only allow admin users to enable/disable agents
-    if not getattr(current_user, 'is_superuser', False):
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
+    """
+    Publish a draft/staged version. If version omitted, latest is published.
+    """
     try:
-        # In a real implementation, you'd update agent status in the registry
-        return {
-            "status": "success",
-            "message": f"Agent {agent_name} disabled"
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to disable agent: {str(e)}")
+        row = await AgentCatalogService.publish_latest(session, agent_name, payload.version)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    await session.commit()
+    return {"agent_name": row.agent_name, "version": row.version, "status": row.status}
 
 
-@router.get("/health/check")
-async def check_agent_health(
-    current_user: User = Depends(get_current_user)
-) -> Dict[str, Any]:
-    """Check the health status of all agents."""
-    
-    agent_names = get_agent_names()
-    health_status = {}
-    
-    for name in agent_names:
-        try:
-            # Try to get the agent and check if it's responsive
-            from backend.agents.registry import get_agent
-            agent = get_agent(name)
-            
-            # Basic health check - see if agent has required methods
-            is_healthy = (
-                hasattr(agent, '__init__') and
-                callable(getattr(agent, '__init__', None))
-            )
-            
-            health_status[name] = {
-                "status": "healthy" if is_healthy else "unhealthy",
-                "last_check": "now",
-                "error": None if is_healthy else "Missing required methods"
-            }
-            
-        except Exception as e:
-            health_status[name] = {
-                "status": "error",
-                "last_check": "now",
-                "error": str(e)
-            }
-    
-    overall_health = all(
-        status["status"] == "healthy" 
-        for status in health_status.values()
+@router.post("/{agent_name}/state", status_code=200)
+async def update_tenant_state(
+    agent_name: str,
+    payload: TenantAgentStateUpdate,
+    tenant_id: Optional[str] = None,
+    session: AsyncSession = Depends(get_session),
+    user=Depends(get_current_user),
+    _=Depends(require_permission("agents.edit")),
+):
+    """
+    Enable/disable an agent for a tenant, optionally pin a published version,
+    and/or set config overrides.
+    """
+    t_id = tenant_id or getattr(user, "tenant_id", None) or "default"
+    row = await AgentCatalogService.update_state(
+        session,
+        t_id,
+        agent_name,
+        enabled=payload.enabled,
+        pinned_version=payload.pinned_version,
+        config_override=payload.config_override,
+        updated_by_id=getattr(user, "id", None),
     )
-    
+    await session.commit()
     return {
-        "overall_status": "healthy" if overall_health else "degraded",
-        "agent_count": len(agent_names),
-        "healthy_agents": sum(1 for s in health_status.values() if s["status"] == "healthy"),
-        "agents": health_status
+        "tenant_id": row.tenant_id,
+        "agent_name": row.agent_name,
+        "enabled": row.enabled,
+        "pinned_version": row.pinned_version,
+        "updated_at": row.updated_at.isoformat(),
     }
+
+
+@router.post("/assist/synthesize-spec", status_code=200)
+async def assist_synthesize(req: AgentAssistSynthesizeRequest, _=Depends(require_permission("agents.edit"))):
+    """
+    LLM-assisted authoring: draft a brand new spec from an idea.
+    """
+    spec = await AgentAuthorService.synthesize(req)
+    return {"spec": spec.model_dump()}
+
+
+@router.post("/assist/refine-spec", status_code=200)
+async def assist_refine(req: AgentAssistRefineRequest, _=Depends(require_permission("agents.edit"))):
+    """
+    LLM-assisted authoring: refine an existing spec using critique.
+    """
+    spec = await AgentAuthorService.refine(req)
+    return {"spec": spec.model_dump()}
+

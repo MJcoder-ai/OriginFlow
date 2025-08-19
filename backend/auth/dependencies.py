@@ -94,3 +94,8 @@ AdminRoleUser = Annotated[User, Depends(require_admin_role)]
 def get_current_user(current_user: AuthenticatedUser) -> User:
     """Return the currently authenticated user."""
     return current_user
+
+# Suggested permissions used by the Agents endpoints:
+# - agents.read: allow reading catalog/state
+# - agents.edit: allow creating drafts, updating tenant state
+# - agents.publish: allow publishing versions

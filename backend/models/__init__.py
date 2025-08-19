@@ -20,6 +20,7 @@ from .memory import Memory  # noqa: F401
 from .trace_event import TraceEvent  # noqa: F401
 from .tenant_settings import TenantSettings  # noqa: F401
 from .pending_action import PendingAction  # noqa: F401
+from .agent_catalog import AgentCatalog, AgentVersion, TenantAgentState  # noqa: F401
 
 # Import auth models
 try:
@@ -40,5 +41,8 @@ __all__ = [
     "TraceEvent",
     "TenantSettings",
     "PendingAction",
+    "AgentCatalog",
+    "AgentVersion",
+    "TenantAgentState",
     "User",
 ]
