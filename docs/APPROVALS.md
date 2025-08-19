@@ -17,27 +17,34 @@ Resolved per-tenant:
 Evaluation order: **denylist → allowlist → threshold(compare confidence)**.
 
 ## Backend integration
-`AnalyzeService.process` now:
-1. Plans & validates actions as before.
-2. For each action, calls `ApprovalPolicyService.evaluate(...)`.
-3. If **auto-approved**: executes normally.
-4. If **not auto-approved**: enqueues in `pending_actions`, **skips execution**, and returns `{"status":"queued","queued":[...]}`.
-   (Existing behavior is preserved on any failure; pipeline remains robust.)
+`AiOrchestrator.process` (and other action planners) now:
+1. Plan and validate actions as before.
+2. For each action, call `ApprovalPolicyService.evaluate(...)`.
+3. If **auto-approved**: proceed normally.
+4. If **not auto-approved**: enqueue in `pending_actions` and skip execution.
+   If anything fails during evaluation, a warning is logged and the original
+   behaviour continues.
 
 ## API
 - `GET /api/v1/approvals?status=pending&session_id=...` — list (RBAC: `approvals.read`)
-- `POST /api/v1/approvals/{id}/approve` — approve (RBAC: `approvals.approve`)
+- `POST /api/v1/approvals/{id}/approve` — approve and optionally apply (RBAC: `approvals.approve`)
+  - Body: `{ "note"?: string, "approve_and_apply"?: boolean }`
+  - If `approve_and_apply=true` the backend executes the action and marks it `applied`.
 - `POST /api/v1/approvals/{id}/reject` — reject (RBAC: `approvals.approve`)
 - `POST /api/v1/approvals/batch` — batch approve/reject (RBAC: `approvals.approve`)
 
-> Approve response includes the action `payload` so the client can call the **existing** `/act` endpoint to apply.
-> (Applying on the server can be added later if you prefer server-side execution.)
+> Approve response includes `apply_client_side: true` when the server did not
+> execute the action. Clients may then POST to `/api/v1/odl/sessions/{session_id}/act`
+> with the returned payload.
 
 ## Frontend (MVP)
 New sidebar item **Approvals** showing pending items with Approve/Reject.
-On Approve, the client:
-1) Calls `/approvals/{id}/approve`,
-2) Then POSTs to `/api/v1/odl/sessions/{session_id}/act` with returned payload to apply.
+On Approve, the client can choose to:
+1) Call `/approvals/{id}/approve` with `approve_and_apply=true` to execute
+   server-side, **or**
+2) Call `/approvals/{id}/approve` (default), then POST to
+   `/api/v1/odl/sessions/{session_id}/act` with the returned payload to apply
+   client-side.
 
 Polling is used initially (no WS dependency). SSE/WS can be added later.
 

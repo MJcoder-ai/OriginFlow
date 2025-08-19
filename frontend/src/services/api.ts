@@ -366,11 +366,11 @@ export const api = {
     if (!res.ok) throw new Error('Failed to list approvals');
     return res.json();
   },
-  async approveApproval(id: number, note?: string) {
+  async approveApproval(id: number, note?: string, approve_and_apply: boolean = false) {
     const res = await fetch(`/api/v1/approvals/${id}/approve`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ note, approve_and_apply: false }),
+      body: JSON.stringify({ note, approve_and_apply }),
     });
     if (!res.ok) throw new Error('Failed to approve');
     return res.json();

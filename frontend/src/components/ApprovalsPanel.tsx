@@ -25,6 +25,7 @@ export default function ApprovalsPanel() {
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [serverApply, setServerApply] = useState(true);
 
   async function load() {
     setLoading(true);
@@ -50,9 +51,9 @@ export default function ApprovalsPanel() {
   }, []);
 
   async function approve(it: Item) {
-    const r = await api.approveApproval(it.id, note || undefined);
+    const r = await api.approveApproval(it.id, note || undefined, serverApply);
     const approved = r.approved as Item;
-    if (approved?.session_id && r.apply_client_side && approved.payload) {
+    if (!serverApply && approved?.session_id && r.apply_client_side && approved.payload) {
       await api.postSessionAct(approved.session_id, approved.payload);
     }
     setNote('');
@@ -102,6 +103,10 @@ export default function ApprovalsPanel() {
           onChange={(e) => setNote(e.target.value)}
           className="border rounded px-2 py-1 flex-1"
         />
+        <label className="ml-2 text-sm flex items-center gap-2">
+          <input type="checkbox" checked={serverApply} onChange={(e) => setServerApply(e.target.checked)} />
+          Apply server-side
+        </label>
       </div>
       {error && <div className="text-red-600 text-sm">{error}</div>}
       <div className="border rounded">
