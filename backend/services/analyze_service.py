@@ -35,7 +35,7 @@ class AnalyzeOrchestrator(AiOrchestrator):
         t0 = now()
         try:
             raw = await self.router_agent.handle(
-                f"{prompt}\n\n{req.command}", req.snapshot.model_dump()
+                f"{prompt}\n\n{req.command}", snapshot=req.snapshot.model_dump()
             )
         except (OpenAIError, ValueError) as err:  # pragma: no cover - network error
             raise map_openai_error(err)
