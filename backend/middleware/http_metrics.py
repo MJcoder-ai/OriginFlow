@@ -11,6 +11,9 @@ from backend.observability.metrics import (
     http_requests_total,
     http_request_duration_seconds,
     http_requests_in_flight,
+    http_request_size_bytes,
+    http_response_size_bytes,
+    http_exceptions_total,
 )
 from backend.utils.tenant_context import get_tenant_id
 
@@ -38,6 +41,9 @@ class HTTPMetricsMiddleware(BaseHTTPMiddleware):
     * http_requests_total{method, route, code, tenant_id}
     * http_request_duration_seconds_bucket{...}
     * http_requests_in_flight{method, route, tenant_id}
+    * http_request_size_bytes_bucket{method, route, code, tenant_id}
+    * http_response_size_bytes_bucket{method, route, code, tenant_id}
+    * http_exceptions_total{exception, method, route, tenant_id}
 
     Latencies are recorded even on exceptions; status code defaults to 500 on
     error. Metrics are best-effort and will noop if the Prometheus client is not
@@ -51,21 +57,52 @@ class HTTPMetricsMiddleware(BaseHTTPMiddleware):
         if not tenant or tenant == "default":
             tenant = "unknown"
 
-        http_requests_in_flight.labels(
-            method=method, route=route, tenant_id=tenant
-        ).inc()
+        http_requests_in_flight.labels(method=method, route=route, tenant_id=tenant).inc()
         start = time.perf_counter()
         status_code: int = HTTP_500_INTERNAL_SERVER_ERROR
 
+        # Determine request size
+        req_size = 0
+        try:
+            cl = request.headers.get("content-length")
+            if cl and cl.isdigit():
+                req_size = int(cl)
+            else:
+                body = await request.body()
+                req_size = len(body or b"")
+        except Exception:
+            req_size = 0
+
         try:
             response: Response = await call_next(request)
-            status_code = int(
-                getattr(response, "status_code", HTTP_500_INTERNAL_SERVER_ERROR)
-            )
+            status_code = int(getattr(response, "status_code", HTTP_500_INTERNAL_SERVER_ERROR))
             return response
-        except BaseException:  # noqa: BLE001
+        except BaseException as e:  # noqa: BLE001
+            try:
+                http_exceptions_total.labels(
+                    exception=e.__class__.__name__,
+                    method=method,
+                    route=route,
+                    tenant_id=tenant,
+                ).inc()
+            except Exception:
+                pass
             raise
         finally:
+            # Determine response size
+            resp_size = 0
+            try:
+                if "response" in locals() and response is not None:  # type: ignore[name-defined]
+                    cl = response.headers.get("content-length")
+                    if cl and cl.isdigit():
+                        resp_size = int(cl)
+                    else:
+                        body_bytes = getattr(response, "body", None)
+                        if isinstance(body_bytes, (bytes, bytearray)):
+                            resp_size = len(body_bytes)
+            except Exception:
+                resp_size = 0
+
             elapsed = time.perf_counter() - start
             http_request_duration_seconds.labels(
                 method=method, route=route, code=str(status_code), tenant_id=tenant
@@ -73,6 +110,15 @@ class HTTPMetricsMiddleware(BaseHTTPMiddleware):
             http_requests_total.labels(
                 method=method, route=route, code=str(status_code), tenant_id=tenant
             ).inc()
+            try:
+                http_request_size_bytes.labels(
+                    method=method, route=route, code=str(status_code), tenant_id=tenant
+                ).observe(float(req_size))
+                http_response_size_bytes.labels(
+                    method=method, route=route, code=str(status_code), tenant_id=tenant
+                ).observe(float(resp_size))
+            except Exception:
+                pass
             http_requests_in_flight.labels(
                 method=method, route=route, tenant_id=tenant
             ).dec()
