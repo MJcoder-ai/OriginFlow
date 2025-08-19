@@ -1,0 +1,156 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-originflow-policy-approvals
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"   # Picked up by Grafana sidecar
+data:
+  originflow-policy-approvals.json: |
+    {
+      "id": null,
+      "uid": "of-policy-approvals",
+      "title": "OriginFlow • Policy & Approvals",
+      "tags": ["originflow","governance","approvals","policy"],
+      "timezone": "browser",
+      "schemaVersion": 38,
+      "version": 1,
+      "editable": true,
+      "time": { "from": "now-6h", "to": "now" },
+      "templating": {
+        "list": [
+          {
+            "name": "tenant",
+            "type": "query",
+            "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+            "query": "label_values(approval_decisions_total, tenant_id)",
+            "current": { "selected": false, "text": "all", "value": "" },
+            "includeAll": true,
+            "refresh": 1,
+            "label": "Tenant"
+          },
+          {
+            "name": "agent",
+            "type": "query",\n        "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+            "query": "label_values(approval_decisions_total{tenant_id=~\"$tenant\"}, agent_name)",
+            "current": { "selected": false, "text": "all", "value": "" },
+            "includeAll": true,
+            "refresh": 2,
+            "label": "Agent"
+          }
+        ]
+      },
+      "panels": [
+        {
+          "type": "stat",
+          "title": "Auto-approval rate (5m)",
+          "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "targets": [
+            {
+              "expr": "sum(increase(approval_decisions_total{tenant_id=~\"$tenant\",agent_name=~\"$agent\",result=\"allow\"}[5m])) / sum(increase(approval_decisions_total{tenant_id=~\"$tenant\",agent_name=~\"$agent\"}[5m]))",
+              "legendFormat": "rate",
+              "instant": true
+            }
+          ],
+          "options": { "reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "value", "graphMode": "none", "justifyMode": "auto"},
+          "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 } }
+        },
+        {
+          "type": "timeseries",
+          "title": "Decision latency p95",
+          "gridPos": { "h": 6, "w": 9, "x": 6, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum by (le) (rate(approval_decision_latency_seconds_bucket{tenant_id=~\"$tenant\"}[5m])))",
+              "legendFormat": "p95"
+            }
+          ],
+          "fieldConfig": { "defaults": { "unit": "s" } }
+        },
+        {
+          "type": "timeseries",
+          "title": "Analyze latency p95",
+          "gridPos": { "h": 6, "w": 9, "x": 15, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum by (le) (rate(analyze_process_latency_seconds_bucket{tenant_id=~\"$tenant\"}[5m])))",
+              "legendFormat": "p95"
+            }
+          ],
+          "fieldConfig": { "defaults": { "unit": "s" } }
+        },
+        {
+          "type": "timeseries",
+          "title": "Approvals enqueued (rate)",
+          "gridPos": { "h": 6, "w": 8, "x": 0, "y": 6 },
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "targets": [
+            {
+              "expr": "sum by (reason) (rate(approvals_enqueued_total{tenant_id=~\"$tenant\"}[5m]))",
+              "legendFormat": "{{reason}}"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Policy cache hit rate (memory vs redis, 5m)",
+          "gridPos": { "h": 6, "w": 8, "x": 8, "y": 6 },
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "targets": [
+            {
+              "expr": "sum(rate(policy_cache_hits_total{tenant_id=~\"$tenant\",layer=\"memory\"}[5m])) / (sum(rate(policy_cache_hits_total{tenant_id=~\"$tenant\",layer=\"memory\"}[5m])) + sum(rate(policy_cache_misses_total{tenant_id=~\"$tenant\",layer=\"memory\"}[5m])))",
+              "legendFormat": "memory"
+            },
+            {
+              "expr": "sum(rate(policy_cache_hits_total{tenant_id=~\"$tenant\",layer=\"redis\"}[5m])) / (sum(rate(policy_cache_hits_total{tenant_id=~\"$tenant\",layer=\"redis\"}[5m])) + sum(rate(policy_cache_misses_total{tenant_id=~\"$tenant\",layer=\"redis\"}[5m])))",
+              "legendFormat": "redis"
+            }
+          ],
+          "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 } }
+        },
+        {
+          "type": "timeseries",
+          "title": "DB fetch latency (policy cache miss)",
+          "gridPos": { "h": 6, "w": 8, "x": 16, "y": 6 },
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "targets": [
+            {
+              "expr": "sum by (tenant_id) (rate(policy_cache_db_load_latency_seconds_sum{tenant_id=~\"$tenant\"}[5m])) / sum by (tenant_id) (rate(policy_cache_db_load_latency_seconds_count{tenant_id=~\"$tenant\"}[5m]))",
+              "legendFormat": "avg"
+            },
+            {
+              "expr": "histogram_quantile(0.95, sum by (le) (rate(policy_cache_db_load_latency_seconds_bucket{tenant_id=~\"$tenant\"}[5m])))",
+              "legendFormat": "p95"
+            }
+          ],
+          "fieldConfig": { "defaults": { "unit": "s" } }
+        },
+        {
+          "type": "timeseries",
+          "title": "Dogpile waits (rate)",
+          "gridPos": { "h": 6, "w": 8, "x": 0, "y": 12 },
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "targets": [
+            {
+              "expr": "rate(policy_cache_dogpile_wait_total{tenant_id=~\"$tenant\"}[5m])",
+              "legendFormat": "waits"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Registry: agents hydrated (rate)",
+          "gridPos": { "h": 6, "w": 8, "x": 8, "y": 12 },
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "targets": [
+            {
+              "expr": "sum by (domain) (rate(registry_agents_registered_total{tenant_id=~\"$tenant\"}[5m]))",
+              "legendFormat": "{{domain}}"
+            }
+          ]
+        }
+      ]
+    }

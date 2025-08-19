@@ -196,6 +196,8 @@ docker-compose logs -f --tail=100
 docker stats
 ```
 
+For Prometheus Operator and Grafana setup, see [docs/DEPLOY_MONITORING.md](docs/DEPLOY_MONITORING.md).
+
 ## Security Checklist
 
 ### Before Production Deployment
