@@ -11,4 +11,20 @@ export default defineConfig({
   server: {
     open: true,
   },
+  define: {
+    global: 'globalThis',
+  },
+  resolve: {
+    alias: {
+      'web-worker': 'web-worker',
+    },
+  },
+  optimizeDeps: {
+    include: ['web-worker'],
+  },
+  build: {
+    rollupOptions: {
+      external: [],
+    },
+  },
 });

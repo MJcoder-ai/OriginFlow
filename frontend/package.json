@@ -23,6 +23,7 @@
     "react-dom": "^18.2.0",
     "react-pdf": "^10.0.1",
     "use-debounce": "^9.0.4",
+    "web-worker": "^1.5.0",
     "zustand": "^4.5.0"
   },
   "devDependencies": {
