@@ -61,3 +61,89 @@ spec:
           annotations:
             summary: "5xx error rate > 2%"
             description: "Backend 5xx error rate is elevated for tenant {{ $labels.tenant_id }}."
+
+    # ------------------------------------------------------------------------
+    # Recording rules to precompute p95 latency and average sizes (5m window)
+    # ------------------------------------------------------------------------
+    - name: originflow-recording-5m
+      rules:
+        # HTTP latency p95 by route, tenant
+        - record: http_request_duration_seconds:sum_rate5m_by_le_route_tenant
+          expr: sum by (le, route, tenant_id) (rate(http_request_duration_seconds_bucket[5m]))
+        - record: http_request_duration_seconds:p95_5m_by_route_tenant
+          expr: histogram_quantile(0.95, http_request_duration_seconds:sum_rate5m_by_le_route_tenant)
+
+        # Analyze pipeline latency p95 by tenant
+        - record: analyze_process_latency_seconds:sum_rate5m_by_le_tenant
+          expr: sum by (le, tenant_id) (rate(analyze_process_latency_seconds_bucket[5m]))
+        - record: analyze_process_latency_seconds:p95_5m_by_tenant
+          expr: histogram_quantile(0.95, analyze_process_latency_seconds:sum_rate5m_by_le_tenant)
+
+        # Request size: avg & p95 by route, tenant
+        - record: http_request_size_bytes:sum_rate5m_by_route_tenant
+          expr: sum by (route, tenant_id) (rate(http_request_size_bytes_sum[5m]))
+        - record: http_request_size_bytes:count_rate5m_by_route_tenant
+          expr: sum by (route, tenant_id) (rate(http_request_size_bytes_count[5m]))
+        - record: http_request_size_bytes:avg_5m_by_route_tenant
+          expr: http_request_size_bytes:sum_rate5m_by_route_tenant
+                / clamp_min(http_request_size_bytes:count_rate5m_by_route_tenant, 1)
+        - record: http_request_size_bytes:sum_rate5m_by_le_route_tenant
+          expr: sum by (le, route, tenant_id) (rate(http_request_size_bytes_bucket[5m]))
+        - record: http_request_size_bytes:p95_5m_by_route_tenant
+          expr: histogram_quantile(0.95, http_request_size_bytes:sum_rate5m_by_le_route_tenant)
+
+        # Response size: avg & p95 by route, tenant
+        - record: http_response_size_bytes:sum_rate5m_by_route_tenant
+          expr: sum by (route, tenant_id) (rate(http_response_size_bytes_sum[5m]))
+        - record: http_response_size_bytes:count_rate5m_by_route_tenant
+          expr: sum by (route, tenant_id) (rate(http_response_size_bytes_count[5m]))
+        - record: http_response_size_bytes:avg_5m_by_route_tenant
+          expr: http_response_size_bytes:sum_rate5m_by_route_tenant
+                / clamp_min(http_response_size_bytes:count_rate5m_by_route_tenant, 1)
+        - record: http_response_size_bytes:sum_rate5m_by_le_route_tenant
+          expr: sum by (le, route, tenant_id) (rate(http_response_size_bytes_bucket[5m]))
+        - record: http_response_size_bytes:p95_5m_by_route_tenant
+          expr: histogram_quantile(0.95, http_response_size_bytes:sum_rate5m_by_le_route_tenant)
+
+    # ------------------------------------------------------------------------
+    # Recording rules to precompute p95 latency and average sizes (1h window)
+    # ------------------------------------------------------------------------
+    - name: originflow-recording-1h
+      rules:
+        # HTTP latency p95 by route, tenant
+        - record: http_request_duration_seconds:sum_rate1h_by_le_route_tenant
+          expr: sum by (le, route, tenant_id) (rate(http_request_duration_seconds_bucket[1h]))
+        - record: http_request_duration_seconds:p95_1h_by_route_tenant
+          expr: histogram_quantile(0.95, http_request_duration_seconds:sum_rate1h_by_le_route_tenant)
+
+        # Analyze pipeline latency p95 by tenant
+        - record: analyze_process_latency_seconds:sum_rate1h_by_le_tenant
+          expr: sum by (le, tenant_id) (rate(analyze_process_latency_seconds_bucket[1h]))
+        - record: analyze_process_latency_seconds:p95_1h_by_tenant
+          expr: histogram_quantile(0.95, analyze_process_latency_seconds:sum_rate1h_by_le_tenant)
+
+        # Request size: avg & p95 by route, tenant
+        - record: http_request_size_bytes:sum_rate1h_by_route_tenant
+          expr: sum by (route, tenant_id) (rate(http_request_size_bytes_sum[1h]))
+        - record: http_request_size_bytes:count_rate1h_by_route_tenant
+          expr: sum by (route, tenant_id) (rate(http_request_size_bytes_count[1h]))
+        - record: http_request_size_bytes:avg_1h_by_route_tenant
+          expr: http_request_size_bytes:sum_rate1h_by_route_tenant
+                / clamp_min(http_request_size_bytes:count_rate1h_by_route_tenant, 1)
+        - record: http_request_size_bytes:sum_rate1h_by_le_route_tenant
+          expr: sum by (le, route, tenant_id) (rate(http_request_size_bytes_bucket[1h]))
+        - record: http_request_size_bytes:p95_1h_by_route_tenant
+          expr: histogram_quantile(0.95, http_request_size_bytes:sum_rate1h_by_le_route_tenant)
+
+        # Response size: avg & p95 by route, tenant
+        - record: http_response_size_bytes:sum_rate1h_by_route_tenant
+          expr: sum by (route, tenant_id) (rate(http_response_size_bytes_sum[1h]))
+        - record: http_response_size_bytes:count_rate1h_by_route_tenant
+          expr: sum by (route, tenant_id) (rate(http_response_size_bytes_count[1h]))
+        - record: http_response_size_bytes:avg_1h_by_route_tenant
+          expr: http_response_size_bytes:sum_rate1h_by_route_tenant
+                / clamp_min(http_response_size_bytes:count_rate1h_by_route_tenant, 1)
+        - record: http_response_size_bytes:sum_rate1h_by_le_route_tenant
+          expr: sum by (le, route, tenant_id) (rate(http_response_size_bytes_bucket[1h]))
+        - record: http_response_size_bytes:p95_1h_by_route_tenant
+          expr: histogram_quantile(0.95, http_response_size_bytes:sum_rate1h_by_le_route_tenant)

@@ -108,6 +108,40 @@ sum by (exception) (rate(http_exceptions_total[5m]))
 topk(5, sum by (route) (rate(http_response_size_bytes_sum[5m])))
 ```
 
+### Recorded Series (use these to reduce dashboard load)
+We precompute common aggregations at 5m & 1h windows:
+
+- HTTP latency p95
+
+  `http_request_duration_seconds:p95_5m_by_route_tenant{tenant_id=~"$tenant", route=~"$route"}`
+
+  `http_request_duration_seconds:p95_1h_by_route_tenant{tenant_id=~"$tenant", route=~"$route"}`
+- Analyze latency p95
+
+  `analyze_process_latency_seconds:p95_5m_by_tenant{tenant_id=~"$tenant"}`
+
+  `analyze_process_latency_seconds:p95_1h_by_tenant{tenant_id=~"$tenant"}`
+- Average sizes
+
+  Requests: `http_request_size_bytes:avg_5m_by_route_tenant{tenant_id=~"$tenant", route=~"$route"}`
+
+  Responses: `http_response_size_bytes:avg_5m_by_route_tenant{tenant_id=~"$tenant", route=~"$route"}`
+
+  Requests (1h): `http_request_size_bytes:avg_1h_by_route_tenant{tenant_id=~"$tenant", route=~"$route"}`
+
+  Responses (1h): `http_response_size_bytes:avg_1h_by_route_tenant{tenant_id=~"$tenant", route=~"$route"}`
+- Size p95
+
+  Requests: `http_request_size_bytes:p95_5m_by_route_tenant{tenant_id=~"$tenant", route=~"$route"}`
+
+  Responses: `http_response_size_bytes:p95_5m_by_route_tenant{tenant_id=~"$tenant", route=~"$route"}`
+
+  Requests (1h): `http_request_size_bytes:p95_1h_by_route_tenant{tenant_id=~"$tenant", route=~"$route"}`
+
+  Responses (1h): `http_response_size_bytes:p95_1h_by_route_tenant{tenant_id=~"$tenant", route=~"$route"}`
+
+> Tip: You can swap existing dashboard queries to these recorded series for faster loads, especially on large time ranges.
+
 ## Dashboards & Alerts
 
 ### Dashboards
