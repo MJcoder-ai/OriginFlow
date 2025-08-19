@@ -193,7 +193,10 @@ class ComponentAgent(AgentBase):
             payload = json.loads(call.function.arguments)
             if call.function.name == "add_component":
                 ComponentCreate(**payload)
-                enriched = dict(payload)
+                
+                # Apply action guard to normalize component type via SAAR
+                from backend.services.ai.action_guard import normalize_add_component
+                enriched = await normalize_add_component(command, snapshot, dict(payload))
                 validation_msg = None
                 try:
                     async for svc in get_component_db_service():

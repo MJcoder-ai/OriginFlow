@@ -38,6 +38,12 @@ class SystemDesignAgent(AgentBase):
 
     async def handle(self, command: str, **kwargs) -> List[Dict[str, Any]]:
         text = command.lower()
+        
+        # Prevent triggering on single component addition requests
+        # These should be handled by component_agent instead
+        if any(phrase in text for phrase in ["add component", "add inverter", "add panel", "add battery", "add pump"]):
+            return []  # Let component_agent handle it
+            
         size_kw: float | None = None
         size_desc = ""
         kw_match = re.search(r"(\d+(?:\.\d+)?)\s*(kw|kilowatt)", text)

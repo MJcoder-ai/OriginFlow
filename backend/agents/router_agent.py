@@ -56,6 +56,8 @@ class RouterAgent(AgentBase):
         )
         examples = [
             {"user": "add inverter", "agent": "component_agent"},
+            {"user": "add inverter to the design", "agent": "component_agent"},
+            {"user": "add solar panel", "agent": "component_agent"},
             {"user": "delete battery", "agent": "component_agent"},
             {"user": "connect panel to inverter", "agent": "link_agent"},
             {"user": "organise the layout", "agent": "layout_agent"},

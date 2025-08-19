@@ -54,6 +54,19 @@ class StateAwareActionResolver:
         snapshot: Optional[DesignSnapshot],
         default_layer: str = "single_line",
     ) -> ActionRequest:
+        # Check for explicit mention override first
+        explicit_class = self._explicit_class_from_text(user_text)
+        if explicit_class:
+            return ActionRequest(
+                action="add_component",
+                component_class=explicit_class,  # type: ignore[arg-type]
+                quantity=1,
+                target_layer=default_layer,
+                confidence=0.99,  # High confidence for explicit mentions
+                rationale=f"Explicit mention of '{explicit_class}' in user text",
+            )
+        
+        # Fall back to similarity + priors approach
         sims = self.class_similarity(user_text)
         priors = priors_for_next_step(snapshot)
         classes: List[str] = sorted(sims.keys())
@@ -76,3 +89,24 @@ class StateAwareActionResolver:
             confidence=confidence,
             rationale=f"Similarity={sims.get(best_cls,0):.2f}, Priors={priors.get('add_component.'+best_cls,0):.2f}",
         )
+
+    def _explicit_class_from_text(self, text: str) -> Optional[str]:
+        """Detect explicitly mentioned component class from user text."""
+        try:
+            from backend.ai.ontology import ONTOLOGY
+            
+            text_lower = text.lower()
+            hits = []
+            
+            for cls, synonyms in ONTOLOGY.classes.items():
+                # Check class name and all synonyms
+                all_terms = [cls.lower()] + [syn.lower() for syn in synonyms]
+                if any(term in text_lower for term in all_terms):
+                    hits.append(cls)
+            
+            # Return class only if exactly one is mentioned (unambiguous)
+            unique_hits = list(set(hits))
+            return unique_hits[0] if len(unique_hits) == 1 else None
+            
+        except Exception:
+            return None
