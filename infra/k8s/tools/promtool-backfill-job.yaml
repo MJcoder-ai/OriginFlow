@@ -1,0 +1,59 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: originflow-promtool-backfill
+  namespace: monitoring
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: promtool
+          # Prometheus image includes promtool; keep version in sync with your Prometheus
+          image: prom/prometheus:v2.52.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -lc
+            - |
+              set -euo pipefail
+              echo "Starting promtool backfill into /prometheus ..."
+              promtool tsdb create-blocks-from rules \
+                --start="${BACKFILL_START}" \
+                --end="${BACKFILL_END}" \
+                --step="${BACKFILL_STEP}" \
+                --out=/tmp/of-backfill \
+                --query-url="${PROM_QUERY_URL}" \
+                /etc/originflow/rules/originflow-recording.rules.yml
+              echo "Copying generated blocks into /prometheus ..."
+              cp -r /tmp/of-backfill/* /prometheus/
+              echo "Done."
+          env:
+            # Customize the window/step and Prometheus query URL here
+            - name: BACKFILL_START
+              value: "2025-08-01T00:00:00Z"
+            - name: BACKFILL_END
+              value: "2025-08-19T00:00:00Z"
+            - name: BACKFILL_STEP
+              value: "30s"
+            - name: PROM_QUERY_URL
+              value: "http://prometheus-k8s.monitoring.svc.cluster.local:9090"
+          volumeMounts:
+            - name: prom-data
+              mountPath: /prometheus
+            - name: rules
+              mountPath: /etc/originflow/rules
+      volumes:
+        # Mount the SAME PVC used by your Prometheus StatefulSet (edit claimName)
+        - name: prom-data
+          persistentVolumeClaim:
+            claimName: prometheus-prometheus-k8s-db-prometheus-k8s-0
+        # Mount the recording rules we want to backfill
+        - name: rules
+          configMap:
+            name: originflow-recording-rules
+            items:
+              - key: originflow-recording.rules.yml
+                path: originflow-recording.rules.yml
+
