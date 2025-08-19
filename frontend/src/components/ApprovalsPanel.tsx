@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
+import ApprovalsDiffModal from './ApprovalsDiffModal';
 
 type Item = {
   id: number;
@@ -26,6 +27,14 @@ export default function ApprovalsPanel() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [serverApply, setServerApply] = useState(true);
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewBefore, setPreviewBefore] = useState<any | null>(null);
+  const [previewAfter, setPreviewAfter] = useState<any | null>(null);
+  const [previewNote, setPreviewNote] = useState<string | null>(null);
+  const [previewDiff, setPreviewDiff] = useState<any | null>(null);
+  const [previewItem, setPreviewItem] = useState<Item | null>(null);
 
   async function load() {
     setLoading(true);
@@ -108,6 +117,34 @@ export default function ApprovalsPanel() {
     await load();
   }
 
+  async function openPreview(it: Item) {
+    setPreviewItem(it);
+    setShowPreview(true);
+    setPreviewLoading(true);
+    setPreviewError(null);
+    setPreviewBefore(null);
+    setPreviewAfter(null);
+    setPreviewNote(null);
+    setPreviewDiff(null);
+    try {
+      const res = await api.getApprovalDiff(it.id);
+      setPreviewBefore(res?.before_snapshot?.graph || null);
+      setPreviewAfter(res?.after_preview?.graph || null);
+      setPreviewNote(res?.after_preview?.note || null);
+      setPreviewDiff(res?.diff || null);
+    } catch (e: any) {
+      setPreviewError(e?.message || 'Failed to load preview');
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
+  async function approveAndApplyFromModal() {
+    if (!previewItem) return;
+    await approve({ ...previewItem } as Item);
+    setShowPreview(false);
+  }
+
   return (
     <div className="p-4 space-y-4">
       <h1 className="text-xl font-semibold">Approvals</h1>
@@ -180,6 +217,12 @@ export default function ApprovalsPanel() {
             </div>
             <div className="flex gap-2">
               <button
+                onClick={() => openPreview(it)}
+                className="px-2 py-1 rounded bg-gray-700 text-white"
+              >
+                Preview
+              </button>
+              <button
                 onClick={() => approve(it)}
                 className="px-2 py-1 rounded bg-emerald-600 text-white"
               >
@@ -204,6 +247,17 @@ export default function ApprovalsPanel() {
         )}
       </div>
     </div>
+    <ApprovalsDiffModal
+      open={showPreview}
+      onClose={() => setShowPreview(false)}
+      loading={previewLoading}
+      error={previewError}
+      beforeGraph={previewBefore}
+      afterGraph={previewAfter}
+      note={previewNote}
+      diff={previewDiff}
+      onApproveAndApply={approveAndApplyFromModal}
+    />
   );
 }
 

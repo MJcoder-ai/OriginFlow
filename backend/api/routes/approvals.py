@@ -14,6 +14,7 @@ from backend.services.approvals_events import ApprovalsEventBus
 from starlette.responses import StreamingResponse
 import asyncio
 import json
+from backend.services.impact_preview_service import ImpactPreviewService
 
 
 router = APIRouter(prefix="/api/v1/approvals", tags=["Approvals"])
@@ -44,6 +45,42 @@ async def stream_approvals(
             ApprovalsEventBus.unsubscribe(tenant_id, q)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+@router.get("/{id}/diff", dependencies=[Depends(require_permission("approvals.read"))])
+async def get_diff(
+    id: int,
+    session: AsyncSession = Depends(get_session),
+    user=Depends(get_current_user),
+):
+    """Return a preview diff for the specified pending action."""
+
+    tenant_id = getattr(user, "tenant_id", None) or "default"
+    try:
+        preview = await ImpactPreviewService.build_preview(
+            session, pending_id=id, tenant_id=tenant_id
+        )
+        return preview
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Pending action not found"
+        )
+    except Exception as e:  # pragma: no cover - defensive fallback
+        return {
+            "error": str(e),
+            "before_snapshot": None,
+            "after_preview": {
+                "graph": {"nodes": [], "edges": []},
+                "note": "Preview unavailable due to server error",
+            },
+            "diff": {
+                "added_nodes": [],
+                "removed_nodes": [],
+                "modified_nodes": [],
+                "added_edges": [],
+                "removed_edges": [],
+            },
+        }
 
 @router.get("/", dependencies=[Depends(require_permission("approvals.read"))])
 async def list_pending(
