@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 os.environ.setdefault("OPENAI_API_KEY", "test")
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///./test.db")
+os.environ.setdefault("ENABLE_AUTH", "false")
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 
