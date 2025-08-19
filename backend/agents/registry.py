@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
+import logging
 
 from backend.agents.base import AgentBase
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -24,6 +28,77 @@ class AgentSpec:
 
 _REGISTRY: Dict[str, AgentBase] = {}
 _SPECS: Dict[str, AgentSpec] = {}
+
+_overlay_stack: List[List[str]] = []
+
+
+class SpecAgent(AgentBase):
+    """Minimal runtime agent built from a persisted spec."""
+
+    def __init__(self, spec: Dict[str, Any]):
+        self.name = spec.get("name", "dynamic_agent")
+        self.description = spec.get("description", "")
+        self.spec = spec
+
+    async def handle(self, command: str, **_: Any) -> List[Dict[str, Any]]:
+        return []
+
+
+def unregister(name: str) -> None:
+    """Remove an agent and its spec from the registry."""
+
+    _REGISTRY.pop(name, None)
+    _SPECS.pop(name, None)
+
+
+def _instantiate_from_spec(spec: Dict[str, Any]) -> AgentBase:
+    """Instantiate a simple agent from a spec dictionary."""
+
+    return SpecAgent(spec)
+
+
+def _register_spec_from_dict(spec: Dict[str, Any]) -> None:
+    capabilities = []
+    for c in spec.get("capabilities", []):
+        if isinstance(c, dict):
+            capabilities.append(c.get("action"))
+        else:
+            capabilities.append(c)
+    register_spec(
+        name=spec.get("name"),
+        domain=spec.get("domain", ""),
+        display_name=spec.get("display_name"),
+        version=spec.get("version"),
+        risk_class=spec.get("risk_class", "low"),
+        capabilities=capabilities,
+        description=spec.get("description", ""),
+        examples=None,
+    )
+
+
+def _temporary_overlay_register(specs: List[Dict[str, Any]]) -> Tuple[int, List[str]]:
+    registered_names: List[str] = []
+    for spec in specs:
+        try:
+            agent = _instantiate_from_spec(spec)
+            register(agent)
+            _register_spec_from_dict(spec)
+            registered_names.append(agent.name)
+        except Exception as e:  # pragma: no cover - defensive
+            logger.exception("Temporary overlay register failed for %s: %s", spec.get("name"), e)
+            continue
+    _overlay_stack.append(registered_names)
+    return (len(_overlay_stack), registered_names)
+
+
+def _temporary_overlay_reset(token: Tuple[int, List[str]]) -> None:
+    _len_before, names = token
+    try:
+        for nm in names:
+            unregister(nm)
+    finally:
+        if _overlay_stack:
+            _overlay_stack.pop()
 
 
 def register(agent: AgentBase) -> AgentBase:
@@ -322,6 +397,11 @@ class AgentRegistry:
             completed_tasks.add(task_id)
         
         return errors
+
+    def get_agents(self) -> List[AgentBase]:
+        """Return currently registered agent instances."""
+
+        return list(_REGISTRY.values())
 
 
 registry = AgentRegistry()

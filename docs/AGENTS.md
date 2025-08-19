@@ -34,6 +34,26 @@ Endpoints use `backend/auth/dependencies.require_permission` with the following 
 - `POST /api/v1/odl/agents/assist/synthesize-spec` – LLM to generate a new spec from an idea
 - `POST /api/v1/odl/agents/assist/refine-spec` – LLM to refine an existing spec
 
+
+## Runtime hydration (feature-flagged)
+When the feature flag `agents.hydrate_from_db` is **enabled** for a tenant,
+the analyze endpoint will, per request:
+1. Resolve all **enabled** agents for the tenant that have a **published** version.
+2. Build a **temporary overlay** in the runtime registry for the request lifetime.
+3. Proceed with orchestration as usual; overlay agents are available to the router.
+4. After the request completes, the overlay is automatically removed.
+
+This keeps the global runtime registry stable while allowing tenant-specific,
+database-controlled agents to participate in AI flows.
+
+### Enabling the flag
+- Prefer **Tenant Settings** key: `agents.hydrate_from_db = true`
+- Fallback **ENV**: `AGENTS_HYDRATE_FROM_DB=true`
+
+### Cache & invalidation
+The hydrator caches resolved specs for 60s. On any publish or tenant state update,
+we call `AgentHydrator.invalidate(...)` to ensure fresh hydration.
+
 ## Frontend
 - Sidebar now includes **Agents**.
 - `AgentsPanel` lists tenant state and supports:

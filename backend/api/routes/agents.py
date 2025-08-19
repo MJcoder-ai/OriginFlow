@@ -16,6 +16,7 @@ from backend.schemas.agent_spec import (
 )
 from backend.services.agent_catalog_service import AgentCatalogService
 from backend.services.agent_author_service import AgentAuthorService
+from backend.services.agent_hydrator import AgentHydrator
 from backend.auth.dependencies import require_permission
 
 router = APIRouter(prefix="/api/v1/odl/agents", tags=["Agents"])
@@ -105,6 +106,7 @@ async def publish_agent_version(
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     await session.commit()
+    AgentHydrator.invalidate()
     return {"agent_name": row.agent_name, "version": row.version, "status": row.status}
 
 
@@ -132,6 +134,7 @@ async def update_tenant_state(
         updated_by_id=getattr(user, "id", None),
     )
     await session.commit()
+    AgentHydrator.invalidate(t_id)
     return {
         "tenant_id": row.tenant_id,
         "agent_name": row.agent_name,
