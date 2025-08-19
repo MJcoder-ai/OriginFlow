@@ -15,10 +15,16 @@ The frontend enhancements transform OriginFlow from a traditional CAD tool into 
   domain, risk class, capabilities and example commands.
 - `GET /api/v1/agents/{name}` — retrieve detailed information for a single
   agent.
+- `POST /api/v1/agents/register` — register a new agent from a JSON spec.
+- `POST /api/v1/agents/{name}/enable|disable` — toggle agent availability.
+- `GET /api/v1/agents/templates` — starter specs for the **New Agent** modal.
 
-**Usage**: Use these endpoints to populate a sidebar panel showing all agents.
-When an agent is selected, display its description, capabilities and example
-commands.
+**Usage**: The sidebar now includes an **Agents** entry. The main panel shows a
+filterable grid of agents with search and domain filters. Selecting an agent
+opens a detail drawer with enable/disable controls and raw spec view. The
+toolbar exposes **New Agent** and **Refresh** actions when this panel is active.
+The **New Agent** modal allows administrators to start from a template or paste
+an arbitrary JSON spec, which is submitted via the register endpoint.
 
 ### 2. ODL Code View (`ODLCodeView.tsx`)
 

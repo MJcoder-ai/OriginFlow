@@ -6,6 +6,7 @@ import ComponentCanvas from './ComponentCanvas';
 // comprehensive SettingsLayout which lives in the settings folder.
 import SettingsLayout from './settings/SettingsLayout';
 import { useAppStore } from '../appStore';
+import AgentsPanel from './agents/AgentsPanel';
 
 const MainPanel: React.FC = () => {
   const route = useAppStore((s) => s.route);
@@ -17,6 +18,7 @@ const MainPanel: React.FC = () => {
         <ComponentCanvas />
       )}
       {route === 'settings' && <SettingsLayout />}
+      {route === 'agents' && <AgentsPanel />}
     </main>
   );
 };

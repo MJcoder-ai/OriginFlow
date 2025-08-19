@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Book, Settings as SettingsIcon } from 'lucide-react';
+import { Box, Book, Settings as SettingsIcon, Bot } from 'lucide-react';
 import { useAppStore, Route } from '../appStore';
 import { FileStagingArea } from './FileStagingArea';
 
@@ -7,6 +7,7 @@ import { FileStagingArea } from './FileStagingArea';
 const NAV_ITEMS = [
   { name: 'projects', label: 'Projects', icon: Book },
   { name: 'components', label: 'Components', icon: Box },
+  { name: 'agents', label: 'Agents', icon: Bot },
   { name: 'settings', label: 'Settings', icon: SettingsIcon },
 ];
 

@@ -14,6 +14,8 @@ class AgentSpec:
 
     name: str
     domain: str
+    display_name: Optional[str] = None
+    version: Optional[str] = None
     risk_class: str = "low"  # low|medium|high
     capabilities: List[str] = field(default_factory=list)
     description: str = ""
@@ -47,6 +49,8 @@ def register_spec(
     name: str,
     domain: str,
     *,
+    display_name: Optional[str] = None,
+    version: Optional[str] = None,
     risk_class: str = "low",
     capabilities: Optional[List[str]] = None,
     description: str = "",
@@ -57,6 +61,8 @@ def register_spec(
     spec = AgentSpec(
         name=name,
         domain=domain,
+        display_name=display_name,
+        version=version,
         risk_class=risk_class,
         capabilities=capabilities or [],
         description=description,

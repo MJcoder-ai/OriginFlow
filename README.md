@@ -15,6 +15,7 @@ Recent updates introduce a **Multi-Domain Platform** with placeholder component 
   - **ODL Code View**: Live textual representation of designs with real-time updates
   - **Requirements Management**: Comprehensive form-based requirement collection and validation
   - **Version Control**: Complete graph versioning with patch history and revert capabilities
+  - **Agents Catalog**: Browse, inspect, and register AI agents with enable/disable controls
   - **Enhanced APIs**: 15+ new endpoints for ODL session management, component selection, and analysis
   - **Governance & Safety Policies**: Risk-based auto‑approval based on agent classifications and confidence scores, with per‑tenant thresholds, whitelists and a manual approval queue for high‑risk actions
   - **Extended Multi‑Domain Support**: Battery and monitoring agents automatically design energy storage and telemetry systems, deepening the placeholder‑first multi‑domain framework
