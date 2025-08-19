@@ -24,6 +24,13 @@ from backend.middleware.security import (
     CORSSecurityMiddleware,
 )
 
+# ---- Logging (init first so all subsequent imports use structured logs) ----
+try:
+    from backend.observability.logging import init_logging
+    init_logging()
+except Exception:
+    pass
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -66,6 +73,13 @@ except Exception:
 try:
     from backend.api.routes.metrics import router as metrics_router
     app.include_router(metrics_router)  # /metrics (see RBAC flag)
+except Exception:
+    pass
+
+# ---- Ensure per-request logging context (request_id) ----
+try:
+    from backend.middleware.log_context import LogContextMiddleware
+    app.add_middleware(LogContextMiddleware)
 except Exception:
     pass
 

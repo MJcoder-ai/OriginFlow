@@ -527,7 +527,7 @@ docker compose -f docker-compose.yml -f docker-compose.observability.yml up
 ```
 Access Grafana at `http://localhost:3000`.
 
-See [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md) for built-in Prometheus metrics and optional OpenTelemetry tracing configuration.
+See [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md) for built-in Prometheus metrics and optional OpenTelemetry tracing configuration, and [docs/LOGGING.md](docs/LOGGING.md) for structured logging with OTEL correlation.
 
 ### 6.7 Troubleshooting Drag-and-Drop
 If dragging new components onto the canvas stops working after customizations,
