@@ -200,8 +200,8 @@ export default function ApprovalsPanel() {
             <div>Decide</div>
           </div>
           {items.map((it) => (
-            <React.Fragment key={it.id}>
-              <div className="grid grid-cols-8 gap-2 px-3 py-2 border-t items-center text-sm">
+            <div key={it.id} className="border-t">
+              <div className="grid grid-cols-8 gap-2 px-3 py-2 items-center text-sm">
                 <div>{it.id}</div>
                 <div className="truncate" title={it.session_id || ''}>
                   {it.session_id || '-'}
@@ -234,29 +234,29 @@ export default function ApprovalsPanel() {
                   </button>
                 </div>
               </div>
-              <div className="col-span-8 bg-gray-50 rounded p-2 text-xs font-mono overflow-auto mx-3 mb-2">
+              <div className="bg-gray-50 rounded p-2 text-xs font-mono overflow-auto mx-3 mb-2">
                 <pre className="whitespace-pre-wrap">
                   {JSON.stringify(it.payload, null, 2)}
                 </pre>
               </div>
-            </React.Fragment>
+            </div>
           ))}
           {!loading && items.length === 0 && (
             <div className="px-3 py-4 text-sm text-gray-500">No items</div>
           )}
         </div>
+        <ApprovalsDiffModal
+          open={showPreview}
+          onClose={() => setShowPreview(false)}
+          loading={previewLoading}
+          error={previewError}
+          beforeGraph={previewBefore}
+          afterGraph={previewAfter}
+          note={previewNote}
+          diff={previewDiff}
+          onApproveAndApply={approveAndApplyFromModal}
+        />
       </div>
-      <ApprovalsDiffModal
-        open={showPreview}
-        onClose={() => setShowPreview(false)}
-        loading={previewLoading}
-        error={previewError}
-        beforeGraph={previewBefore}
-        afterGraph={previewAfter}
-        note={previewNote}
-        diff={previewDiff}
-        onApproveAndApply={approveAndApplyFromModal}
-      />
     </>
   );
 }
