@@ -62,6 +62,39 @@ See `docs/LOGGING.md` for env toggles and examples.
 
 - **SLO**: p95 of `analyze_process_latency_seconds` < 250ms, alert on burn rate.
 - **Auto-approval rate**: derived from `approval_decisions_total{result="allow"}` / total.
-- **Cache efficiency**: hits/(hits+misses) by layer; alert if redis miss rate > 10%.
+- **Cache efficiency**: hits/(hits+misses) by layer; alert if redis miss rate > 10%.  
 - **Queue health**: track `approvals_enqueued_total` rate; alert on spikes.
+
+## Dashboards & Alerts
+
+### Dashboards
+Import these JSON files into Grafana (Dashboards → New → Import):
+
+- `infra/grafana/dashboards/originflow-policy-approvals.json`  
+- `infra/grafana/dashboards/originflow-slo.json`
+
+Set the Prometheus datasource variable (`DS_PROMETHEUS`) during import if prompted.
+
+### Alerts
+Add/merge the Prometheus rules file into your Prometheus/Alertmanager deployment:
+
+- `infra/prometheus/rules/originflow.rules.yml`
+
+This defines:
+- **AnalyzeLatencyHighShort/Long**: p95 analyze latency breach (short & long windows)  
+- **PolicyCacheRedisMissRateHigh**: redis miss rate > 30% for 30m  
+- **PolicyCacheDBFallbackRateHigh**: frequent DB fallbacks  
+- **ApprovalsEnqueueSpike**: rapid growth in manual approvals queue  
+- *(Optional)* Backend 5xx error-rate alert if you expose HTTP metrics
+
+### E2E Tests
+
+Run:
+```bash
+poetry run pytest -q tests/e2e/test_metrics_and_decisions.py
+```
+These tests verify that:
+- Policy cache metrics increment on **memory/redis hits** and **DB miss/dogpile**  
+- Approval decision metrics increment for **allow/deny** paths  
+- `/metrics` endpoint returns Prometheus exposition format
 

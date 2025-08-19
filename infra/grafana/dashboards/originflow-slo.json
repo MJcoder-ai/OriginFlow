@@ -1,0 +1,77 @@
+{
+  "id": null,
+  "uid": "of-slo",
+  "title": "OriginFlow • Service SLO",
+  "tags": ["originflow","slo","latency"],
+  "schemaVersion": 38,
+  "version": 1,
+  "time": { "from": "now-24h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "tenant",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+        "query": "label_values(analyze_process_latency_seconds_bucket, tenant_id)",
+        "includeAll": true,
+        "refresh": 1
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Analyze p95 (last 1h)",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(analyze_process_latency_seconds_bucket{tenant_id=~\"$tenant\"}[1h])))",
+          "instant": true
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Analyze p95 over time",
+      "gridPos": { "h": 8, "w": 18, "x": 6, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(analyze_process_latency_seconds_bucket{tenant_id=~\"$tenant\"}[5m])))",
+          "legendFormat": "p95"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Cache miss rate by layer",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "sum(rate(policy_cache_misses_total{tenant_id=~\"$tenant\",layer=\"redis\"}[5m]))",
+          "legendFormat": "redis"
+        },
+        {
+          "expr": "sum(rate(policy_cache_misses_total{tenant_id=~\"$tenant\",layer=\"db\"}[5m]))",
+          "legendFormat": "db"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Approval decision mix (allow vs deny)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "sum by (result) (rate(approval_decisions_total{tenant_id=~\"$tenant\"}[5m]))",
+          "legendFormat": "{{result}}"
+        }
+      ]
+    }
+  ]
+}
