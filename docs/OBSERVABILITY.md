@@ -65,12 +65,34 @@ See `docs/LOGGING.md` for env toggles and examples.
 - **Cache efficiency**: hits/(hits+misses) by layer; alert if redis miss rate > 10%.  
 - **Queue health**: track `approvals_enqueued_total` rate; alert on spikes.
 
+## HTTP Server Metrics
+
+The `HTTPMetricsMiddleware` records per-request metrics with bounded
+cardinality using the route template and tenant ID:
+
+- `http_requests_total{method,route,code,tenant_id}`
+- `http_request_duration_seconds_bucket{method,route,code,tenant_id}`
+- `http_requests_in_flight{method,route,tenant_id}`
+
+If tenant context is unset, `tenant_id` defaults to `"unknown"`.
+
+### 5xx Alert
+
+`infra/k8s/monitoring/prometheusrule-originflow.yaml` enables alert
+`Backend5xxRateHigh` when the proportion of 5xx responses exceeds 2% for
+15 minutes (per tenant):
+
+```promql
+sum by (tenant_id) (rate(http_requests_total{code=~"5.."}[5m])) /
+clamp_min(sum by (tenant_id) (rate(http_requests_total[5m])), 1) > 0.02
+```
+
 ## Dashboards & Alerts
 
 ### Dashboards
 Import these JSON files into Grafana (Dashboards → New → Import):
 
-- `infra/grafana/dashboards/originflow-policy-approvals.json`  
+- `infra/grafana/dashboards/originflow-policy-approvals.json`
 - `infra/grafana/dashboards/originflow-slo.json`
 
 Set the Prometheus datasource variable (`DS_PROMETHEUS`) during import if prompted.
@@ -81,20 +103,22 @@ Add/merge the Prometheus rules file into your Prometheus/Alertmanager deployment
 - `infra/prometheus/rules/originflow.rules.yml`
 
 This defines:
-- **AnalyzeLatencyHighShort/Long**: p95 analyze latency breach (short & long windows)  
-- **PolicyCacheRedisMissRateHigh**: redis miss rate > 30% for 30m  
-- **PolicyCacheDBFallbackRateHigh**: frequent DB fallbacks  
-- **ApprovalsEnqueueSpike**: rapid growth in manual approvals queue  
-- *(Optional)* Backend 5xx error-rate alert if you expose HTTP metrics
+- **AnalyzeLatencyHighShort/Long**: p95 analyze latency breach (short & long windows)
+- **PolicyCacheRedisMissRateHigh**: redis miss rate > 30% for 30m
+- **PolicyCacheDBFallbackRateHigh**: frequent DB fallbacks
+- **ApprovalsEnqueueSpike**: rapid growth in manual approvals queue
+- **Backend5xxRateHigh**: 5xx error rate > 2%
 
 ### E2E Tests
 
 Run:
 ```bash
 poetry run pytest -q tests/e2e/test_metrics_and_decisions.py
+poetry run pytest -q tests/e2e/test_http_metrics.py
 ```
 These tests verify that:
-- Policy cache metrics increment on **memory/redis hits** and **DB miss/dogpile**  
-- Approval decision metrics increment for **allow/deny** paths  
+- Policy cache metrics increment on **memory/redis hits** and **DB miss/dogpile**
+- Approval decision metrics increment for **allow/deny** paths
+- HTTP metrics export request counters and latency histograms
 - `/metrics` endpoint returns Prometheus exposition format
 

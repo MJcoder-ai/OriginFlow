@@ -83,6 +83,22 @@ try:
 except Exception:
     pass
 
+# ---- HTTP metrics middleware ----
+try:
+    from backend.middleware.http_metrics import HTTPMetricsMiddleware
+    app.add_middleware(HTTPMetricsMiddleware)
+except Exception:
+    pass
+
+# ---- Optional test-only routes (enable in tests) ----
+import os
+if os.getenv("ENABLE_TEST_ROUTES", "0") == "1":
+    try:
+        from backend.api.routes import test_only as test_only_router
+        app.include_router(test_only_router.router, prefix="/__test__")
+    except Exception:
+        pass
+
 # Add security middleware (order matters!)
 app.add_middleware(SecurityMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)

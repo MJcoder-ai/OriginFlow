@@ -62,6 +62,53 @@ policy_cache_dogpile_wait = Counter(
     labelnames=("tenant_id",),
 )
 
+# ---------------------------------------------------------------------------
+# HTTP server metrics
+# ---------------------------------------------------------------------------
+try:
+    http_requests_total  # type: ignore[name-defined]
+except NameError:  # pragma: no cover - module import guard
+    # Cardinality note:
+    #  - route uses templated path (e.g., /api/v1/foo/{id}) to keep label space bounded
+    #  - tenant_id keeps multi-tenant visibility; use "unknown" if not set
+    http_requests_total = Counter(
+        "http_requests_total",
+        "Total HTTP requests",
+        labelnames=("method", "route", "code", "tenant_id"),
+    )
+
+try:
+    http_request_duration_seconds  # type: ignore[name-defined]
+except NameError:  # pragma: no cover - module import guard
+    http_request_duration_seconds = Histogram(
+        "http_request_duration_seconds",
+        "HTTP request duration in seconds",
+        labelnames=("method", "route", "code", "tenant_id"),
+        # Sane buckets for API traffic
+        buckets=(
+            0.005,
+            0.01,
+            0.025,
+            0.05,
+            0.1,
+            0.25,
+            0.5,
+            1.0,
+            2.5,
+            5.0,
+            10.0,
+        ),
+    )
+
+try:
+    http_requests_in_flight  # type: ignore[name-defined]
+except NameError:  # pragma: no cover - module import guard
+    http_requests_in_flight = Gauge(
+        "http_requests_in_flight",
+        "HTTP requests currently in flight",
+        labelnames=("method", "route", "tenant_id"),
+    )
+
 approval_decisions = Counter(
     "approval_decisions_total",
     "Approval decision outcomes",
