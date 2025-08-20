@@ -9,6 +9,35 @@ Purpose:
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 import difflib
+import re
+
+
+def _phrase_present(s: str, phrase: str) -> bool:
+    """Return True if *phrase* appears in *s* with word boundaries."""
+    p = phrase.lower()
+    if " " in p or "-" in p:
+        pattern = r"(?<!\w)" + re.escape(p) + r"(?!\w)"
+    else:
+        pattern = r"\b" + re.escape(p) + r"\b"
+    return re.search(pattern, s) is not None
+
+
+STOP_WORDS = {
+    "and",
+    "or",
+    "the",
+    "a",
+    "an",
+    "to",
+    "with",
+    "no",
+    "in",
+    "on",
+    "for",
+    "of",
+    "by",
+    "something",
+}
 
 # Canonical classes are short, snake-case nouns (match what your backend uses)
 # e.g., "panel", "inverter", "battery", "meter", "switch", ...
@@ -21,23 +50,22 @@ class DomainOntology:
 
     def detect_explicit(self, text: str) -> Optional[str]:
         """
-        If the user clearly names exactly one class (direct hit on class or any synonym),
-        return that canonical class. If multiple classes are mentioned, return None (ambiguous).
+        Phrase-aware explicit detection.
+        Returns the canonical class if exactly one class/synonym is present.
+        If multiple classes are mentioned or none are found, returns ``None``.
         """
         t = (text or "").lower()
         hits: List[str] = []
         for clazz, syns in self.synonyms.items():
-            all_terms = {clazz} | set(syns)
-            for term in all_terms:
-                if term in t:
-                    hits.append(clazz)
-                    break
+            all_terms = [clazz, *syns]
+            if any(_phrase_present(t, term) for term in all_terms):
+                hits.append(clazz)
         uniq = list(dict.fromkeys(hits))
         if len(uniq) == 1:
             return uniq[0]
         return None
 
-    def fuzzy_guess(self, text: str, cutoff: float = 0.83) -> Optional[str]:
+    def fuzzy_guess(self, text: str, cutoff: float = 0.70) -> Optional[str]:
         """
         Fuzzy guess with SequenceMatcher; useful for minor typos ("invertor", "battary", etc.).
         Only activates if explicit detect fails.
@@ -52,10 +80,13 @@ class DomainOntology:
         best = None
         best_ratio = 0.0
         for token in t.replace("/", " ").replace("-", " ").split():
+            if len(token) <= 2 or token in STOP_WORDS:
+                continue
             cand = difflib.get_close_matches(token, surfaces, n=1, cutoff=cutoff)
             if cand:
                 surface = cand[0]
-                # find canonical
+                if abs(len(token) - len(surface)) > 2:
+                    continue
                 for s, c in lex:
                     if s == surface:
                         ratio = difflib.SequenceMatcher(a=token, b=surface).ratio()
@@ -109,21 +140,43 @@ NETWORK_ONTOLOGY = DomainOntology(
 
 DEFAULT_DOMAINS = [PV_ONTOLOGY, HVAC_ONTOLOGY, NETWORK_ONTOLOGY]
 
-def resolve_canonical_class(user_text: str, *, domains = DEFAULT_DOMAINS) -> Optional[str]:
+
+def resolve_canonical_class(user_text: str, *, domains=DEFAULT_DOMAINS) -> Optional[str]:
     """
-    High-confidence resolver:
-    1) explicit detect in any domain (exact token containment) -> return immediately
-    2) fuzzy guess per domain (handles minor typos)
-    If multiple domains match differently, prefer PV first (customize order via DEFAULT_DOMAINS).
+    Ambiguity-safe, phrase-aware resolver:
+    1) If multiple classes are explicitly mentioned anywhere → ``None``.
+    2) Else, explicit detect per domain → return hit.
+    3) Else, fuzzy guess per domain with moderate cutoff → return hit.
     """
+    t = (user_text or "").lower()
+
+    connectors = [" and ", " or ", ",", " to ", " with ", " & "]
+
+    # 1) Global ambiguity check across domains
+    explicit_terms: List[str] = []
     for onto in domains:
-        hit = onto.detect_explicit(user_text)
+        for clazz, syns in onto.synonyms.items():
+            terms = [clazz, *syns]
+            if any(_phrase_present(t, term) for term in terms):
+                explicit_terms.append(clazz)
+    if len(set(explicit_terms)) >= 2 and any(c in t for c in connectors):
+        return None
+
+    # 2) Explicit detection per domain
+    explicit_hits: List[str] = []
+    for onto in domains:
+        hit = onto.detect_explicit(t)
+        if hit:
+            explicit_hits.append(hit)
+    if explicit_hits:
+        return explicit_hits[0]
+
+    # 3) Fuzzy guess
+    for onto in domains:
+        hit = onto.fuzzy_guess(t, cutoff=0.70)
         if hit:
             return hit
-    for onto in domains:
-        hit = onto.fuzzy_guess(user_text)
-        if hit:
-            return hit
+
     return None
 
 
