@@ -83,9 +83,6 @@ class AgentResponse:
     warnings: List[str] = field(default_factory=list)
 
 
-# Backward compatibility alias
-AgentBase = UnifiedAgentInterface
-
 class UnifiedAgentInterface(ABC):
     """Enterprise-grade unified agent interface.
 
@@ -242,3 +239,7 @@ class UnifiedAgentInterface(ABC):
     async def cleanup(self) -> None:
         """Clean up agent resources."""
         pass
+
+
+# Backward compatibility alias
+AgentBase = UnifiedAgentInterface
