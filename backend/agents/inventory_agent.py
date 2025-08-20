@@ -12,11 +12,15 @@ from typing import Any, Dict, List
 from backend.agents.base import AgentBase
 from backend.agents.registry import register, register_spec
 from backend.schemas.ai import AiAction, AiActionType
+from typing import TYPE_CHECKING
 
 from backend.services.component_db_service import (
     ComponentDBService,
     get_component_db_service,
 )
+
+if TYPE_CHECKING:
+    from backend.schemas.analysis import DesignSnapshot
 
 
 class InventoryAgent(AgentBase):
@@ -24,6 +28,18 @@ class InventoryAgent(AgentBase):
 
     name = "inventory_agent"
     description = "Looks up components and suggests options based on category and ratings."
+    capability_tags = ["components:read"]
+
+    async def execute_task(
+        self,
+        task: Dict[str, Any],
+        snapshot: Optional["DesignSnapshot"] = None,
+        **kwargs: Any,
+    ) -> List[Dict[str, Any]]:
+        """Execute component search task and return results as actions."""
+        # Convert task to command string for compatibility with existing handle method
+        command = task.get("command", "")
+        return self.handle(command, **kwargs)
 
     async def handle(self, command: str, **kwargs) -> List[Dict[str, Any]]:
         """Handle inventory search requests.

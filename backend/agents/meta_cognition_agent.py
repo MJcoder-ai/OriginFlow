@@ -27,16 +27,49 @@ from typing import Any, Dict, List
 from backend.agents.base import AgentBase
 from backend.agents.registry import register, register_spec
 from backend.utils.adpf import wrap_response
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from backend.schemas.analysis import DesignSnapshot
 
 
 class MetaCognitionAgent(AgentBase):
-    """Agent that generates clarifying questions when tasks are blocked."""
+    """
+    Lightweight meta-cognition agent.
 
-    name = "meta_cognition_agent"
-    description = "Generates clarifying questions for blocked tasks."
+    NOTE:
+    - Previously this class did not implement the abstract `execute_task`
+      and was instantiated at import time via the registry, which caused
+      `TypeError: Can't instantiate abstract class`.
+    - We provide a conservative implementation that never mutates state
+      during tests (returns []), but can be extended to emit 'report'
+      actions when needed.
+    """
+
+    name = "meta_cognition"
+    description = "Reflects on plan/act traces to propose improvements."
+    capability_tags = ["analysis", "reporting"]
 
     async def handle(self, command: str, **kwargs) -> List[Dict[str, Any]]:
         """This agent uses ``execute``; ``handle`` returns no actions."""
+        return []
+
+    async def execute_task(
+        self,
+        task: Dict[str, Any],
+        snapshot: Optional["DesignSnapshot"] = None,
+        **kwargs: Any,
+    ) -> List[Dict[str, Any]]:
+        # Safe default: no state-changing actions in this baseline.
+        # Optionally emit a report action if tests/UX expect visibility.
+        if task.get("emit_report"):
+            return [{
+                "action": "report",
+                "payload": {
+                    "title": "Meta-cognition",
+                    "content": task.get("message", "No findings.")
+                }
+            }]
         return []
 
     async def execute(self, session_id: str, tid: str, **kwargs: Any) -> Dict[str, Any]:

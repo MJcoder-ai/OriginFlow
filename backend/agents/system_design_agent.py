@@ -17,6 +17,10 @@ from backend.services.component_db_service import get_component_db_service
 from backend.agents.base import AgentBase
 from backend.agents.registry import register, register_spec
 from backend.schemas.ai import AiAction, AiActionType
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from backend.schemas.analysis import DesignSnapshot
 
 
 class SystemDesignAgent(AgentBase):
@@ -35,6 +39,17 @@ class SystemDesignAgent(AgentBase):
     description = (
         "Produces a high\u2011level overview of required components and next steps based on the project domain and capacity."
     )
+    capability_tags = ["design", "analysis"]
+
+    async def execute_task(
+        self,
+        task: Dict[str, Any],
+        snapshot: Optional["DesignSnapshot"] = None,
+        **kwargs: Any,
+    ) -> List[Dict[str, Any]]:
+        """Execute system design task and return results as actions."""
+        command = task.get("command", "")
+        return self.handle(command, **kwargs)
 
     async def handle(self, command: str, **kwargs) -> List[Dict[str, Any]]:
         text = command.lower()
