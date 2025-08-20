@@ -64,15 +64,15 @@ def _collect_candidates(text: str, domain: Dict[str, List[str]]) -> List[Tuple[s
             if _phrase_present(t, name):
                 scores.append((canon, 100))
                 break
-    # Fuzzy (single-token typos) — tune so "pupm" -> "pump" passes.
-    THRESH = 0.69
+    # Fuzzy (single-token typos). Tune so "pupm" -> "pump" passes.
     tokens = re.findall(r"[a-zA-Z0-9\-]+", t)
     for token in tokens:
         for canon, names in domain.items():
-            # Compare token against each alias; if any alias is close enough, accept.
-            match = get_close_matches(token, [n.lower() for n in names], n=1, cutoff=THRESH)
-            if match:
+            # Use moderate cutoff; evaluate token against aliases for each class.
+            match = get_close_matches(token, [n.lower() for n in names], n=1, cutoff=0.7)
+            if match:  # accept first close alias per class
                 scores.append((canon, 80))  # fuzzy weight
+                break
     return scores
 
 
@@ -88,9 +88,10 @@ def _decide(scores: List[Tuple[str, int]]) -> Optional[str]:
     ordered = sorted(agg.items(), key=lambda kv: kv[1], reverse=True)
     if len(ordered) == 1:
         return ordered[0][0]
-    # Ambiguity: close scores (<=5) OR multiple explicit 100s
-    if ordered[0][1] == 100 and len([v for v in agg.values() if v == 100]) >= 2:
+    # If we have multiple explicit (score=100) classes, it's ambiguous.
+    if ordered[0][1] == 100 and sum(1 for v in agg.values() if v == 100) >= 2:
         return None
+    # Otherwise treat very close scores as ambiguous.
     if ordered[0][1] - ordered[1][1] <= 5:
         return None
     return ordered[0][0]
