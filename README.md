@@ -35,6 +35,7 @@ Recent updates introduce a **Multi-Domain Platform** with placeholder component 
   ODL state. All canvases/layers are projections over ODL (`/odl/.../view`).
   Patches are idempotent and applied with `If-Match` optimistic concurrency.
   See `docs/ODL_SPEC.md`.
+- **Typed Tools (Phase 3)**: Domain logic lives in pure functions under `backend/tools/` that return `ODLPatch` objects. They are composed and applied by a single orchestrator. See `docs/TOOLS_CATALOG.md`.
 
 For additional governance details, see [docs/governance-approvals.md](docs/governance-approvals.md).
 
