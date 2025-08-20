@@ -54,6 +54,12 @@ HVAC_ONTOLOGY = DomainOntology(
 )
 ```
 
+The resolver matches **whole words and phrases** only, avoiding substring false positives
+(e.g., "access point" no longer triggers the battery synonym "ess"). If the text
+mentions multiple classes explicitly, the resolver treats it as **ambiguous** and
+returns `None`. A fuzzy fallback with a `0.70` cutoff corrects minor typos like
+"pupm" → "pump".
+
 ### 2. Intent Firewall (`backend/services/ai/action_firewall.py`)
 
 Final normalization logic:
