@@ -54,6 +54,36 @@ def _phrase_present(text: str, phrase: str) -> bool:
     return re.search(pattern, text) is not None
 
 
+def _detect_ambiguous_components(text: str) -> bool:
+    """
+    Detect if text contains multiple component mentions that would be ambiguous.
+    Examples: "add inverter and panel", "add battery or pump"
+    """
+    t = text.lower()
+
+    # Look for conjunctions that typically indicate multiple components
+    conjunctions = [r'\band\b', r'\bor\b', r'\b,', r'\b/', r'\bplus\b']
+    has_conjunction = any(re.search(pattern, t) for pattern in conjunctions)
+
+    if not has_conjunction:
+        return False
+
+    # Count how many different component types are mentioned
+    component_count = 0
+    all_components = set()
+    for domain in (PV, HVAC, NETWORK):
+        for component_type, names in domain.items():
+            for name in names:
+                if _phrase_present(t, name.lower()):
+                    if component_type not in all_components:
+                        all_components.add(component_type)
+                        component_count += 1
+                        if component_count >= 2:
+                            return True
+
+    return component_count >= 2
+
+
 def _collect_candidates(text: str, domain: Dict[str, List[str]]) -> List[Tuple[str, int]]:
     """Return [(canonical, score)] from exact + fuzzy matches in a single domain."""
     scores: List[Tuple[str, int]] = []
@@ -80,18 +110,19 @@ def _decide(scores: List[Tuple[str, int]]) -> Optional[str]:
     """Pick best class, but return None when ambiguous."""
     if not scores:
         return None
-    # Aggregate by canonical
+    # Aggregate by canonical (take the highest score for each class)
     agg: Dict[str, int] = {}
     for canon, sc in scores:
         agg[canon] = max(agg.get(canon, 0), sc)
-    # Sort by score
+    # Sort by score (highest first)
     ordered = sorted(agg.items(), key=lambda kv: kv[1], reverse=True)
     if len(ordered) == 1:
         return ordered[0][0]
-    # If we have multiple explicit (score=100) classes, it's ambiguous.
-    if ordered[0][1] == 100 and sum(1 for v in agg.values() if v == 100) >= 2:
+    # If we have multiple explicit (score=100) classes with DIFFERENT canonical names, it's ambiguous.
+    explicit_classes = [canon for canon, score in ordered if score == 100]
+    if len(explicit_classes) >= 2:
         return None
-    # Otherwise treat very close scores as ambiguous.
+    # Otherwise treat very close scores as ambiguous (but only if they're different classes)
     if ordered[0][1] - ordered[1][1] <= 5:
         return None
     return ordered[0][0]
@@ -115,16 +146,6 @@ def resolve_canonical_class(text: str) -> Optional[str]:
     elif any(_phrase_present(t, cue) for cue in PV_CUES):
         domain_map = PV
         domain_selected = True
-
-    # If multiple explicit phrases across classes exist in the text → ambiguous.
-    explicit_hits = 0
-    for domain in (PV, HVAC, NETWORK):
-        for names in domain.values():
-            for name in names:
-                if _phrase_present(t, name.lower()):
-                    explicit_hits += 1
-                    if explicit_hits >= 2:
-                        return None
 
     scores = _collect_candidates(t, domain_map)
     if domain_selected and not scores:

@@ -59,7 +59,9 @@ async def normalize_add_component(
         conf = decision.confidence
     except Exception as ex:  # pragma: no cover — defensive
         logger.warning("Action guard: SAAR failed; keeping original type. err=%s", ex)
-        return result
+        # Set fallback values when SAAR fails
+        predicted = result.get("type", "unknown")
+        conf = 0.0
 
     MIN_SAAR_OVERRIDE = float(os.getenv("SAAR_MIN_OVERRIDE", "0.55"))
     HIGH_CONF_FOR_EXPLICIT = float(os.getenv("SAAR_EXPLICIT_LOCK", "0.85"))
@@ -75,7 +77,7 @@ async def normalize_add_component(
         "explicit_lock": HIGH_CONF_FOR_EXPLICIT,
         "corrected": True,        # indicates guard pipeline executed
         "reason": "initialized",
-        "rationale": ""           # human-readable explanation expected by tests
+        "rationale": "Action guard initialized"  # human-readable explanation expected by tests
     }
 
     # If the user explicitly asked for a class, prefer it unless SAAR is extremely sure *against* it.
