@@ -1,65 +1,37 @@
-# backend/api/routes/ai.py
-"""AI command endpoint."""
-from typing import Annotated
+"""
+AI Orchestrator routes.
 
-from fastapi import APIRouter, Depends, Request, Body
+POST /ai/act → run a high-level task against the ODL session using the
+single orchestrator with typed tools and risk gating.
+"""
+from __future__ import annotations
 
-from backend.api.deps import AiOrchestrator
-from backend.schemas.ai import (
-    AiAction,
-    AiCommandRequest,
-    PlanResponse,
-    PlanTask,
-)
-from backend.services.ai_service import limiter
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
-# Import the dedicated planner agent.  This agent generates high-level
-# task sequences and quick actions based on natural language commands.
-from backend.agents.planner_agent import PlannerAgent
+from backend.database.session import get_session
+from backend.orchestrator.router import ActArgs
+from backend.orchestrator.orchestrator import Orchestrator
 
-router = APIRouter()
+router = APIRouter(prefix="/ai", tags=["AI"])
 
 
-@router.post("/ai/command", response_model=list[AiAction])
-@limiter.limit("30/minute")
-async def ai_command(
-    request: Request,
-    req: Annotated[AiCommandRequest, Body(embed=False)],  # explicit body param
-    orchestrator: AiOrchestrator = Depends(AiOrchestrator.dep),
-) -> list[AiAction]:
-    """Process a natural-language command via the AI orchestrator."""
-
-    return await orchestrator.process(req.command)
+class ActRequest(BaseModel):
+    session_id: str
+    task: str
+    request_id: str = Field(..., description="Idempotency scope for tool op_ids")
+    args: ActArgs = Field(default_factory=ActArgs)
 
 
-# -----------------------------------------------------------------------------
-# High-level planning endpoint
-#
-# The /ai/plan endpoint accepts the same natural language command as
-# /ai/command but returns a coarse-grained sequence of tasks rather than low
-# level actions.  These tasks outline the steps the orchestrator will take
-# to fulfil the user's request.  The endpoint also returns a set of quick
-# actions that the user might perform next.  This stub implementation
-# produces a static plan for demonstration purposes; integration with a
-# dedicated planning agent is required for full functionality.
-
-@router.post("/ai/plan", response_model=PlanResponse)
-@limiter.limit("30/minute")
-async def ai_plan(
-    request: Request,
-    req: Annotated[AiCommandRequest, Body(embed=False)],
-    orchestrator: AiOrchestrator = Depends(AiOrchestrator.dep),
-) -> PlanResponse:
-    """Generate a high-level plan for the provided command.
-
-    This implementation delegates planning to the ``PlannerAgent``.  It
-    constructs a planner bound to a default session identifier (``"global"``)
-    because ``/ai/plan`` does not operate on a per-session graph.  The
-    planner performs simple keyword analysis and returns an ordered list of
-    tasks along with optional quick actions.  Future versions may
-    incorporate project snapshots and design rules.
-    """
-
-    planner = PlannerAgent()
-    tasks = await planner.plan("global", req.command)
-    return PlanResponse(tasks=[PlanTask(**t) for t in tasks], quick_actions=None)
+@router.post("/act")
+async def act(req: ActRequest, db: AsyncSession = Depends(get_session)):
+    orch = Orchestrator()
+    env = await orch.run(
+        db=db,
+        session_id=req.session_id,
+        task=req.task,
+        request_id=req.request_id,
+        args=req.args,
+    )
+    return env
