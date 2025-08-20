@@ -6,6 +6,12 @@
 
 ## 1. Overview
 
+> **Breaking Change (vNext)**  
+> The server now returns a **single response envelope** for AI actions:
+> `thought`, `output.card`, `output.patch`, `status`, and optional `warnings`.
+> Legacy top-level `card`/`patch` fields were removed. See
+> `docs/BREAKING_CHANGES.md` and `backend/utils/adpf.py`.
+
 OriginFlow is a browser-based, AI-powered design environment that converts rough engineering sketches and customer inputs into standards-compliant schematics and bills-of-materials. It supports both engineers and non-technical users, offering features like drag-and-drop datasheets, AI auto-completion, and real-time compliance checks.
 
 Recent updates introduce a **Multi-Domain Platform** with placeholder component support:
