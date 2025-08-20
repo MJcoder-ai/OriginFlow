@@ -31,6 +31,10 @@ Recent updates introduce a **Multi-Domain Platform** with placeholder component 
   - **Enhanced Rule Engine**: Deterministic sizing extended to conduits and structural mounts; new functions compute recommended conduit cross‑sections and mount load capacities and validate installed components for NEC/IEC compliance
   - **Compliance & Rule Engine**: Enhanced rule engine with validation of installed wires and fuses; cross-layer validation agent now checks for unconnected components
   - **ADPF Integration**: All AI agents return results in a standard JSON envelope with meta-cognitive reasoning (`thought`), structured output and status.  See `backend/utils/adpf.py` for details.
+- **ODL as Single Source of Truth**: The design graph is stored as a versioned
+  ODL state. All canvases/layers are projections over ODL (`/odl/.../view`).
+  Patches are idempotent and applied with `If-Match` optimistic concurrency.
+  See `docs/ODL_SPEC.md`.
 
 For additional governance details, see [docs/governance-approvals.md](docs/governance-approvals.md).
 
