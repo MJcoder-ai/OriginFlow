@@ -37,6 +37,11 @@ Recent updates introduce a **Multi-Domain Platform** with placeholder component 
   See `docs/ODL_SPEC.md`.
 - **Typed Tools (Phase 3)**: Domain logic lives in pure functions under `backend/tools/` that return `ODLPatch` objects. They are composed and applied by a single orchestrator. See `docs/TOOLS_CATALOG.md`.
 
+- **Single Orchestrator (Phase 4)**: The `POST /ai/act` endpoint invokes a
+  compact orchestrator that loads a minimal ODL slice, routes to a typed tool,
+  enforces a risk decision, applies the patch with optimistic concurrency, and
+  returns the unified ADPF envelope. See `docs/ORCHESTRATOR.md`.
+
 For additional governance details, see [docs/governance-approvals.md](docs/governance-approvals.md).
 
 ### Planner and Domain Agents
