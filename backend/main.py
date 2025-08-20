@@ -158,6 +158,7 @@ from backend.api.routes import (
     components,
     links,
     ai,
+    ai_apply,  # Intent Firewall endpoint
     analyze,
     files,
     ai_tools,
@@ -219,6 +220,7 @@ app.include_router(components.router, prefix=settings.api_prefix)
 app.include_router(links.router, prefix=settings.api_prefix)
 app.include_router(files.router, prefix=settings.api_prefix)
 app.include_router(ai.router, prefix=settings.api_prefix)
+app.include_router(ai_apply.router, prefix=settings.api_prefix)  # Intent Firewall
 app.include_router(analyze.router, prefix=settings.api_prefix)
 app.include_router(ai_tools.router, prefix=settings.api_prefix)
 app.include_router(datasheet_parse.router, prefix=settings.api_prefix)

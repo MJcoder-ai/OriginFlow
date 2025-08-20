@@ -1,7 +1,7 @@
 """Component endpoints: CRUD for schematic components and ingestion."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status, Response
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.schemas.components import (
@@ -49,9 +49,27 @@ async def list_components(
 async def create_component(
     payload: ComponentCreate,
     session: AsyncSession = Depends(get_session),
+    x_user_command: str | None = Header(default=None),  # Optional: if FE passes original prompt
 ) -> ComponentSchema:
     service = ComponentService(session)
     obj = await service.create(payload)
+    
+    # If the frontend is still hitting this endpoint directly from an AI action,
+    # we can optionally enforce the intent firewall here, too (defensive).
+    # NOTE: we DO NOT mutate payload here (already persisted). Prefer /ai/apply for AI flows.
+    # This header is only for telemetry/future safeguards.
+    if x_user_command:
+        try:
+            from backend.ai.ontology import resolve_canonical_class
+            req_cls = resolve_canonical_class(x_user_command)
+            if req_cls and req_cls != obj.type:
+                # Log a mismatch so we can catch any remaining bypasses of /ai/apply
+                import logging
+                logger = logging.getLogger("backend.ai.firewall")
+                logger.warning("Intent mismatch: requested=%s, created=%s id=%s", req_cls, obj.type, obj.id)
+        except Exception:
+            pass
+    
     return ComponentSchema.model_validate(obj)
 
 
