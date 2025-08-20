@@ -7,6 +7,7 @@ LLM misclassifications from reaching the execution layer.
 from __future__ import annotations
 from typing import Optional, Dict, Any
 import logging
+import os
 
 from backend.schemas.analysis import DesignSnapshot
 

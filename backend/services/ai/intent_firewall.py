@@ -37,20 +37,36 @@ NETWORK_CUES = {"network", "ethernet", "wifi", "wi-fi", "ssid", "switch", "route
 HVAC_CUES    = {"hvac", "pump", "chiller", "boiler"}
 PV_CUES      = {"pv", "solar", "module", "panel", "inverter", "battery", "string", "combiner"}
 
+ALL_DOMAINS: Dict[str, List[str]] = {**PV, **HVAC, **NETWORK}
+
+
+def _phrase_present(text: str, name: str) -> bool:
+    """
+    True if `name` appears as a whole phrase/token in `text`.
+    Handles end-of-string and word boundaries correctly.
+    """
+    # Multi-word (or hyphenated) terms use a generic non-word boundary guard.
+    if " " in name or "-" in name:
+        pattern = r"(?<!\w)" + re.escape(name) + r"(?!\w)"
+    else:
+        # Single token (e.g., "ap") — require word boundaries.
+        pattern = r"\b" + re.escape(name) + r"\b"
+    return re.search(pattern, text) is not None
+
 
 def _collect_candidates(text: str, domain: Dict[str, List[str]]) -> List[Tuple[str, int]]:
     """Return [(canonical, score)] from exact + fuzzy matches in a single domain."""
     scores: List[Tuple[str, int]] = []
     t = text.lower()
-    # Exact phrase priority (especially for bigrams like "access point")
+    # Exact phrase priority (bigrams like "access point")
     for canon, names in domain.items():
         for name in names:
-            if f" {name} " in f" {t} ":
+            if _phrase_present(t, name):
                 scores.append((canon, 100))
                 break
     # Fuzzy (single-token typos)
-    # Use conservative threshold 72 so "pupm" -> "pump" passes.
-    THRESH = 72
+    # Threshold tuned so "pupm" -> "pump" passes reliably.
+    THRESH = 69
     tokens = re.findall(r"[a-zA-Z0-9\-]+", t)
     for token in tokens:
         for canon, names in domain.items():
@@ -95,20 +111,22 @@ def resolve_canonical_class(text: str) -> Optional[str]:
         # Let scoring still run; if it detects near-tie, return None.
         pass
 
-    # Detect domain
-    domain_map = PV | HVAC | NETWORK  # fallback to "all"
+    # Detect domain; if none detected, use ALL_DOMAINS directly
+    domain_selected = False
+    domain_map: Dict[str, List[str]] = ALL_DOMAINS
     if any(cue in t for cue in NETWORK_CUES):
         domain_map = NETWORK
+        domain_selected = True
     elif any(cue in t for cue in HVAC_CUES):
         domain_map = HVAC
+        domain_selected = True
     elif any(cue in t for cue in PV_CUES):
         domain_map = PV
+        domain_selected = True
 
-    # Candidates within selected domain; if domain was not detected, try all and rely on ambiguity guard.
+    # Candidates within selected domain; if selected domain produced nothing, try global as fallback.
     scores = _collect_candidates(t, domain_map)
-    if domain_map is not (PV | HVAC | NETWORK):
-        # Domain was detected; great. If no matches (rare), try global as fallback.
-        if not scores:
-            scores = _collect_candidates(t, PV | HVAC | NETWORK)
+    if domain_selected and not scores:
+        scores = _collect_candidates(t, ALL_DOMAINS)
     choice = _decide(scores)
     return choice
