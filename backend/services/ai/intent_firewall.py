@@ -116,7 +116,16 @@ def resolve_canonical_class(text: str) -> Optional[str]:
         domain_map = PV
         domain_selected = True
 
-    # Candidates within selected domain; fallback to global if nothing found.
+    # If multiple explicit phrases across classes exist in the text → ambiguous.
+    explicit_hits = 0
+    for domain in (PV, HVAC, NETWORK):
+        for names in domain.values():
+            for name in names:
+                if _phrase_present(t, name.lower()):
+                    explicit_hits += 1
+                    if explicit_hits >= 2:
+                        return None
+
     scores = _collect_candidates(t, domain_map)
     if domain_selected and not scores:
         scores = _collect_candidates(t, ALL_DOMAINS)

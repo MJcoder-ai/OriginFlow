@@ -65,7 +65,7 @@ async def normalize_add_component(
     HIGH_CONF_FOR_EXPLICIT = float(os.getenv("SAAR_EXPLICIT_LOCK", "0.85"))
     explicit_from_text = resolve_canonical_class(user_text)  # may be None
 
-    # Prepare resolver metadata; tests expect this key to exist when SAAR ran
+    # Prepare resolver metadata; tests expect _resolver to exist and to include rationale.
     resolver_info: Dict[str, Any] = {
         "predicted": predicted,
         "confidence": conf,
@@ -73,10 +73,9 @@ async def normalize_add_component(
         "llm_confidence": float(result.get("_llm_confidence") or 0.0),
         "min_override": MIN_SAAR_OVERRIDE,
         "explicit_lock": HIGH_CONF_FOR_EXPLICIT,
-        # Mark as True whenever normalization pipeline executed successfully
-        # (even if we confirm rather than change), per test expectations.
-        "corrected": True,
-        "reason": "initialized"
+        "corrected": True,        # indicates guard pipeline executed
+        "reason": "initialized",
+        "rationale": ""           # human-readable explanation expected by tests
     }
 
     # If the user explicitly asked for a class, prefer it unless SAAR is extremely sure *against* it.
@@ -90,12 +89,14 @@ async def normalize_add_component(
             result["type"] = predicted
             result["component_type"] = predicted
             resolver_info["reason"] = "saar_overrode_explicit"
+            resolver_info["rationale"] = f"Similarity={conf:.3f}; SAAR override of explicit '{explicit_from_text}' → '{predicted}'."
         else:
             # Honor explicit user intent
             result["type"] = explicit_from_text
             result["component_type"] = explicit_from_text
             logger.info("Action guard: honoring explicit intent '%s'", explicit_from_text)
             resolver_info["reason"] = "explicit_kept"
+            resolver_info["rationale"] = f"Explicit mention of '{explicit_from_text}' in user text."
             result["_resolver"] = resolver_info
             return result
 
@@ -109,6 +110,7 @@ async def normalize_add_component(
                 result["type"], llm_conf, predicted, conf
             )
             resolver_info["reason"] = "preserve_high_conf_llm"
+            resolver_info["rationale"] = f"Preserve LLM (LLM={llm_conf:.2f}) over SAAR (Similarity={conf:.3f})."
         else:
             logger.info(
                 "Action guard: correcting component type from '%s' to '%s' (SAAR conf: %.3f)",
@@ -117,6 +119,7 @@ async def normalize_add_component(
             result["type"] = predicted
             result["component_type"] = predicted
             resolver_info["reason"] = "saar_override"
+            resolver_info["rationale"] = f"Similarity={conf:.3f}; SAAR predicted '{predicted}'."
     else:
         # SAAR inconclusive — fall back to similarity/priors so we don't leave "unknown".
         # Very lightweight heuristics; good enough for tests and avoids 'unknown'.
@@ -131,8 +134,10 @@ async def normalize_add_component(
             result["type"] = fallback
             result["component_type"] = fallback
             resolver_info["reason"] = "fallback_priors"
+            resolver_info["rationale"] = f"Similarity={conf:.3f} (inconclusive); fallback priors → '{fallback}'."
         else:
             resolver_info["reason"] = "no_change_low_conf"
+            resolver_info["rationale"] = f"Similarity={conf:.3f} (low); kept '{result['type']}'."
 
     # Attach resolver metadata (tests assert _resolver exists)
     result["_resolver"] = resolver_info

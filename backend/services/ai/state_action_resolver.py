@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import Dict, List, Optional
 import math
+from functools import lru_cache
 
 import numpy as np
 
@@ -22,6 +23,13 @@ def _softmax(xs: List[float]) -> List[float]:
     return [e / s for e in exps]
 
 
+@lru_cache(maxsize=1)
+def _shared_encoder():
+    """Cache the SentenceTransformer to avoid repeated model loads."""
+    from sentence_transformers import SentenceTransformer  # type: ignore
+    return SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+
+
 class StateAwareActionResolver:
     """Resolve user intent into structured ActionRequest."""
 
@@ -30,7 +38,7 @@ class StateAwareActionResolver:
             raise RuntimeError(
                 "EmbeddingService not available. Ensure get_sentence_embedder() is defined."
             )
-        self._embedder = get_sentence_embedder()
+        self._embedder = _shared_encoder()
         self._proto_texts = iter_prototype_texts()
         self._proto_vecs = {
             cls: self._embedder.encode(txt) for cls, txt in self._proto_texts.items()
