@@ -33,24 +33,24 @@ NETWORK: Dict[str, List[str]] = {
 }
 
 # Quick domain cues (any hit enables domain-restricted matching)
-NETWORK_CUES = {"network", "ethernet", "wifi", "wi-fi", "ssid", "switch", "router", "firewall", "access point", "ap "}
+NETWORK_CUES = {"network", "ethernet", "wifi", "wi-fi", "ssid", "switch", "router", "firewall", "access point", "ap"}
 HVAC_CUES    = {"hvac", "pump", "chiller", "boiler"}
 PV_CUES      = {"pv", "solar", "module", "panel", "inverter", "battery", "string", "combiner"}
 
 ALL_DOMAINS: Dict[str, List[str]] = {**PV, **HVAC, **NETWORK}
 
 
-def _phrase_present(text: str, name: str) -> bool:
+def _phrase_present(text: str, phrase: str) -> bool:
     """
-    True if `name` appears as a whole phrase/token in `text`.
-    Handles end-of-string and word boundaries correctly.
+    Return True if `phrase` appears as a standalone phrase/token in `text`.
+    - Multi-word or hyphenated phrases get non-word guards: (?<!\\w) ... (?!\\w)
+    - Single tokens use word boundaries: \\b...\\b
     """
-    # Multi-word (or hyphenated) terms use a generic non-word boundary guard.
-    if " " in name or "-" in name:
-        pattern = r"(?<!\w)" + re.escape(name) + r"(?!\w)"
+    p = phrase.lower()
+    if " " in p or "-" in p:
+        pattern = r"(?<!\w)" + re.escape(p) + r"(?!\w)"
     else:
-        # Single token (e.g., "ap") — require word boundaries.
-        pattern = r"\b" + re.escape(name) + r"\b"
+        pattern = r"\b" + re.escape(p) + r"\b"
     return re.search(pattern, text) is not None
 
 
@@ -58,19 +58,19 @@ def _collect_candidates(text: str, domain: Dict[str, List[str]]) -> List[Tuple[s
     """Return [(canonical, score)] from exact + fuzzy matches in a single domain."""
     scores: List[Tuple[str, int]] = []
     t = text.lower()
-    # Exact phrase priority (bigrams like "access point")
+    # Exact phrase priority (esp. bigrams like "access point")
     for canon, names in domain.items():
         for name in names:
             if _phrase_present(t, name):
                 scores.append((canon, 100))
                 break
-    # Fuzzy (single-token typos)
-    # Threshold tuned so "pupm" -> "pump" passes reliably.
-    THRESH = 69
+    # Fuzzy (single-token typos) — tune so "pupm" -> "pump" passes.
+    THRESH = 0.69
     tokens = re.findall(r"[a-zA-Z0-9\-]+", t)
     for token in tokens:
         for canon, names in domain.items():
-            match = get_close_matches(token, names, n=1, cutoff=THRESH/100.0)
+            # Compare token against each alias; if any alias is close enough, accept.
+            match = get_close_matches(token, [n.lower() for n in names], n=1, cutoff=THRESH)
             if match:
                 scores.append((canon, 80))  # fuzzy weight
     return scores
@@ -88,7 +88,9 @@ def _decide(scores: List[Tuple[str, int]]) -> Optional[str]:
     ordered = sorted(agg.items(), key=lambda kv: kv[1], reverse=True)
     if len(ordered) == 1:
         return ordered[0][0]
-    # Ambiguity: close scores (within 5) OR multiple explicit entities
+    # Ambiguity: close scores (<=5) OR multiple explicit 100s
+    if ordered[0][1] == 100 and len([v for v in agg.values() if v == 100]) >= 2:
+        return None
     if ordered[0][1] - ordered[1][1] <= 5:
         return None
     return ordered[0][0]
@@ -96,35 +98,24 @@ def _decide(scores: List[Tuple[str, int]]) -> Optional[str]:
 
 def resolve_canonical_class(text: str) -> Optional[str]:
     """
-    Domain-aware canonical class resolver.
-    - Prioritizes domain cues to restrict matching.
-    - Exact phrase ('access point') outranks abbreviations ('ap').
-    - Fuzzy matching tolerates common typos ('pupm' → 'pump').
-    - Returns None when multiple classes are referenced ('inverter and panel').
+    Lightweight, deterministic resolver used by the intent firewall.
+    Returns a canonical class string (e.g. 'panel', 'inverter', 'ap') or None if ambiguous.
     """
-    t = (text or "").lower().strip()
-    if not t:
-        return None
-
-    # Multi-entity guard – if obvious conjunctions join known items, mark ambiguous
-    if re.search(r"\b(and|,|/)\b", t) and any(k in t for k in ("inverter", "panel", "battery", "router", "switch", "firewall", "access point", "ap ", "pump")):
-        # Let scoring still run; if it detects near-tie, return None.
-        pass
-
-    # Detect domain; if none detected, use ALL_DOMAINS directly
+    t = text.lower()
+    # Detect domain with phrase-aware cues; if none triggered, search all domains.
     domain_selected = False
     domain_map: Dict[str, List[str]] = ALL_DOMAINS
-    if any(cue in t for cue in NETWORK_CUES):
+    if any(_phrase_present(t, cue) for cue in NETWORK_CUES):
         domain_map = NETWORK
         domain_selected = True
-    elif any(cue in t for cue in HVAC_CUES):
+    elif any(_phrase_present(t, cue) for cue in HVAC_CUES):
         domain_map = HVAC
         domain_selected = True
-    elif any(cue in t for cue in PV_CUES):
+    elif any(_phrase_present(t, cue) for cue in PV_CUES):
         domain_map = PV
         domain_selected = True
 
-    # Candidates within selected domain; if selected domain produced nothing, try global as fallback.
+    # Candidates within selected domain; fallback to global if nothing found.
     scores = _collect_candidates(t, domain_map)
     if domain_selected and not scores:
         scores = _collect_candidates(t, ALL_DOMAINS)

@@ -10,6 +10,8 @@ import logging
 import os
 
 from backend.schemas.analysis import DesignSnapshot
+from backend.services.ai.intent_firewall import resolve_canonical_class
+from backend.services.ai.state_action_resolver import StateAwareActionResolver
 
 logger = logging.getLogger(__name__)
 
@@ -56,27 +58,41 @@ async def normalize_add_component(
         return result
 
     MIN_SAAR_OVERRIDE = float(os.getenv("SAAR_MIN_OVERRIDE", "0.55"))
-    HIGH_CONF_FOR_EXPLICIT = 0.85
+    HIGH_CONF_FOR_EXPLICIT = float(os.getenv("SAAR_EXPLICIT_LOCK", "0.85"))
     explicit_from_text = resolve_canonical_class(user_text)  # may be None
     llm_conf = float(result.get("_llm_confidence", 0.5))
 
-    # Only consider override if SAAR beats both the minimum threshold and LLM confidence
-    if conf >= max(MIN_SAAR_OVERRIDE, llm_conf):
-        if explicit_from_text and llm_type and explicit_from_text != llm_type and conf < HIGH_CONF_FOR_EXPLICIT:
+    # If the user explicitly asked for a class, prefer it unless SAAR is extremely sure *against* it.
+    if explicit_from_text:
+        if predicted != explicit_from_text and conf >= HIGH_CONF_FOR_EXPLICIT:
+            # SAAR is very confident in a different class → keep SAAR
             logger.info(
-                "Action guard: Keeping LLM type '%s' despite SAAR '%s' (explicit intent, conf=%.3f)",
-                llm_type, predicted, conf
+                "Action guard: SAAR overrides explicit intent '%s' with '%s' (conf=%.3f >= %.2f)",
+                explicit_from_text, predicted, conf, HIGH_CONF_FOR_EXPLICIT
             )
+        else:
+            # Honor explicit user intent
+            result["type"] = explicit_from_text
+            result["component_type"] = explicit_from_text
+            logger.info("Action guard: honoring explicit intent '%s'", explicit_from_text)
             return result
-        if predicted and predicted != llm_type:
+
+    # Otherwise, allow SAAR to override weak/unknown LLM classifications.
+    if predicted and predicted != "unknown" and conf >= MIN_SAAR_OVERRIDE:
+        # Don't stomp very high confidence LLM unless SAAR is clearly confident.
+        llm_conf = float(result.get("_llm_confidence") or 0.0)
+        if llm_conf >= 0.90 and predicted != result["type"] and conf < 0.90:
             logger.info(
-                "Action guard: Correcting component type from '%s' to '%s' (SAAR confidence: %.3f)",
-                llm_type, predicted, conf
+                "Action guard: preserving high-confidence LLM type '%s' (LLM=%.2f, SAAR=%s@%.2f)",
+                result["type"], llm_conf, predicted, conf
+            )
+        else:
+            logger.info(
+                "Action guard: correcting component type from '%s' to '%s' (SAAR conf: %.3f)",
+                result["type"], predicted, conf
             )
             result["type"] = predicted
             result["component_type"] = predicted
-    else:
-        logger.info("Action guard: SAAR conf %.3f below threshold; keeping '%s'", conf, llm_type)
 
     return result
 
