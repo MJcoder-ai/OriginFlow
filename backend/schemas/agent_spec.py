@@ -1,7 +1,8 @@
 from __future__ import annotations
+
 from typing import List, Literal, Optional
 import re
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 
 AllowedStatus = Literal["draft", "staged", "published", "archived"]
@@ -20,7 +21,8 @@ class AgentPattern(BaseModel):
     def _validate_regex_if_needed(cls, v: str, info):
         if info.data.get("type") == "regex":
             try:
-                flags = re.IGNORECASE if info.data.get("case_insensitive", True) else 0
+                case_insensitive = info.data.get("case_insensitive", True)
+                flags = re.IGNORECASE if case_insensitive else 0
                 re.compile(v, flags)
             except re.error as e:
                 raise ValueError(f"Invalid regex: {e}") from e
@@ -32,24 +34,38 @@ class AgentCapability(BaseModel):
     Describes a single capability/action exposed by the agent.
     e.g., {"action": "add_component", "schema": {...}} where schema is
     a JSON schema (or lightweight descriptor) for payload validation.
+    Internally stored as ``spec`` but exposed as ``schema`` for backward
+    compatibility.
     """
     action: str = Field(..., min_length=2, max_length=64)
     description: Optional[str] = Field(None, max_length=300)
-    schema: Optional[dict] = None
+    spec: Optional[dict] = Field(None, alias="schema")
+    model_config = ConfigDict(
+        extra="forbid", validate_assignment=True, populate_by_name=True
+    )
+
+    def to_api(self) -> dict:
+        """Serialize capability for external APIs using aliases."""
+        return self.model_dump(by_alias=True)
 
 
 class AgentSpecModel(BaseModel):
     """
     Pydantic (v2) validation model for agent specs stored in DB.
-    Mirrors, but does not replace, the in-memory dataclass used by the runtime registry.
+    Mirrors, but does not replace, the in-memory dataclass used by the runtime
+    registry.
     """
-    name: str = Field(..., min_length=2, max_length=100, pattern=r"^[a-z0-9_]+$")
+    name: str = Field(
+        ..., min_length=2, max_length=100, pattern=r"^[a-z0-9_]+$"
+    )
     display_name: str = Field(..., min_length=2, max_length=120)
     description: Optional[str] = Field(None, max_length=500)
     domain: Optional[str] = Field(None, max_length=64)
     risk_class: Optional[str] = Field(None, max_length=32)
     patterns: List[AgentPattern] = Field(default_factory=list)
-    llm_tools: List[str] = Field(default_factory=list)  # declared tool names, resolved at runtime
+    llm_tools: List[str] = Field(
+        default_factory=list
+    )  # declared tool names, resolved at runtime
     capabilities: List[AgentCapability] = Field(default_factory=list)
     config: Optional[dict] = None
 
@@ -74,7 +90,8 @@ class AgentDraftCreate(BaseModel):
 
 
 class AgentPublishRequest(BaseModel):
-    version: Optional[int] = None  # if None, publish latest staged/draft (auto-bump)
+    version: Optional[int] = None  # if None, publish latest staged/draft
+    # (auto-bump)
     notes: Optional[str] = None
 
 
@@ -93,4 +110,3 @@ class AgentAssistSynthesizeRequest(BaseModel):
 class AgentAssistRefineRequest(BaseModel):
     current_spec: AgentSpecModel
     critique: str = Field(..., min_length=5, max_length=4000)
-

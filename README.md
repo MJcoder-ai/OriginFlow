@@ -811,8 +811,10 @@ graph TD
 
 ## 8. Contributing
 - Fork the repository, create a branch, and submit pull requests.
-- Run `./scripts/lint.sh && ./scripts/test.sh` before submitting.
-- Add tests to maintain >90% coverage.
+- Run `flake8` and `pytest` before submitting.
+- Add tests to maintain >90% coverage. Integration tests are marked with
+  `@pytest.mark.integration` and can be skipped with
+  `pytest -m 'not integration'`.
 - Follow `AGENTS.md` for AI contributions.
 
 ---
