@@ -340,7 +340,7 @@ class AiOrchestrator:
             # Apply SAAR normalization for add_component actions
             if action_type == "add_component":
                 payload = dict(action.get("payload") or {})
-                
+
                 if ds and user_text:
                     try:
                         # Apply the same normalization as ComponentAgent
@@ -353,9 +353,22 @@ class AiOrchestrator:
                         logger.error(f"Failed to normalize add_component action: {e}")
                         # Continue with original action if normalization fails
                 else:
-                    logger.warning(
-                        f"Server apply: Cannot normalize add_component - missing snapshot or user_text"
-                    )
+                    # Stateless fallback: use explicit user text only (safe)
+                    from backend.services.ai.intent_firewall import resolve_canonical_class
+                    predicted = resolve_canonical_class(user_text or "")
+                    current = payload.get("component_type") or payload.get("type")
+                    if predicted and predicted != current:
+                        logger.info(
+                            f"Server apply: Stateless normalization '{current}'->'{predicted}' from user_text."
+                        )
+                        payload["type"] = predicted
+                        payload["component_type"] = predicted
+                        action = dict(action)  # Make a copy
+                        action["payload"] = payload
+                    else:
+                        logger.warning(
+                            f"Server apply: Cannot stateless-normalize add_component; leaving payload unchanged."
+                        )
             
             normalized_actions.append(action)
 

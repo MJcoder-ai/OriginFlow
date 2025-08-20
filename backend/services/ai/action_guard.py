@@ -14,72 +14,70 @@ logger = logging.getLogger(__name__)
 
 
 async def normalize_add_component(
-    user_text: str, 
-    snapshot: Optional[DesignSnapshot], 
+    user_text: str,
+    snapshot: Optional[DesignSnapshot],
     payload: Dict[str, Any]
 ) -> Dict[str, Any]:
-    """Normalize component addition payload through SAAR guardrail.
-    
-    This function ensures that all addComponent actions are validated
-    through the StateAwareActionResolver, regardless of which agent
-    or LLM generated the original action.
-    
-    Args:
-        user_text: The original user command text
-        snapshot: Current design snapshot for context
-        payload: The component payload to normalize
-        
-    Returns:
-        Normalized payload with corrected component type
     """
+    Normalize the component type for an ``add_component`` action.
+
+    Returns a copy of ``payload`` that **always** includes BOTH keys:
+      - ``type``: canonical component type
+      - ``component_type``: same as ``type`` (kept for backwards compatibility)
+
+    Rules:
+      1) If ``snapshot`` is None **or** SAAR errors → return the original payload unchanged.
+      2) Only override the LLM-provided type when SAAR confidence >= MIN_SAAR_OVERRIDE (env: SAAR_MIN_OVERRIDE, default 0.55).
+      3) Do not overrule an explicit user intent unless SAAR >= 0.85.
+    """
+    result = dict(payload)  # do not mutate caller's dict
+
+    # Normalize existing keys immediately (back-compat)
+    llm_type = (result.get("component_type") or result.get("type"))
+    if llm_type:
+        result["type"] = llm_type
+        result["component_type"] = llm_type
+
+    # Without a snapshot, guard does nothing. (Stateless fixes happen in AiOrchestrator)
+    if snapshot is None:
+        logger.info("Action guard: snapshot missing; returning original payload unchanged.")
+        return result
+
+    # Try SAAR (state-aware resolver)
     try:
         from backend.services.ai.state_action_resolver import StateAwareActionResolver
-        
-        # Get SAAR classification
         resolver = StateAwareActionResolver()
         decision = resolver.resolve_add_component(user_text=user_text, snapshot=snapshot)
-        
-        # Extract LLM's component type from payload
-        llm_type = payload.get("type") or payload.get("component_type")
-        llm_confidence = payload.get("_llm_confidence", 0.0)
-        
-        # Decision logic: Use SAAR unless LLM beats it by a clear margin
-        should_override = (
-            not llm_type or 
-            llm_type != decision.component_class or 
-            llm_confidence < decision.confidence - 0.2
-        )
-        
-        if should_override:
+        predicted = decision.component_class
+        conf = decision.confidence
+    except Exception as ex:  # pragma: no cover — defensive
+        logger.warning("Action guard: SAAR failed; keeping original type. err=%s", ex)
+        return result
+
+    MIN_SAAR_OVERRIDE = float(os.getenv("SAAR_MIN_OVERRIDE", "0.55"))
+    HIGH_CONF_FOR_EXPLICIT = 0.85
+    explicit_from_text = resolve_canonical_class(user_text)  # may be None
+    llm_conf = float(result.get("_llm_confidence", 0.5))
+
+    # Only consider override if SAAR beats both the minimum threshold and LLM confidence
+    if conf >= max(MIN_SAAR_OVERRIDE, llm_conf):
+        if explicit_from_text and llm_type and explicit_from_text != llm_type and conf < HIGH_CONF_FOR_EXPLICIT:
             logger.info(
-                f"Action guard: Correcting component type from '{llm_type}' to '{decision.component_class}' "
-                f"for user text: '{user_text}' (SAAR confidence: {decision.confidence:.3f})"
+                "Action guard: Keeping LLM type '%s' despite SAAR '%s' (explicit intent, conf=%.3f)",
+                llm_type, predicted, conf
             )
-            payload["type"] = decision.component_class
-            payload["component_type"] = decision.component_class
-        else:
+            return result
+        if predicted and predicted != llm_type:
             logger.info(
-                f"Action guard: Keeping LLM component type '{llm_type}' "
-                f"(LLM confidence: {llm_confidence:.3f} vs SAAR: {decision.confidence:.3f})"
+                "Action guard: Correcting component type from '%s' to '%s' (SAAR confidence: %.3f)",
+                llm_type, predicted, conf
             )
-        
-        # Always add SAAR metadata for traceability
-        payload["_resolver"] = {
-            "confidence": decision.confidence,
-            "rationale": decision.rationale,
-            "original_llm_type": llm_type,
-            "corrected": should_override
-        }
-        
-        # Set target layer if not specified
-        payload.setdefault("target_layer", decision.target_layer or "single_line")
-        
-        return payload
-        
-    except Exception as e:
-        logger.error(f"Action guard failed for user_text='{user_text}': {e}")
-        # Return original payload if guard fails to avoid breaking the system
-        return payload
+            result["type"] = predicted
+            result["component_type"] = predicted
+    else:
+        logger.info("Action guard: SAAR conf %.3f below threshold; keeping '%s'", conf, llm_type)
+
+    return result
 
 
 # Use the canonical implementation from StateAwareActionResolver
