@@ -81,3 +81,15 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 originflow-backend = "backend.main:main"
+
+[tool.pytest.ini_options]
+markers = [
+  "integration: marks tests as integration (deselect with -m 'not integration')",
+]
+filterwarnings = [
+  "error::DeprecationWarning:backend\\..*",
+  "error::PendingDeprecationWarning:backend\\..*",
+  "ignore:.*python_multipart.*:PendingDeprecationWarning:starlette\\..*",
+  "ignore:.*pkg_resources is deprecated.*:UserWarning:opentelemetry\\..*",
+  "ignore:.*encoder_attention_mask.*:FutureWarning:torch\\..*",
+]
