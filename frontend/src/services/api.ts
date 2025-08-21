@@ -1,12 +1,28 @@
 /**
- * File: frontend/src/services/api.ts
- * Centralized service for making API calls to the backend.
- * Provides helper functions to fetch and persist canvas data.
+ * Centralized service for making API calls to the backend (vNext aligned).
+ *
+ * Canonical backend endpoints:
+ *   - POST /api/v1/odl/sessions?session_id={sid}
+ *   - GET  /api/v1/odl/sessions/{sid}/plan?command=...
+ *   - POST /api/v1/ai/act
+ *   - GET  /api/v1/odl/{sid}/view?layer=...
+ *   - GET  /api/v1/odl/sessions/{sid}/text
+ *
+ * This module gracefully degrades when legacy endpoints are missing.
  */
 import { CanvasComponent, Link, PlanTask } from '../appStore';
 import { AiAction } from '../types/ai';
 import { DesignSnapshot } from '../types/analysis';
 import { API_BASE_URL } from '../config';
+
+export type AiPlan = {
+  tasks: { id: string; title: string; description?: string; status: 'pending' | 'in_progress' | 'complete' | 'blocked' }[];
+  metadata?: Record<string, any>;
+};
+
+const genId = () =>
+  (globalThis as any)?.crypto?.randomUUID?.() ||
+  `req_${Math.random().toString(36).slice(2)}_${Date.now()}`;
 
 export type ComponentCreateDTO = Omit<CanvasComponent, 'id' | 'ports'>;
 /** Payload for creating a link via the backend API. */
@@ -21,6 +37,7 @@ export interface QuickAction {
 export interface PlanResponse {
   tasks: PlanTask[];
   quick_actions?: QuickAction[];
+  metadata?: Record<string, any>;
 }
 
 export interface GraphPatch {
@@ -69,6 +86,39 @@ export interface TaskExecutionResponse {
   updated_tasks?: any[];
   next_recommended_task?: string | null;
   execution_time_ms?: number;
+}
+
+// --- Minimal client-side fallback planner ------------------------------------
+function fallbackPlanFromPrompt(command: string): AiPlan {
+  const lower = (command || '').toLowerCase();
+  const kwMatch = /(\d+(?:\.\d+)?)\s*kw\b/.exec(lower);
+  const targetKW = kwMatch ? parseFloat(kwMatch[1]) : 5;
+  const wattsMatch = /(panel|module)[^0-9]*?(\d{3,4})\s*w\b/.exec(lower);
+  const panelW = wattsMatch ? Math.min(700, Math.max(250, parseInt(wattsMatch[2], 10))) : 400;
+  const count = Math.max(1, Math.ceil((targetKW * 1000) / panelW));
+  return {
+    tasks: [
+      {
+        id: 'make_placeholders',
+        title: 'Create inverter',
+        description: 'Add one inverter on the electrical layer',
+        status: 'pending',
+      } as any,
+      {
+        id: 'make_placeholders',
+        title: `Create ${count} panels`,
+        description: `Add ${count} x ~${panelW}W panels`,
+        status: 'pending',
+      } as any,
+      {
+        id: 'generate_wiring',
+        title: 'Generate wiring',
+        description: 'Auto-connect inverter and panels on electrical layer',
+        status: 'pending',
+      } as any,
+    ],
+    metadata: { fallback: true, targetKW, panelW, count },
+  };
 }
 
 export const api = {
@@ -149,34 +199,28 @@ export const api = {
     return res.json();
   },
 
-  async analyzeDesign(snapshot: DesignSnapshot, command: string): Promise<AiAction[]> {
-    const res = await fetch(`${API_BASE_URL}/ai/analyze-design`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ command, snapshot }),
-    });
-    if (!res.ok) throw new Error(`Analyze failed: ${res.status}`);
-    return res.json();
+  async analyzeDesign(_snapshot: DesignSnapshot, _command: string): Promise<AiAction[]> {
+    // vNext removes this endpoint; return a harmless no-op so legacy callers stay alive.
+    return [];
   },
 
   /** Execute a plan task or quick action for an ODL session. */
   async act(
     sessionId: string,
     taskId: string,
-    action?: string,
+    args?: any,
     graphVersion?: number,
   ): Promise<TaskExecutionResponse> {
-    const res = await fetch(`${API_BASE_URL}/odl/sessions/${encodeURIComponent(sessionId)}/act`, {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (typeof graphVersion === 'number') headers['If-Match'] = String(graphVersion);
+    const res = await fetch(`${API_BASE_URL}/ai/act`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      // Include both the legacy `graph_version` and new `version` keys for
-      // optimistic concurrency. The backend will prefer `version` but accepts
-      // `graph_version` for backwards compatibility.
+      headers,
       body: JSON.stringify({
-        task_id: taskId,
-        action,
-        version: graphVersion,
-        graph_version: graphVersion,
+        session_id: sessionId,
+        task: taskId,
+        request_id: genId(),
+        args,
       }),
     });
     if (!res.ok) {
@@ -194,11 +238,10 @@ export const api = {
    * using `/odl/sessions/{session_id}/plan` or `/odl/sessions/{session_id}/act`.
    */
   async createOdlSession(sessionId?: string): Promise<{ session_id: string }> {
-    const res = await fetch(`${API_BASE_URL}/odl/sessions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(sessionId ? { session_id: sessionId } : {}),
-    });
+    const url = sessionId
+      ? `${API_BASE_URL}/odl/sessions?session_id=${encodeURIComponent(sessionId)}`
+      : `${API_BASE_URL}/odl/sessions`;
+    const res = await fetch(url, { method: 'POST' });
     if (!res.ok) {
       const text = await res.text();
       throw new Error(`Create session error ${res.status}: ${text.slice(0, 200)}`);
@@ -209,27 +252,34 @@ export const api = {
   /**
    * Get a plan tailored to a specific ODL session.  Uses
    * `/odl/sessions/{session_id}/plan` to return tasks and quick actions
-   * appropriate for the current graph.
+   * appropriate for the current graph. Falls back to a tiny client-side
+   * planner if the server route is unavailable.
    */
   async getPlanForSession(
     sessionId: string,
     command: string,
-  ): Promise<{ tasks: any[]; quick_actions?: any[] }> {
-    const res = await fetch(
-      `${API_BASE_URL}/odl/sessions/${encodeURIComponent(sessionId)}/plan?command=${encodeURIComponent(
-        command
-      )}`
-    );
-    if (!res.ok) {
+  ): Promise<{ tasks: any[]; quick_actions?: any[]; metadata?: Record<string, any> }> {
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/odl/sessions/${encodeURIComponent(sessionId)}/plan?command=${encodeURIComponent(
+          command
+        )}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          return { tasks: data } as any;
+        }
+        return data;
+      }
+      if (res.status === 404 || res.status === 410) {
+        return fallbackPlanFromPrompt(command) as any;
+      }
       const text = await res.text();
       throw new Error(`Plan session error ${res.status}: ${text.slice(0, 200)}`);
+    } catch {
+      return fallbackPlanFromPrompt(command) as any;
     }
-    const data = await res.json();
-    // Backend may return a plain array of tasks; normalize to an object
-    if (Array.isArray(data)) {
-      return { tasks: data } as any;
-    }
-    return data;
   },
 
   /** POST a natural-language command and receive deterministic actions. */
@@ -473,17 +523,39 @@ export const api = {
     return res.json();
   },
 
-  /** Get ODL text representation */
+  /** Get ODL text representation, with /view fallback */
   async getOdlText(sessionId: string): Promise<{
-    text: string;
+    text?: string;
     version: number;
-    node_count: number;
-    edge_count: number;
+    node_count?: number;
+    edge_count?: number;
     last_updated?: string;
   }> {
-    const res = await fetch(`${API_BASE_URL}/odl/sessions/${encodeURIComponent(sessionId)}/text`);
-    if (!res.ok) throw new Error(`Get ODL text failed: ${res.status}`);
-    return res.json();
+    const txt = await fetch(`${API_BASE_URL}/odl/sessions/${encodeURIComponent(sessionId)}/text`);
+    if (txt.ok) return txt.json();
+    if (txt.status === 404 || txt.status === 410) {
+      const view = await fetch(`${API_BASE_URL}/odl/${encodeURIComponent(sessionId)}/view?layer=electrical`);
+      if (view.ok) {
+        const data = await view.json();
+        const nodes: Array<{ id: string; type?: string }> = data?.nodes ?? [];
+        const edges: Array<{ source: string; target: string }> = data?.edges ?? [];
+        const lines = [
+          '# ODL (view fallback)',
+          ...nodes.map(n => `node ${n.id}${n.type ? ` : ${n.type}` : ''}`),
+          ...edges.map(e => `link ${e.source} -> ${e.target}`),
+        ];
+        return {
+          text: lines.join('\n'),
+          version: Number(data?.version ?? 0),
+          node_count: nodes.length,
+          edge_count: edges.length,
+          last_updated: data?.last_updated,
+        };
+      }
+      return { text: undefined, version: 0, node_count: 0, edge_count: 0 };
+    }
+    const t = await txt.text();
+    throw new Error(`Get ODL text failed: ${txt.status} ${t}`);
   },
 
   /** Select component to replace placeholder */
