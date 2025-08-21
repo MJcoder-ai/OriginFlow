@@ -56,6 +56,12 @@ Recent updates introduce a **Multi-Domain Platform** with placeholder component 
   `GET /odl/{id}/view_delta?since=...` for efficient redraws of specific layers.
   See `docs/FRONTEND_SYNC.md`.
 
+- **Evals, QA & Performance (Phase 9)**: A tiny eval harness lives in
+  `backend/evals/` with a CLI (`backend/scripts/run_evals.py`). It runs
+  canonical scenarios (wiring, placeholder replacement) and enforces a
+  minimal **budgeter** guard in the orchestrator to prevent oversized
+  requests. See `docs/EVALS.md` and `backend/perf/budgeter.py`.
+
 For additional governance details, see [docs/governance-approvals.md](docs/governance-approvals.md).
 
 ### Planner and Domain Agents
@@ -887,3 +893,21 @@ backend/schemas/ai.py
 backend/main.py
 setup.cfg
 
+
+## Documentation Index (Phase 10)
+
+- Architecture: docs/ARCHITECTURE_OVERVIEW.md
+- API contracts: docs/API_CONTRACTS.md
+- ODL spec: docs/ODL_SPEC.md
+- Tools catalog: docs/TOOLS_CATALOG.md
+- Orchestrator: docs/ORCHESTRATOR.md
+- Governance & Approvals: docs/GOVERNANCE.md
+- Audit Trail: docs/AUDIT_TRAIL.md
+- Memory (scratchpad): docs/MEMORY.md
+- Domains: docs/DOMAINS.md
+- Frontend sync: docs/FRONTEND_SYNC.md
+- Evals & QA: docs/EVALS.md
+- Coding standards: docs/CODING_STANDARDS.md
+- Release checklist: docs/RELEASE_CHECKLIST.md
+- Breaking changes: docs/BREAKING_CHANGES.md
+- Contributing: docs/CONTRIBUTING.md

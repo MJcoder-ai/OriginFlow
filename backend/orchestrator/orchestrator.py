@@ -24,6 +24,7 @@ from backend.domains.registry import (
     categories_for_placeholder,
     risk_override as domain_risk_override,
 )
+from backend.perf.budgeter import BudgetPolicy, estimate_chars, budget_check
 
 
 class Orchestrator:
@@ -48,6 +49,21 @@ class Orchestrator:
                 patch=None,
                 status="blocked",
             )
+
+        # 1b) Budget check (cheap, before tool/LLM work)
+        est_chars = estimate_chars([n.model_dump() for n in view_nodes], args.model_dump())
+        decision, warns = budget_check(
+            policy=BudgetPolicy(),
+            view_nodes_count=len(view_nodes),
+            estimated_chars=est_chars,
+        )
+        if decision == "block":
+            return wrap_response(
+                thought=f"Task '{task}' blocked by budget policy",
+                card={"title": "Over Budget", "body": "; ".join(warns)},
+                status="blocked",
+            )
+        budget_warnings = warns  # attach later if any
 
         # 2) Determine domain from graph meta (default 'PV')
         domain = (graph.meta or {}).get("domain") or "PV"
@@ -146,6 +162,7 @@ class Orchestrator:
                 },
                 patch=None,
                 status="pending",
+                warnings=budget_warnings or None,
             )
 
         # 5) Apply patch with CAS (auto-approved)
@@ -161,4 +178,5 @@ class Orchestrator:
             card={"title": "Patch Applied", "subtitle": f"New version: {new_version}"},
             patch={"session_id": session_id, "version": new_version},
             status="complete",
+            warnings=budget_warnings or None,
         )
