@@ -210,25 +210,26 @@ class RequestValidationMiddleware(BaseHTTPMiddleware):
                 detail="Request entity too large"
             )
         
-        # Validate Content-Type for POST/PUT requests
+        # Validate Content-Type for POST/PUT/PATCH requests with a body
         if request.method in ("POST", "PUT", "PATCH"):
-            content_type = request.headers.get("content-type", "")
-            
-            # Allow specific content types
-            allowed_types = {
-                "application/json",
-                "multipart/form-data",
-                "application/x-www-form-urlencoded",
-                "text/plain"
-            }
-            
-            # Check if content type is allowed (handle charset parameters)
-            base_content_type = content_type.split(";")[0].strip()
-            if base_content_type not in allowed_types:
-                raise HTTPException(
-                    status_code=415,
-                    detail=f"Unsupported media type: {base_content_type}"
-                )
+            if content_length and int(content_length) > 0:
+                content_type = request.headers.get("content-type", "")
+
+                # Allow specific content types
+                allowed_types = {
+                    "application/json",
+                    "multipart/form-data",
+                    "application/x-www-form-urlencoded",
+                    "text/plain",
+                }
+
+                # Check if content type is allowed (handle charset parameters)
+                base_content_type = content_type.split(";")[0].strip()
+                if base_content_type not in allowed_types:
+                    raise HTTPException(
+                        status_code=415,
+                        detail=f"Unsupported media type: {base_content_type}",
+                    )
         
         # Check for suspicious headers
         suspicious_headers = {
