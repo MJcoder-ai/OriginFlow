@@ -7,7 +7,7 @@ can validate the ODL patch flow end-to-end.
 """
 from __future__ import annotations
 
-from typing import List
+
 from backend.odl.schemas import PatchOp
 from backend.tools.schemas import GenerateWiringInput, make_patch
 

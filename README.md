@@ -60,6 +60,37 @@ For additional governance details, see [docs/governance-approvals.md](docs/gover
 - Add tests to maintain >90% coverage. Integration tests are marked with `@pytest.mark.integration` and can be skipped with `pytest -m 'not integration'`.
 - See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for details.
 
+## Recent Codebase Improvements
+
+This codebase has been recently updated to improve consistency and maintainability:
+
+### ✅ Code Style & Standards
+- **Fixed deprecated typing imports**: Replaced `from typing import List, Dict, Optional` with modern annotations where possible
+- **Standardized exception handling**: Replaced bare `except:` clauses with `except Exception:`
+- **Updated coding standards**: All Python files now follow consistent style guidelines
+
+### ✅ Dependencies & Configuration
+- **Synchronized package versions**: Updated `requirements.txt` to match `pyproject.toml` versions
+- **Added missing dependencies**: Included all required packages (fastapi-users, opentelemetry, etc.)
+- **Fixed configuration consistency**: Ensured environment variables and settings are properly aligned
+
+### ✅ Documentation Updates
+- **Updated architecture overview**: Added notes about placeholder implementations and current status
+- **Fixed documentation references**: Corrected outdated paths and links
+- **Enhanced contributing guidelines**: Updated references to current documentation structure
+
+### 📝 Implementation Status
+Several services contain placeholder implementations that are ready for development:
+- `backend/services/compatibility.py` - Rule validation stubs for domain-specific checks
+- `backend/services/calculation_engines.py` - Engineering calculation engines (HVAC, water pumping)
+- `backend/services/learning_agent_service.py` - ML model integration for action confidence scoring
+- `backend/services/vector_store.py` - Vector database abstractions
+
+### 🧪 Testing
+- Test infrastructure is in place but requires pytest installation: `pip install pytest pytest-asyncio`
+- Backend tests located in `backend/tests/` and root `tests/` directory
+- Run tests with: `python -m pytest backend/tests/ -v`
+
 ## License
 
 BSD License (pending legal review).

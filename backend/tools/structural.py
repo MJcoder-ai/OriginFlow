@@ -6,7 +6,7 @@ them mechanically. New nodes are placed on the 'structural' layer by default.
 """
 from __future__ import annotations
 
-from typing import List
+
 from backend.odl.schemas import PatchOp
 from backend.tools.schemas import GenerateMountsInput, make_patch
 

@@ -113,6 +113,6 @@ assign a low risk class and a capability of ``report`` via
 ## 7. Submit Your Change
 
 Run the test suite before opening a pull request and ensure all
-documentation is up to date. For coding conventions, see `AGENTS.md`
+documentation is up to date. For coding conventions, see `docs/legacy/AGENTS.md`
 and `CONTRIBUTING.md`.
 

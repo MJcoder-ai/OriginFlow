@@ -69,3 +69,10 @@ This document summarizes the **clean, modern agentic architecture** shipped in P
   - `GET /naming-policy` / `PUT /naming-policy` (Option B with retro-apply)
 
 See the individual docs for details.
+
+## Implementation Status Notes
+Several services contain placeholder implementations marked with TODO comments:
+- `backend/services/compatibility.py` - Rule validation stubs for electrical, mechanical, thermal, and communication compatibility
+- `backend/services/calculation_engines.py` - HVAC and water pump sizing engines
+- `backend/services/learning_agent_service.py` - ML model integration for action scoring
+- `backend/services/vector_store.py` - Vector database protocol implementations

@@ -620,7 +620,7 @@ class EnterpriseIntegrationHub:
                         # Success
                         try:
                             data = await response.json()
-                        except:
+                        except Exception:
                             data = await response.text()
 
                         return IntegrationResult(
