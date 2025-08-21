@@ -92,5 +92,4 @@ docker/*.pid
 docker/*.sock
 docker/tmp/
 
-# Qdrant runtime data
 qdrant_storage/
