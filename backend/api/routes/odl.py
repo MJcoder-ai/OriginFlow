@@ -13,8 +13,10 @@ Headers:
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Header, Query
+from fastapi import APIRouter, Depends, HTTPException, Header, Query, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+import logging
 
 from backend.database.session import get_session
 from backend.odl.schemas import ODLGraph, ODLPatch
@@ -22,6 +24,8 @@ from backend.odl.store import ODLStore
 from backend.odl.views import layer_view
 from backend.odl.serializer import view_to_odl
 from backend.utils.adpf import wrap_response
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/odl", tags=["ODL"])
 
@@ -95,13 +99,36 @@ async def get_odl_text(
     layer: str = Query("single-line"),
     db: AsyncSession = Depends(get_session),
 ):
-    store = await _store_from_session(db)
-    g = await store.get_graph(db, session_id)
-    if not g:
-        raise HTTPException(404, "Session not found")
-    view = layer_view(g, layer)
-    text = view_to_odl(view)
-    return {"session_id": session_id, "version": g.version, "text": text}
+    """
+    Returns canonical ODL text for the given session/layer.
+    Response: { "session_id": "...", "version": <int>, "text": "<odl>" }
+    """
+    layer_name = (layer or "single-line").strip().lower()
+    try:
+        store = await _store_from_session(db)
+        g = await store.get_graph(db, session_id)
+        if not g:
+            logger.warning("ODL /text session not found sid=%s layer=%s", session_id, layer_name)
+            raise HTTPException(status_code=404, detail="Session not found")
+        view = layer_view(g, layer_name)
+        # version may appear as base_version or version depending on store impl
+        version = int(view.get("base_version") or view.get("version") or g.version)
+        nodes = len(view.get("nodes") or [])
+        edges = len(view.get("edges") or [])
+        logger.info("Serialize ODL text sid=%s layer=%s v=%s nodes=%d edges=%d",
+                    session_id, layer_name, version, nodes, edges)
+        text = view_to_odl(view)
+        return {"session_id": session_id, "version": version, "text": text}
+    except KeyError:
+        logger.warning("ODL /text session not found sid=%s layer=%s", session_id, layer_name)
+        raise HTTPException(status_code=404, detail="Session not found")
+    except Exception as ex:
+        # Never let exceptions escape – Uvicorn would emit a 500 without CORS headers.
+        logger.exception("ODL /text failed sid=%s layer=%s: %s", session_id, layer_name, ex)
+        return JSONResponse(status_code=500, content={
+            "error_code": "ODL_TEXT_FAILED",
+            "message": "Failed to render ODL text",
+        })
 
 
 @router.get("/{session_id}/head")

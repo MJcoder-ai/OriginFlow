@@ -543,12 +543,17 @@ export const api = {
       last_updated?: string;
     }> {
       layer = canonicalLayer(layer);
-      // Prefer /text if server ships it… (now includes layer parameter)
-      const txt = await fetch(
-        `${API_BASE_URL}/odl/sessions/${encodeURIComponent(sessionId)}/text?layer=${encodeURIComponent(layer)}`
-      );
-      if (txt.ok) return txt.json();
-      if (txt.status === 404 || txt.status === 410) {
+      try {
+        // Prefer /text if server ships it… (now includes layer parameter)
+        const txt = await fetch(
+          `${API_BASE_URL}/odl/sessions/${encodeURIComponent(sessionId)}/text?layer=${encodeURIComponent(layer)}`
+        );
+        if (txt.ok) return txt.json();
+      } catch (_e) {
+        // Network error – fall through to /view fallback
+      }
+      // Fallback to /view for ANY non-OK (incl. 5xx / CORS network errors).
+      try {
         const view = await fetch(
           `${API_BASE_URL}/odl/${encodeURIComponent(sessionId)}/view?layer=${encodeURIComponent(layer)}`
         );
@@ -569,10 +574,19 @@ export const api = {
             last_updated: data?.last_updated,
           };
         }
-        return { text: undefined, version: 0, node_count: 0, edge_count: 0 };
+      } catch (_e) {
+        // ignore; best-effort head below
       }
-      const t = await txt.text();
-      throw new Error(`Get ODL text failed: ${txt.status} ${t}`);
+      // give the caller the version at least (best effort)
+      try {
+        const head = await fetch(
+          `${API_BASE_URL}/odl/${encodeURIComponent(sessionId)}/head`
+        );
+        const hv = head.ok ? ((await head.json()).version ?? 0) : 0;
+        return { version: hv };
+      } catch {
+        return { version: 0 };
+      }
     },
 
   /** Select component to replace placeholder */

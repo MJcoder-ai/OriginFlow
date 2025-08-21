@@ -8,6 +8,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.staticfiles import StaticFiles
 from starlette.responses import Response
+from fastapi.responses import JSONResponse
 
 from backend.config import settings
 from backend.services.anonymizer_service import AnonymizerService
@@ -239,6 +240,20 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_exception_handler(OriginFlowException, ErrorHandler.handle_originflow_exception)
 app.add_exception_handler(HTTPException, ErrorHandler.handle_http_exception)
 app.add_exception_handler(Exception, ErrorHandler.handle_general_exception)
+
+# Log any uncaught exceptions; let FastAPI/Starlette default handling proceed for HTTPException.
+@app.exception_handler(Exception)
+async def _log_uncaught(request: Request, exc: Exception):
+    if isinstance(exc, HTTPException):
+        # Defer to framework's handler (it will still pass through CORS middleware).
+        raise exc
+    logger = logging.getLogger("backend.main")
+    logger.exception("Uncaught exception on %s %s", request.method, request.url)
+    # Return a minimal JSON; still passes through CORSMiddleware.
+    return JSONResponse(status_code=500, content={
+        "error_code": "HTTP_500",
+        "message": "Internal server error",
+    })
 
 # Resolve the static directory relative to this file and ensure it exists
 _static_root = Path(__file__).resolve().parent / "static"
