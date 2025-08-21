@@ -1,4 +1,4 @@
-# OriginFlow API (vNext)
+# API Endpoints — OriginFlow
 
 This document summarizes the canonical API surface exposed by the backend.
 
@@ -52,8 +52,8 @@ POST /api/v1/ai/apply
 { "session_id": "s1", "actions": [ ... ], "user_texts": [ ... ] }
 ```
 
-## Removed/legacy endpoints
-The following legacy endpoints have been removed. The backend responds with **410 Gone**:
+## Removed endpoints (not available)
+The following endpoints are not part of the current OriginFlow API and are **not provided**:
 
 - `/api/v1/ai/analyze-design` → Use `POST /api/v1/ai/act`
 - `/api/v1/ai/plan` → Build a planner that emits `POST /api/v1/ai/act`

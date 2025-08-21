@@ -7,8 +7,8 @@ from typing import Dict
 from fastapi import APIRouter
 
 # Very small in-process metrics. This intentionally avoids adding new deps
-# (e.g., Prometheus client) to keep Phase 5 non-breaking. You can swap this
-# module with Prometheus later without changing call sites.
+# (e.g., Prometheus client). You can swap this module with Prometheus later
+# without changing call sites.
 
 router = APIRouter(prefix="/api/v1/system", tags=["system"])
 
@@ -42,7 +42,7 @@ class _Registry:
 
 REGISTRY = _Registry()
 
-# Canonical counters we care about in vNext.
+# Canonical counters we care about in OriginFlow.
 _ACT_CALLS = REGISTRY.counter(
     "ai_act_calls_total", "Total POST /api/v1/ai/act requests"
 )

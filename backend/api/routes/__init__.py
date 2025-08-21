@@ -1,6 +1,6 @@
 """
-Route aggregator. Only vNext surfaces should be imported here.
-Any legacy endpoints are exposed via a 410 "Gone" compatibility router.
+Route aggregator. Only the OriginFlow API surfaces are imported here.
+No legacy compatibility routes are mounted.
 """
 from . import components  # noqa: F401
 from . import links       # noqa: F401

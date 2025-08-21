@@ -1,7 +1,7 @@
 /**
- * Centralized service for making API calls to the backend (vNext aligned).
+ * Collection of API helpers used by the frontend (OriginFlow API).
  *
- * Canonical backend endpoints:
+ * Canonical OriginFlow backend endpoints:
  *   - POST /api/v1/odl/sessions?session_id={sid}
  *   - GET  /api/v1/odl/sessions/{sid}/plan?command=...
  *   - POST /api/v1/ai/act
@@ -121,7 +121,7 @@ function fallbackPlanFromPrompt(command: string): AiPlan {
   };
 }
 
-/** @deprecated vNext removed analyzeDesign; use getPlan + act instead. */
+/** @deprecated OriginFlow removed this route. Use `getPlanForSession` + `act` instead. */
 let _warnedAnalyzeDesign = false;
 
 export const api = {
@@ -209,7 +209,7 @@ export const api = {
     if (!_warnedAnalyzeDesign && typeof console !== 'undefined') {
       _warnedAnalyzeDesign = true;
       console.warn(
-        '[deprecated] analyzeDesign(): removed in vNext. Call getPlan() then act().'
+        '[deprecated] analyzeDesign(): removed. Call getPlanForSession() then act().'
       );
     }
     return [];

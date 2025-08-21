@@ -72,7 +72,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="OriginFlow API", lifespan=lifespan)
 
-# Ensure a stable readiness flag exists
+# Ensure a stable flag exists for /readyz without changing behavior.
 if not hasattr(app.state, "ai_ready"):
     app.state.ai_ready = False
 
@@ -150,7 +150,7 @@ app.add_middleware(
 @app.middleware("http")
 async def _metrics_mw(request: Request, call_next):
     """
-    Tiny metrics middleware (Phase 5). Increments counters keyed by route prefixes.
+    Tiny metrics middleware. Increments a few counters keyed by route prefixes.
     Deliberately minimal; swap with Prometheus later if desired.
     """
     response: Response = await call_next(request)
