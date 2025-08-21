@@ -4,7 +4,7 @@
 
 ## Overview
 
-> **Breaking Change (vNext)**  
+> **Breaking Change (OriginFlow API)**
 > The server returns a **single response envelope** for AI actions: `thought`, `output.card`, `output.patch`, `status`, and optional `warnings`. Legacy top-level `card`/`patch` fields were removed. See `docs/BREAKING_CHANGES.md` and `backend/utils/adpf.py`.
 
 OriginFlow is a browser-based, AI-powered design environment that converts rough engineering sketches and customer inputs into standards-compliant schematics and bills-of-materials. It supports both engineers and non-technical users, offering drag-and-drop datasheets, AI auto-completion, and real-time compliance checks.
@@ -109,7 +109,7 @@ poetry run uvicorn backend.main:app --reload --host 0.0.0.0 --log-config backend
   ```
   > Note: an in-memory DB is ephemeral; restart clears all data.
 
-### Canonical API surface (vNext)
+### Canonical OriginFlow API surface
 The backend exposes:
 - `POST /api/v1/odl/sessions?session_id=...`
 - `GET  /api/v1/odl/sessions/{session_id}/plan?command=...`  ← **server-side planner (Phase 3)**

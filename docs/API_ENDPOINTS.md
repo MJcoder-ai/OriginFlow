@@ -1,4 +1,4 @@
-# OriginFlow API (vNext)
+# API Endpoints — OriginFlow
 
 This document summarizes the canonical API surface exposed by the backend.
 
@@ -53,7 +53,9 @@ POST /api/v1/ai/apply
 ```
 
 ## Removed endpoints (not available)
-The following endpoints are not part of vNext and are **not provided**:
+
+The following endpoints are not part of the current OriginFlow API and are **not provided**:
+
 
 - `/api/v1/ai/analyze-design` – use `GET /api/v1/odl/{sid}/plan` + `POST /api/v1/ai/act`
 - `/api/v1/ai/plan` – use `GET /api/v1/odl/{sid}/plan`

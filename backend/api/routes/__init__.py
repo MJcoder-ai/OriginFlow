@@ -1,5 +1,6 @@
 """
-Route aggregator. Only the vNext API surfaces are imported here.
+Route aggregator. Only the OriginFlow API surfaces are imported here.
+
 No legacy compatibility routes are mounted.
 """
 from . import components    # noqa: F401

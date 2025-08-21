@@ -1,6 +1,6 @@
-# Frontend vNext Notes (Phase 2)
+# OriginFlow Frontend Notes (Phase 2)
 
-This UI is aligned to the vNext backend API:
+This UI is aligned to the OriginFlow backend API:
 
 - Create sessions: `POST /api/v1/odl/sessions?session_id={sid}`
 - Build plan (server): `GET /api/v1/odl/sessions/{sid}/plan?command=...`

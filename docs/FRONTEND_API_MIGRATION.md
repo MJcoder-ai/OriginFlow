@@ -1,7 +1,7 @@
-# Frontend → vNext API Migration (Phase 2)
+# Frontend → OriginFlow API Migration (Phase 2)
 
 ## Endpoints
-| Capability | vNext | Notes |
+| Capability | OriginFlow API | Notes |
 |---|---|---|
 | Create session | `POST /api/v1/odl/sessions?session_id={sid}` | no body |
 | Get plan | `GET /api/v1/odl/sessions/{sid}/plan?command=...` | server planner (Phase 3) |

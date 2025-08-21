@@ -9,7 +9,7 @@ This document describes operational endpoints, middleware and recommended run co
 - **Info**: `GET /api/v1/system/info` – returns non-sensitive runtime details.
 - **Metrics**: `GET /api/v1/system/metrics` – JSON snapshot of in-process counters.
 
-These are additive to the canonical vNext API surface. See also `docs/API_ENDPOINTS.md`.  
+These are additive to the OriginFlow API surface. See also `docs/API_ENDPOINTS.md`.
 
 ## Request ID propagation
 
