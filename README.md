@@ -93,6 +93,36 @@ Use Uvicorn's log configuration to enable structured JSON logs without duplicate
 poetry run uvicorn backend.main:app --reload --host 0.0.0.0 --log-config backend/logging.dev.json
 ```
 
+### Database (dev/test)
+- For **file-backed SQLite** (recommended in dev), set:
+  ```bash
+  mkdir -p .localdb
+  export DATABASE_URL="sqlite+aiosqlite:///$PWD/.localdb/originflow.db"
+  ```
+  The backend will auto-create the parent directory if missing.
+
+- For **in-memory SQLite**, the engines are configured to share a single DB across
+  connections using `StaticPool`. This makes `uvicorn --reload` behave correctly.
+  Example URL:
+  ```bash
+  export DATABASE_URL="sqlite+aiosqlite:///:memory:"
+  ```
+  > Note: an in-memory DB is ephemeral; restart clears all data.
+
+### Canonical API surface (vNext)
+The backend exposes:
+- `POST /api/v1/odl/sessions?session_id=...`
+- `GET  /api/v1/odl/{session_id}/head`
+- `GET  /api/v1/odl/{session_id}/view?layer=...`
+- `POST /api/v1/ai/act`
+- `POST /api/v1/ai/apply` (Intent Firewall direct actions, optional)
+
+Removed endpoints (now return **410 Gone**):
+- `/api/v1/ai/analyze-design`, `/api/v1/ai/plan`
+- `/api/v1/odl/sessions/{session_id}/plan`, `/api/v1/odl/sessions/{session_id}/text`
+
+See [docs/API_ENDPOINTS.md](docs/API_ENDPOINTS.md) for more details.
+
 ### 🧪 Testing
 - Test infrastructure is in place but requires pytest installation: `pip install pytest pytest-asyncio`
 - Backend tests located in `backend/tests/` and root `tests/` directory

@@ -145,12 +145,13 @@ app.middleware("http")(request_id_middleware)
 from backend.api.routes import (
     components,
     links,
-    ai,
+    ai_act,
     ai_apply,  # Intent Firewall endpoint
     files,
     ai_tools,
     datasheet_parse,
     compatibility,
+    compat_legacy,
     feedback_v2,
     design_knowledge,
     naming_policy,
@@ -204,8 +205,9 @@ app.mount("/static", StaticFiles(directory=str(_static_root)), name="static")
 app.include_router(components.router, prefix=settings.api_prefix)
 app.include_router(links.router, prefix=settings.api_prefix)
 app.include_router(files.router, prefix=settings.api_prefix)
-app.include_router(ai.router, prefix=settings.api_prefix)
+app.include_router(ai_act.router, prefix=settings.api_prefix)
 app.include_router(ai_apply.router, prefix=settings.api_prefix)  # Intent Firewall
+app.include_router(compat_legacy.router, prefix=settings.api_prefix)
 app.include_router(ai_tools.router, prefix=settings.api_prefix)
 app.include_router(datasheet_parse.router, prefix=settings.api_prefix)
 app.include_router(compatibility.router, prefix=settings.api_prefix)

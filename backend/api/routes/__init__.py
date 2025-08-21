@@ -1,28 +1,22 @@
-# backend/api/routes/__init__.py
-"""API route groups for the backend.
-
-Importing submodules here makes them discoverable by the app.  The
-``feedback`` module exposes the ``/ai/log-feedback`` endpoint for
-recording user decisions about AI-suggested actions.
 """
+Route aggregator. Only vNext surfaces should be imported here.
+Any legacy endpoints are exposed via a 410 "Gone" compatibility router.
+"""
+from . import components  # noqa: F401
+from . import links       # noqa: F401
+from . import files       # noqa: F401
+from . import odl         # noqa: F401
+from . import ai_act      # noqa: F401
 
-try:
-    from . import feedback_v2  # noqa: F401  pylint: disable=unused-import
-    from . import design_knowledge  # noqa: F401  pylint: disable=unused-import
-    from . import components  # noqa: F401  pylint: disable=unused-import
-    from . import naming_policy  # noqa: F401  pylint: disable=unused-import
-    from . import memory  # noqa: F401  pylint: disable=unused-import
-    from . import traces  # noqa: F401  pylint: disable=unused-import
-    from . import me  # noqa: F401  pylint: disable=unused-import
-    from . import odl  # noqa: F401  pylint: disable=unused-import
-    from . import requirements  # noqa: F401  pylint: disable=unused-import
-    from . import versioning  # noqa: F401  pylint: disable=unused-import
-    from . import compatibility  # noqa: F401  pylint: disable=unused-import
-    from . import snapshots  # noqa: F401  pylint: disable=unused-import
-    from . import metrics_json  # noqa: F401  pylint: disable=unused-import
-    from . import layout  # noqa: F401  pylint: disable=unused-import
-    from . import governance  # noqa: F401  pylint: disable=unused-import
-    from . import approvals  # noqa: F401  pylint: disable=unused-import
-    from . import approvals_v1  # noqa: F401  pylint: disable=unused-import
-except Exception:  # pragma: no cover - optional imports
+# Optional: Intent Firewall direct apply
+try:  # pragma: no cover - optional
+    from . import ai_apply  # noqa: F401
+except Exception:  # pragma: no cover
     pass
+
+# Mount explicit 410s for removed endpoints so misconfigured clients are obvious.
+try:  # pragma: no cover - optional
+    from . import compat_legacy  # noqa: F401
+except Exception:  # pragma: no cover
+    pass
+
