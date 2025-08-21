@@ -42,6 +42,11 @@ Recent updates introduce a **Multi-Domain Platform** with placeholder component 
   enforces a risk decision, applies the patch with optimistic concurrency, and
   returns the unified ADPF envelope. See `docs/ORCHESTRATOR.md`.
 
+- **Governance & Audit (Phase 6)**: Review-required actions go through
+  `POST /approvals/propose` and `POST /approvals/{id}/decision`. Audit events
+  record proposals, approvals and applied patches. See `docs/GOVERNANCE.md` and
+  `docs/AUDIT_TRAIL.md`.
+
 For additional governance details, see [docs/governance-approvals.md](docs/governance-approvals.md).
 
 ### Planner and Domain Agents
