@@ -47,6 +47,15 @@ Recent updates introduce a **Multi-Domain Platform** with placeholder component 
   record proposals, approvals and applied patches. See `docs/GOVERNANCE.md` and
   `docs/AUDIT_TRAIL.md`.
 
+- **Domains (Phase 7)**: Multi-domain behavior is configured declaratively in
+  `backend/domains/domain.yaml`. The orchestrator reads your session domain
+  from ODL meta and uses domain mappings and risk overrides. See
+  `docs/DOMAINS.md`.
+
+- **Canvas Sync (Phase 8)**: Use lightweight `GET /odl/{id}/head` and
+  `GET /odl/{id}/view_delta?since=...` for efficient redraws of specific layers.
+  See `docs/FRONTEND_SYNC.md`.
+
 For additional governance details, see [docs/governance-approvals.md](docs/governance-approvals.md).
 
 ### Planner and Domain Agents

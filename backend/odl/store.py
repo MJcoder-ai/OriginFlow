@@ -88,11 +88,11 @@ class ODLStore:
             except IntegrityError:
                 pass
 
+        new_graph.version = new_version
         await db.execute(
             update(graphs)
             .where(graphs.c.session_id == session_id)
             .values(version=new_version, graph_json=new_graph.model_dump())
         )
         await db.commit()
-        new_graph.version = new_version
         return new_graph, new_version
