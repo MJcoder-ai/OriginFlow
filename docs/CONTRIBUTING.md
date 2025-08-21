@@ -7,6 +7,14 @@ Quick start
 python -m backend.scripts.run_evals
 ```
 
+To run the test suite with a clean in-memory database:
+
+```bash
+export DATABASE_URL="sqlite+aiosqlite:///:memory:"
+export OPENAI_API_KEY="dummy"
+pytest -q
+```
+
 ### Adding a new tool
 - Create a typed input/output in `backend/tools/schemas.py`.
 - Implement the pure function in `backend/tools/<your_tool>.py`:
