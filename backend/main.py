@@ -28,6 +28,7 @@ from backend.middleware.security import (
 from backend.ops.request_id import RequestIDMiddleware
 from backend.ops.health import router as system_router
 from backend.ops.metrics import router as ops_metrics_router, track_request
+from backend.api.routes.odl_plan import router as planner_router
 
 # ---- Logging (init first so all subsequent imports use structured logs) ----
 if not logging.getLogger().handlers:
@@ -224,6 +225,7 @@ app.mount("/static", StaticFiles(directory=str(_static_root)), name="static")
 
 app.include_router(system_router)
 app.include_router(ops_metrics_router)
+app.include_router(planner_router, prefix=settings.api_prefix)
 app.include_router(components.router, prefix=settings.api_prefix)
 app.include_router(links.router, prefix=settings.api_prefix)
 app.include_router(files.router, prefix=settings.api_prefix)

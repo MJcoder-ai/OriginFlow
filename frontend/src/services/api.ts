@@ -88,6 +88,34 @@ export interface TaskExecutionResponse {
   execution_time_ms?: number;
 }
 
+export async function act(
+  sessionId: string,
+  taskId: string,
+  args?: any,
+  graphVersion?: number,
+): Promise<TaskExecutionResponse> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (typeof graphVersion === 'number') headers['If-Match'] = String(graphVersion);
+  const res = await fetch(`${API_BASE_URL}/ai/act`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      session_id: sessionId,
+      task: taskId,
+      request_id: genId(),
+      args,
+    }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    const error: any = new Error(`Act endpoint error ${res.status}: ${text.slice(0, 120)}`);
+    error.status = res.status;
+    error.detail = text;
+    throw error;
+  }
+  return res.json();
+}
+
 // --- Minimal client-side fallback planner ------------------------------------
 function fallbackPlanFromPrompt(command: string): AiPlan {
   const lower = (command || '').toLowerCase();
@@ -103,18 +131,21 @@ function fallbackPlanFromPrompt(command: string): AiPlan {
         title: 'Create inverter',
         description: 'Add one inverter on the electrical layer',
         status: 'pending',
+        args: { component_type: 'inverter', count: 1, layer: 'electrical' },
       } as any,
       {
         id: 'make_placeholders',
         title: `Create ${count} panels`,
         description: `Add ${count} x ~${panelW}W panels`,
         status: 'pending',
+        args: { component_type: 'panel', count, layer: 'electrical' },
       } as any,
       {
         id: 'generate_wiring',
         title: 'Generate wiring',
         description: 'Auto-connect inverter and panels on electrical layer',
         status: 'pending',
+        args: { layer: 'electrical' },
       } as any,
     ],
     metadata: { fallback: true, targetKW, panelW, count },
@@ -215,34 +246,7 @@ export const api = {
     return [];
   },
 
-  /** Execute a plan task or quick action for an ODL session. */
-  async act(
-    sessionId: string,
-    taskId: string,
-    args?: any,
-    graphVersion?: number,
-  ): Promise<TaskExecutionResponse> {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (typeof graphVersion === 'number') headers['If-Match'] = String(graphVersion);
-    const res = await fetch(`${API_BASE_URL}/ai/act`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        session_id: sessionId,
-        task: taskId,
-        request_id: genId(),
-        args,
-      }),
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      const error: any = new Error(`Act endpoint error ${res.status}: ${text.slice(0, 120)}`);
-      error.status = res.status;
-      error.detail = text;
-      throw error;
-    }
-    return res.json();
-  },
+  act,
 
   /**
    * Create or reset an ODL design session.  Must be called before
@@ -604,3 +608,9 @@ export const api = {
     return res.json();
   },
 };
+
+export async function planAndRun(sessionId: string, command: string): Promise<void> {
+  const plan = await api.getPlanForSession(sessionId, command);
+  const { runPlan } = await import('./runner');
+  await runPlan(sessionId, plan as any);
+}
