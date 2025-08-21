@@ -7,7 +7,6 @@ recording user decisions about AI-suggested actions.
 """
 
 try:
-    from . import feedback  # noqa: F401  pylint: disable=unused-import
     from . import feedback_v2  # noqa: F401  pylint: disable=unused-import
     from . import design_knowledge  # noqa: F401  pylint: disable=unused-import
     from . import components  # noqa: F401  pylint: disable=unused-import
@@ -18,7 +17,6 @@ try:
     from . import odl  # noqa: F401  pylint: disable=unused-import
     from . import requirements  # noqa: F401  pylint: disable=unused-import
     from . import versioning  # noqa: F401  pylint: disable=unused-import
-    from . import agents  # noqa: F401  pylint: disable=unused-import
     from . import compatibility  # noqa: F401  pylint: disable=unused-import
     from . import snapshots  # noqa: F401  pylint: disable=unused-import
     from . import metrics_json  # noqa: F401  pylint: disable=unused-import

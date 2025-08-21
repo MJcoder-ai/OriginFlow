@@ -11,7 +11,8 @@ from fastapi.staticfiles import StaticFiles
 from backend.config import settings
 from backend.services.anonymizer_service import AnonymizerService
 from backend.services.embedding_service import EmbeddingService
-from backend.services.ai_service import limiter
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from backend.routes.components_attributes import include_component_attributes_routes
@@ -139,35 +140,17 @@ app.middleware("http")(request_id_middleware)
 # Note: table creation moved to `lifespan` above. The startup handler is
 # retained only for reference and is never called.
 
-# --- import agents once so they self-register --------------------
-import backend.agents.component_agent  # noqa: F401
-import backend.agents.link_agent  # noqa: F401
-import backend.agents.layout_agent  # noqa: F401
-import backend.agents.auditor_agent  # noqa: F401
-import backend.agents.bom_agent  # noqa: F401
-import backend.agents.inventory_agent  # noqa: F401
-import backend.agents.datasheet_fetch_agent  # noqa: F401
-import backend.agents.system_design_agent  # noqa: F401
-import backend.agents.wiring_agent  # noqa: F401
-import backend.agents.performance_agent  # noqa: F401
-import backend.agents.design_assembly_agent  # noqa: F401
-import backend.agents.financial_agent  # noqa: F401
-# ----------------------------------------------------------------
-
 from backend.api.routes import (
     components,
     links,
     ai,
     ai_apply,  # Intent Firewall endpoint
-    analyze,
     files,
     ai_tools,
     datasheet_parse,
     compatibility,
-    feedback,
     feedback_v2,
     design_knowledge,
-    component_library,
     naming_policy,
     memory,
     traces,
@@ -176,11 +159,11 @@ from backend.api.routes import (
     requirements,
     snapshots,
     versioning,
-    agents,
     metrics_json,
     layout,
     governance,
     tenant_settings,
+    approvals,
 )
 
 # Import authentication components
@@ -203,7 +186,7 @@ logger = get_logger(__name__)
 
 # CORS middleware replaced with secure CORSSecurityMiddleware above
 
-app.state.limiter = limiter
+app.state.limiter = Limiter(key_func=get_remote_address)
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Add comprehensive error handling
@@ -221,7 +204,6 @@ app.include_router(links.router, prefix=settings.api_prefix)
 app.include_router(files.router, prefix=settings.api_prefix)
 app.include_router(ai.router, prefix=settings.api_prefix)
 app.include_router(ai_apply.router, prefix=settings.api_prefix)  # Intent Firewall
-app.include_router(analyze.router, prefix=settings.api_prefix)
 app.include_router(ai_tools.router, prefix=settings.api_prefix)
 app.include_router(datasheet_parse.router, prefix=settings.api_prefix)
 app.include_router(compatibility.router, prefix=settings.api_prefix)
@@ -229,13 +211,7 @@ app.include_router(compatibility.router, prefix=settings.api_prefix)
 # Design knowledge base endpoints for persisting and querying design embeddings
 app.include_router(design_knowledge.router, prefix=settings.api_prefix)
 
-# Component library search endpoints
-app.include_router(component_library.router, prefix=settings.api_prefix)
 app.include_router(naming_policy.router, prefix=settings.api_prefix)
-
-# Feedback logging endpoint for user decisions on AI actions
-app.include_router(feedback.router, prefix=settings.api_prefix)
-# Enriched feedback endpoint with vector logging
 app.include_router(feedback_v2.router, prefix=settings.api_prefix)
 app.include_router(memory.router, prefix=settings.api_prefix)
 app.include_router(traces.router, prefix=settings.api_prefix)
@@ -244,15 +220,11 @@ app.include_router(odl.router, prefix=settings.api_prefix)
 app.include_router(requirements.router, prefix=settings.api_prefix)
 app.include_router(snapshots.router, prefix=settings.api_prefix)
 app.include_router(versioning.router, prefix=settings.api_prefix)
-app.include_router(agents.router, prefix=settings.api_prefix)
 app.include_router(metrics_json.router, prefix=settings.api_prefix)
 app.include_router(layout.router, prefix=settings.api_prefix)
 app.include_router(governance.router, prefix=settings.api_prefix)
 app.include_router(tenant_settings.router, prefix=settings.api_prefix)
-
-# Include new enhanced feedback routes
-from backend.api.routes import feedback as enhanced_feedback
-app.include_router(enhanced_feedback.router, prefix=settings.api_prefix)
+app.include_router(approvals.router, prefix=settings.api_prefix)
 
 # Include authentication routes
 app.include_router(
