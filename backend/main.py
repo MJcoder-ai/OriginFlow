@@ -22,8 +22,8 @@ from backend.middleware.security import (
     SecurityHeadersMiddleware,
     RateLimitMiddleware,
     RequestValidationMiddleware,
-    CORSSecurityMiddleware,
 )
+from fastapi.middleware.cors import CORSMiddleware
 
 from backend.ops.request_id import RequestIDMiddleware
 from backend.ops.health import router as system_router
@@ -135,8 +135,9 @@ app.add_middleware(
 app.add_middleware(RequestValidationMiddleware)
 # --- CORS (dev) --------------------------------------------------------------
 # Allow common localhost frontends and permit headers like If-Match used for
-# optimistic concurrency when calling /api/v1/ai/act.
-_default_origins = {
+# optimistic concurrency when calling /api/v1/ai/act. Configure allowed origins
+# via `ORIGINFLOW_CORS_ORIGINS`. Use `*` or empty to allow all origins.
+_default_origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:8080",
@@ -145,19 +146,28 @@ _default_origins = {
     "http://127.0.0.1:8080",
     "http://127.0.0.1:8081",
     "http://127.0.0.1:8082",
-}
-_origins_env = os.getenv("ORIGINFLOW_CORS_ORIGINS")
-allowed_origins = {
-    o.strip()
-    for o in (_origins_env.split(",") if _origins_env else _default_origins)
-    if o.strip()
-}
-app.add_middleware(
-    CORSSecurityMiddleware,
-    allowed_origins=allowed_origins,
-    # Enable credentialed requests for local development UIs.
-    allow_credentials=True,
-)
+]
+_cfg = os.getenv("ORIGINFLOW_CORS_ORIGINS", ",".join(_default_origins)).strip()
+_use_regex = _cfg in {"", "*"}
+_origins = [o.strip() for o in _cfg.split(",") if o.strip() and o.strip() != "*"]
+
+if _use_regex:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[],
+        allow_origin_regex=".*",
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*", "If-Match", "X-Request-ID", "Content-Type"],
+    )
+else:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*", "If-Match", "X-Request-ID", "Content-Type"],
+    )
 
 # (RequestIDMiddleware installed above)
 
@@ -221,8 +231,6 @@ from backend.utils.enhanced_logging import setup_logging, get_logger
 setup_logging(log_level="INFO", json_logs=True)
 logger = get_logger(__name__)
 
-
-# CORS middleware replaced with secure CORSSecurityMiddleware above
 
 app.state.limiter = Limiter(key_func=get_remote_address)
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
