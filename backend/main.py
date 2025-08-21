@@ -133,14 +133,28 @@ app.add_middleware(
     },
 )
 app.add_middleware(RequestValidationMiddleware)
+# --- CORS (dev) --------------------------------------------------------------
+# Allow common localhost frontends and permit headers like If-Match used for
+# optimistic concurrency when calling /api/v1/ai/act.
+_default_origins = {
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:8080",
+    "http://localhost:8081",
+    "http://localhost:8082",
+    "http://127.0.0.1:8080",
+    "http://127.0.0.1:8081",
+    "http://127.0.0.1:8082",
+}
+_origins_env = os.getenv("ORIGINFLOW_CORS_ORIGINS")
+allowed_origins = {
+    o.strip()
+    for o in (_origins_env.split(",") if _origins_env else _default_origins)
+    if o.strip()
+}
 app.add_middleware(
     CORSSecurityMiddleware,
-    allowed_origins={
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        # Allow dev UI served on an alternate port mentioned in your logs
-        "http://localhost:8082",
-    },
+    allowed_origins=allowed_origins,
     # Enable credentialed requests for local development UIs.
     allow_credentials=True,
 )

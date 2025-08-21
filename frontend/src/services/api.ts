@@ -20,6 +20,14 @@ export type AiPlan = {
   metadata?: Record<string, any>;
 };
 
+// Map UI labels to canonical API layer ids
+export function canonicalLayer(input?: string): 'single-line' | 'electrical' {
+  const s = String(input ?? 'single-line').toLowerCase();
+  if (s.includes('single') || s.includes('single-line')) return 'single-line';
+  if (s.includes('electrical')) return 'electrical';
+  return 'single-line';
+}
+
 const genId = () =>
   (globalThis as any)?.crypto?.randomUUID?.() ||
   `req_${Math.random().toString(36).slice(2)}_${Date.now()}`;
@@ -118,6 +126,7 @@ export async function act(
 
 // --- Minimal client-side fallback planner ------------------------------------
 function fallbackPlanFromPrompt(command: string, layer: string = 'single-line'): AiPlan {
+  layer = canonicalLayer(layer);
   const lower = (command || '').toLowerCase();
   const kwMatch = /(\d+(?:\.\d+)?)\s*kw\b/.exec(lower);
   const targetKW = kwMatch ? parseFloat(kwMatch[1]) : 5;
@@ -276,6 +285,7 @@ export const api = {
     command: string,
     layer: string = 'single-line',
   ): Promise<{ tasks: any[]; quick_actions?: any[]; metadata?: Record<string, any> }> {
+    layer = canonicalLayer(layer);
     try {
       const params = new URLSearchParams({ command, layer });
       const res = await fetch(
@@ -550,6 +560,7 @@ export const api = {
       edge_count?: number;
       last_updated?: string;
     }> {
+      layer = canonicalLayer(layer);
       const txt = await fetch(`${API_BASE_URL}/odl/sessions/${encodeURIComponent(sessionId)}/text`);
       if (txt.ok) return txt.json();
       if (txt.status === 404 || txt.status === 410) {

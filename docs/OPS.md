@@ -32,6 +32,16 @@ curl -s localhost:8000/api/v1/system/info | jq
 curl -s localhost:8000/api/v1/system/metrics | jq
 ```
 
+## CORS (dev)
+The frontend sends `If-Match` when calling `POST /api/v1/ai/act`. Ensure the backend
+allows this header during preflight. The default dev config enables common localhost
+origins and permits `If-Match`, `X-Request-ID`, and `Content-Type`. You can override
+origins with:
+
+```
+export ORIGINFLOW_CORS_ORIGINS="http://localhost:8082"
+```
+
 ## Git hygiene for runtime stores
 
 We ignore `.localdb/` and `qdrant_storage/` to avoid permission conflicts during `git pull` and to keep runtime data out of version control.

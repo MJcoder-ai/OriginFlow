@@ -74,9 +74,10 @@ const PlanTimeline: React.FC = () => {
           const isCurrent = isCurrentTask(index);
           const canExecute = canExecuteTask(index);
           const isPrevious = index < currentTaskIndex;
-          
+
           return (
-            <div key={task.id} className="flex items-start space-x-3">
+            // `task.id` can repeat (e.g. multiple make_placeholders steps), so include index
+            <div key={`${task.id}:${index}`} className="flex items-start space-x-3">
               {/* Connection line to next task */}
               {index < tasks.length - 1 && (
                 <div className="absolute ml-2 mt-6 h-6 w-0.5 bg-gray-300" />

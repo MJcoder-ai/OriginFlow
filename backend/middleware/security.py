@@ -270,7 +270,7 @@ class CORSSecurityMiddleware(BaseHTTPMiddleware):
             if origin and self._is_origin_allowed(origin):
                 response.headers["Access-Control-Allow-Origin"] = origin
                 response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, PATCH"
-                response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+                response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, If-Match, X-Request-ID"
                 response.headers["Access-Control-Max-Age"] = str(self.max_age)
                 
                 if self.allow_credentials:
