@@ -1,13 +1,7 @@
-"""
-backend.services package
+"""Lightweight service package init."""
 
-Keep this file import-light. Do not import orchestrators or agents here to
-avoid circular imports during test discovery. Import submodules explicitly:
+# Re-export commonly used services for backwards compatibility. Keep imports
+# minimal to avoid heavy side effects during test discovery.
+from . import odl_graph_service  # noqa: F401
 
-    from backend.services.orchestrator import PlannerOrchestrator
-    from backend.services.vector_store import VectorStore
-"""
-
-__all__ = [
-    # Intentionally empty to avoid heavy side effects on import.
-]
+__all__ = ["odl_graph_service"]
