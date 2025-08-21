@@ -175,8 +175,9 @@ class AiCommandRequest(BaseModel):
     requirements: dict | None = None
 
 
-class AnalyzeCommandRequest(BaseModel):
-    """Body for /ai/analyze-design."""
+# Deprecated schema for the removed /ai/analyze-design endpoint.
+class AnalyzeCommandRequest(BaseModel):  # pragma: no cover - legacy
+    """(Deprecated) Body schema for the removed ``/ai/analyze-design`` endpoint."""
 
     command: str
     snapshot: DesignSnapshot
