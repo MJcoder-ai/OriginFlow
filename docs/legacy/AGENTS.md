@@ -1,3 +1,15 @@
+# Legacy Agents Developer Guide
+
+This document described the pre-vNext multi-agent architecture. It is retained for historical reference.
+For the current single-orchestrator and typed-tool design, see:
+
+- [docs/ARCHITECTURE_OVERVIEW.md](../ARCHITECTURE_OVERVIEW.md)
+- [docs/ORCHESTRATOR.md](../ORCHESTRATOR.md)
+- [docs/ODL_SPEC.md](../ODL_SPEC.md)
+- [docs/TOOLS_CATALOG.md](../TOOLS_CATALOG.md)
+
+---
+
 # 🤖 AI Agents Developer Guide for OriginFlow
 
 *This guide provides comprehensive documentation for developing, deploying, and scaling AI agents in the OriginFlow platform. It covers both the current Phase 1 implementation and the roadmap to enterprise-level multi-agent systems.*

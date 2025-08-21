@@ -26,14 +26,16 @@ cleaner, simpler, and more robust agentic architecture.
    The codebase focuses on a single orchestrator + typed tools model.
 
 3. **Deletions / Renames (Agents → Tools; Legacy APIs removed)**  
-   - All per-feature “agents” that were thin wrappers around deterministic logic
-     are **deleted**. Their behavior lives in **typed tools** under
-     `backend/tools/` and is invoked by the single orchestrator (`POST /ai/act`).
-   - Legacy endpoints that returned duplicated envelopes or invoked
-     per-feature agents are **removed**. Use:
-     - ODL routes `/odl/*` for state
-     - Orchestrator route `/ai/act` for actions
-     - Approvals `/approvals/*` for review workflows
+  - All per-feature “agents” that were thin wrappers around deterministic logic
+    are **deleted**. Their behavior lives in **typed tools** under
+    `backend/tools/` and is invoked by the single orchestrator (`POST /ai/act`).
+  - Legacy endpoints that returned duplicated envelopes or invoked
+    per-feature agents are **removed**. Use:
+    - ODL routes `/odl/*` for state
+    - Orchestrator route `/ai/act` for actions
+    - Approvals `/approvals/*` for review workflows
+  - The legacy developer guide `AGENTS.md` has been archived under
+    `docs/legacy/AGENTS.md`.
 
 ## Rationale
 - Reduce payload size and ambiguity
