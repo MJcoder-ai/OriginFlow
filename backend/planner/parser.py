@@ -8,6 +8,7 @@ This module extracts the minimal quantities needed to drive the orchestrator:
  - design layer
 It avoids any model calls for reliability and testability.
 """
+from __future__ import annotations
 import re
 import math
 from typing import Any, Dict

@@ -108,7 +108,7 @@ assign a low risk class and a capability of ``report`` via
 1. Add unit or scenario tests under `tests/`.
 2. Use `pytest -q` to run the suite.
 3. For end‑to‑end flows, leverage asynchronous tests and the
-   `safe_execute` wrapper as shown in `docs/end_to_end_tests.md`.
+   `safe_execute` wrapper as shown in `docs/TESTING.md`.
 
 ## 7. Submit Your Change
 
