@@ -112,6 +112,7 @@ poetry run uvicorn backend.main:app --reload --host 0.0.0.0 --log-config backend
 ### Canonical API surface (vNext)
 The backend exposes:
 - `POST /api/v1/odl/sessions?session_id=...`
+- `GET  /api/v1/odl/sessions/{session_id}/plan?command=...`  ← **server-side planner (Phase 3)**
 - `GET  /api/v1/odl/{session_id}/head`
 - `GET  /api/v1/odl/{session_id}/view?layer=...`
 - `POST /api/v1/ai/act`
@@ -119,7 +120,7 @@ The backend exposes:
 
 Removed endpoints (now return **410 Gone**):
 - `/api/v1/ai/analyze-design`, `/api/v1/ai/plan`
-- `/api/v1/odl/sessions/{session_id}/plan`, `/api/v1/odl/sessions/{session_id}/text`
+- `/api/v1/odl/sessions/{session_id}/text`
 
 See [docs/API_ENDPOINTS.md](docs/API_ENDPOINTS.md) for more details.
 
