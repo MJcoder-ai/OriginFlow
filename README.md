@@ -124,6 +124,14 @@ Removed endpoints (now return **410 Gone**):
 
 See [docs/API_ENDPOINTS.md](docs/API_ENDPOINTS.md) for more details.
 
+### Ops & Health (Phase 5)
+- `GET /api/v1/system/healthz` – liveness
+- `GET /api/v1/system/readyz` – readiness (DB + AI)
+- `GET /api/v1/system/info` – non-sensitive runtime info
+- `GET /api/v1/system/metrics` – JSON counters
+- Use `backend/logging.prod.json` for structured logs in production.
+See [docs/OPS.md](docs/OPS.md) for quick curl checks.
+
 ## Testing & CI
 
 Run unit tests:

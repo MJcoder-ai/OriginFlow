@@ -6,8 +6,8 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.responses import Response
 
 from backend.config import settings
 from backend.services.anonymizer_service import AnonymizerService
@@ -17,7 +17,6 @@ from slowapi.util import get_remote_address
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from backend.routes.components_attributes import include_component_attributes_routes
-from backend.middleware.request_id import request_id_middleware
 from backend.middleware.security import (
     SecurityMiddleware,
     SecurityHeadersMiddleware,
@@ -25,6 +24,10 @@ from backend.middleware.security import (
     RequestValidationMiddleware,
     CORSSecurityMiddleware,
 )
+
+from backend.ops.request_id import RequestIDMiddleware
+from backend.ops.health import router as system_router
+from backend.ops.metrics import router as ops_metrics_router, track_request
 
 # ---- Logging (init first so all subsequent imports use structured logs) ----
 if not logging.getLogger().handlers:
@@ -61,11 +64,17 @@ async def lifespan(app: FastAPI):
         # Do not crash if table creation fails; log an error
         logger.error(f"Database table creation failed: {exc}", exc_info=True)
 
+    app.state.ai_ready = True
+
     yield
     logger.info("Cleaning up AI services.")
 
 
 app = FastAPI(title="OriginFlow API", lifespan=lifespan)
+
+# Ensure a stable readiness flag exists
+if not hasattr(app.state, "ai_ready"):
+    app.state.ai_ready = False
 
 # ---- Observability (safe no-ops if disabled/missing) ----
 try:
@@ -102,6 +111,9 @@ if os.getenv("ENABLE_TEST_ROUTES", "0") == "1":
     except Exception:
         pass
 
+# Add request ID middleware early for correlation
+app.add_middleware(RequestIDMiddleware)
+
 # Add security middleware (order matters!)
 app.add_middleware(SecurityMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
@@ -132,13 +144,22 @@ app.add_middleware(
     allow_credentials=True,
 )
 
-# Add request ID middleware
-app.middleware("http")(request_id_middleware)
+# (RequestIDMiddleware installed above)
 
 
-
-
-
+@app.middleware("http")
+async def _metrics_mw(request: Request, call_next):
+    """
+    Tiny metrics middleware (Phase 5). Increments counters keyed by route prefixes.
+    Deliberately minimal; swap with Prometheus later if desired.
+    """
+    response: Response = await call_next(request)
+    try:
+        await track_request(request.url.path, request.method, response.status_code)
+    except Exception:
+        # Do not let metrics ever break a request
+        pass
+    return response
 # Note: table creation moved to `lifespan` above. The startup handler is
 # retained only for reference and is never called.
 
@@ -202,6 +223,8 @@ _static_root = Path(__file__).resolve().parent / "static"
 _static_root.mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(_static_root)), name="static")
 
+app.include_router(system_router)
+app.include_router(ops_metrics_router)
 app.include_router(components.router, prefix=settings.api_prefix)
 app.include_router(links.router, prefix=settings.api_prefix)
 app.include_router(files.router, prefix=settings.api_prefix)
