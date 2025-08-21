@@ -13,6 +13,7 @@
 * `createOdlSession(id)` now uses the query-parameter form (no JSON body).
 * `getPlanForSession()` prefers the server planner if present; otherwise emits a small client-side plan.
 * `getOdlText()` falls back to `/view` and formats a minimal textual representation.
+* `planAndRun(sessionId, command)` fetches a plan and executes each task via `POST /api/v1/ai/act`, refreshing the graph version after every step.
 
 ## Rationale
 Keeps the UI responsive while the backend transitions, eliminates 422/404s on legacy routes,
