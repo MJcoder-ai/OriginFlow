@@ -132,6 +132,13 @@ See [docs/API_ENDPOINTS.md](docs/API_ENDPOINTS.md) for more details.
 - Use `backend/logging.prod.json` for structured logs in production.
 See [docs/OPS.md](docs/OPS.md) for quick curl checks.
 
+### Cleanup (Phase 6)
+- Canonical async DB engine is `backend/database/session.py:async_engine` (alias `engine` retained for compatibility).
+- `backend/db/session.py` re-exports `async_engine` and `get_session` and hosts the sync `engine`.
+- Legacy compatibility router can be toggled via `ENABLE_LEGACY_410_ROUTES=1` to emit 410s for removed endpoints in staging.
+- Frontend `analyzeDesign()` is deprecated; use `getPlanForSession` + `act`.
+See [docs/CLEANUP.md](docs/CLEANUP.md) for details.
+
 ## Testing & CI
 
 Run unit tests:

@@ -35,14 +35,15 @@ if ASYNC_DATABASE_URL.startswith("sqlite+aiosqlite"):
         if ASYNC_DATABASE_URL.startswith("sqlite+aiosqlite:///file:"):
             connect_args["uri"] = True
 
-engine = create_async_engine(
+# Canonical async engine (renamed for clarity). Keep `engine` alias for b/w compat.
+async_engine = create_async_engine(
     ASYNC_DATABASE_URL,
     connect_args=connect_args,
     **engine_kwargs,
 )
 
 SessionMaker = sessionmaker(
-    bind=engine,
+    bind=async_engine,
     class_=AsyncSession,
     expire_on_commit=False,
 )
@@ -51,4 +52,10 @@ SessionMaker = sessionmaker(
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
     async with SessionMaker() as session:
         yield session
+
+# --- Backward-compatibility alias (do not remove without repo-wide replace) ---
+# Some older modules may import `engine` symbol; keep it pointing at async engine.
+engine = async_engine
+
+__all__ = ["async_engine", "engine", "SessionMaker", "get_session"]
 
