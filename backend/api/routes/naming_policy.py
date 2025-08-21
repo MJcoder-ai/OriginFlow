@@ -23,7 +23,7 @@ from backend.config import settings
 from backend.schemas.naming_policy import NamingPolicy, NamingPolicyUpdate
 from backend.services.component_naming_policy import get_naming_policy
 from backend.services.component_name_migration import update_existing_component_names
-from backend.api.deps import get_session
+from backend.database.session import get_session
 
 
 router = APIRouter(prefix="/naming-policy", tags=["Naming Policy"])

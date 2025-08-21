@@ -1,5 +1,5 @@
 # backend/api/deps.py
-"""FastAPI dependencies for database access and AI orchestrator."""
+"""FastAPI dependencies for database access and shared services."""
 from __future__ import annotations
 
 from functools import lru_cache
@@ -8,7 +8,6 @@ from fastapi import Request
 from openai import AsyncOpenAI
 
 from backend.database.session import get_session
-from backend.services.ai_service import AiOrchestrator
 from backend.services.anonymizer_service import AnonymizerService
 from backend.services.embedding_service import EmbeddingService
 from backend.config import settings
@@ -34,7 +33,6 @@ def get_embedder(request: Request) -> EmbeddingService:
 
 __all__ = [
     "get_session",
-    "AiOrchestrator",
     "get_ai_client",
     "get_anonymizer",
     "get_embedder",

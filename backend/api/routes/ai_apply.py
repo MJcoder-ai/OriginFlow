@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.services.ai.action_firewall import normalize_add_component_action
 from backend.schemas.analysis import DesignSnapshot
-from backend.api.deps import get_session
+from backend.database.session import get_session
 from backend.services.component_service import ComponentService
 from backend.services.link_service import LinkService
 from backend.utils.id import generate_id

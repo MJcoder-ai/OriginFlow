@@ -45,7 +45,7 @@ async def normalize_add_component(
         result["component_type"] = result["type"]
     original_type = result["type"]
 
-    # Without a snapshot, guard does nothing. (Stateless fixes happen in AiOrchestrator)
+    # Without a snapshot, guard does nothing. (Stateless fixes happen in Orchestrator)
     if snapshot is None:
         logger.info("Action guard: snapshot missing; returning original payload unchanged.")
         return result

@@ -5,13 +5,15 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.api.deps import get_current_user, get_session
+from backend.api.deps import get_current_user
+from backend.database.session import get_session
 from backend.auth.dependencies import require_permission
 from backend.api.deps_tenant import seed_tenant_context
 from backend.schemas.approvals import ApprovalDecision, BatchDecisionRequest
 from backend.services.approval_queue_service import ApprovalQueueService
-from backend.services.ai_service import AiOrchestrator
 from backend.services.approvals_events import ApprovalsEventBus
+from backend.orchestrator.orchestrator import Orchestrator
+from backend.orchestrator.router import ActArgs
 from starlette.responses import StreamingResponse
 import asyncio
 import json
@@ -126,6 +128,7 @@ async def approve_one(
         session, row=row, approver_id=getattr(user, "id", None), note=body.note
     )
     apply_result = None
+    orch = Orchestrator()
     if body.approve_and_apply:
         if row.status == "applied":
             await session.commit()
@@ -133,23 +136,18 @@ async def approve_one(
         action = {"type": row.action_type, "payload": {**(row.payload or {})}}
         if row.session_id and "session_id" not in action["payload"]:
             action["payload"]["session_id"] = row.session_id
-        context = {
-            "tenant_id": row.tenant_id,
-            "project_id": row.project_id,
-            "session_id": row.session_id,
-            "agent_name": row.agent_name,
-            "approved_by_id": getattr(user, "id", None),
-        }
-        svc = AiOrchestrator()
+        act_args = ActArgs(layer="single-line", attrs=action["payload"])
         try:
-            # Pass additional context for enterprise-grade normalization
-            apply_result = await svc.apply_actions(
-                [action], 
-                context=context,
+            result = await orch.run(
+                db=session,
                 session_id=row.session_id,
-                user_text=row.original_prompt  # If available
+                task=action["type"],
+                request_id=f"approval-{id}",
+                args=act_args,
             )
-            await ApprovalQueueService.mark_applied(session, row=row)
+            apply_result = result
+            if result and result.get("status") == "complete" and result.get("patch"):
+                await ApprovalQueueService.mark_applied(session, row=row)
         except Exception as e:  # pragma: no cover - defensive
             await session.commit()
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Apply failed: {e}")
@@ -202,6 +200,7 @@ async def batch_decide(
     user=Depends(get_current_user),
 ):
     tenant_id = getattr(user, "tenant_id", None) or "default"
+    orch = Orchestrator()
     results = []
     for item in body.items:
         row = await ApprovalQueueService.get(session, id=item.id, tenant_id=tenant_id)
@@ -221,22 +220,17 @@ async def batch_decide(
                     action = {"type": row.action_type, "payload": {**(row.payload or {})}}
                     if row.session_id and "session_id" not in action["payload"]:
                         action["payload"]["session_id"] = row.session_id
-                    context = {
-                        "tenant_id": row.tenant_id,
-                        "project_id": row.project_id,
-                        "session_id": row.session_id,
-                        "agent_name": row.agent_name,
-                        "approved_by_id": getattr(user, "id", None),
-                    }
-                    svc = AiOrchestrator()
-                    # Pass additional context for enterprise-grade normalization
-                    server_apply_result = await svc.apply_actions(
-                        [action], 
-                        context=context,
+                    act_args = ActArgs(layer="single-line", attrs=action["payload"])
+                    result = await orch.run(
+                        db=session,
                         session_id=row.session_id,
-                        user_text=row.original_prompt  # If available
+                        task=action["type"],
+                        request_id=f"approval-{item.id}",
+                        args=act_args,
                     )
-                    await ApprovalQueueService.mark_applied(session, row=row)
+                    server_apply_result = result
+                    if result and result.get("status") == "complete" and result.get("patch"):
+                        await ApprovalQueueService.mark_applied(session, row=row)
                 results.append({"id": item.id, "status": row.status, "server_apply_result": server_apply_result})
             else:
                 await ApprovalQueueService.reject(

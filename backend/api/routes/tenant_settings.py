@@ -2,7 +2,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.api.deps import get_session, get_current_user
+from backend.api.deps import get_current_user
+from backend.database.session import get_session
 from backend.auth.dependencies import require_permission
 from backend.schemas.tenant_policy import (
     PolicyDoc,

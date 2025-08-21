@@ -148,7 +148,7 @@ The high‑level rules are:
 - **Medium‑risk actions**: Auto‑approved only if confidence is ≥ 0.75; otherwise they require explicit user approval.
 - **High‑risk actions**: Never auto‑approved; they always require manual confirmation.
 
-The AI orchestrators (`AiOrchestrator` and `AnalyzeOrchestrator`) apply this policy per action, setting an `auto_approved` flag accordingly.  The frontend surface highlights actions requiring attention and prevents accidental execution of high‑risk operations.  These governance policies lay the groundwork for future safety rules such as budget limits, restricted topics and regulatory compliance checks.
+The AI orchestrators (`Orchestrator` and `AnalyzeOrchestrator`) apply this policy per action, setting an `auto_approved` flag accordingly.  The frontend surface highlights actions requiring attention and prevents accidental execution of high‑risk operations.  These governance policies lay the groundwork for future safety rules such as budget limits, restricted topics and regulatory compliance checks.
 
 ### 2. Component-First Design Flow
 
@@ -424,7 +424,7 @@ the groundwork for continuous learning:
   for each processed action and auto‑approval decision.  This provides
   visibility into throughput, latency and approval rates, which can be used
   to tune performance and detect regressions.
-- **Metrics for approvals**: Both `AiOrchestrator` and `AnalyzeOrchestrator`
+- **Metrics for approvals**: Both `Orchestrator` and `AnalyzeOrchestrator`
   record the number of processed actions and the subset automatically
   approved.  Confidence scores are logged with each decision, enabling
   calibration analysis.
