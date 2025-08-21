@@ -424,7 +424,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   async syncGraphVersion(sessionId: string) {
     try {
       if (!sessionId) return;
-      const { version } = await api.getOdlText(sessionId);
+      const { version } = await api.getOdlText(sessionId, get().currentLayer);
       if (typeof version === 'number') set({ graphVersion: version });
     } catch (e) {
       console.warn('Failed to sync graph version', e);
@@ -547,7 +547,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         try {
           const refreshedPlan = await api.getPlanForSession(
             sessionId,
-            get().lastPrompt || 'design'
+            get().lastPrompt || 'design',
+            get().currentLayer
           );
           if (
             (refreshedPlan as any).tasks &&
@@ -573,7 +574,11 @@ export const useAppStore = create<AppState>((set, get) => ({
             set({ graphVersion: serverVersion });
           }
           try {
-            const plan = await api.getPlanForSession(sessionId, get().lastPrompt || 'design');
+            const plan = await api.getPlanForSession(
+              sessionId,
+              get().lastPrompt || 'design',
+              get().currentLayer
+            );
             if ((plan as any).tasks && Array.isArray((plan as any).tasks))
               set({ planTasks: (plan as any).tasks as any });
             // After refetching the plan, sync the graph version to avoid
@@ -606,7 +611,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       const sessionId = get().sessionId;
       if (sessionId) await api.postRequirements(sessionId, next);
       if (sessionId) {
-        const plan = await api.getPlanForSession(sessionId, get().lastPrompt || 'design');
+        const plan = await api.getPlanForSession(
+          sessionId,
+          get().lastPrompt || 'design',
+          get().currentLayer
+        );
         if ((plan as any).tasks && Array.isArray((plan as any).tasks)) {
           set({ planTasks: (plan as any).tasks as any });
         }
@@ -993,7 +1002,11 @@ export const useAppStore = create<AppState>((set, get) => ({
           console.warn('ODL session init failed', err);
         }
         // Request a plan for this session
-        const plan = await api.getPlanForSession(get().sessionId, command);
+        const plan = await api.getPlanForSession(
+          get().sessionId,
+          command,
+          get().currentLayer
+        );
         // Sync the graph version so the first act call uses the current version
         await (get() as any).syncGraphVersion(get().sessionId);
         if (plan.tasks && Array.isArray(plan.tasks)) {

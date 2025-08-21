@@ -38,7 +38,7 @@ export const ODLCodeView: React.FC<ODLCodeViewProps> = ({ sessionId }) => {
     setError(null);
 
     try {
-      const data = await api.getOdlText(sessionId);
+        const data = await api.getOdlText(sessionId, 'single-line');
       setOdlData({
         text: data.text ?? '# ODL text not available\n# Using /view fallback or awaiting server serializer…',
         version: data.version,
