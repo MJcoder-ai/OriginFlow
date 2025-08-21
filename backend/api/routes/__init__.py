@@ -7,6 +7,7 @@ from . import links       # noqa: F401
 from . import files       # noqa: F401
 from . import odl         # noqa: F401
 from . import ai_act      # noqa: F401
+from . import odl_plan    # noqa: F401  # server-side planner endpoint
 
 # Optional: Intent Firewall direct apply
 try:  # pragma: no cover - optional

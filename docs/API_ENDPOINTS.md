@@ -21,6 +21,17 @@ GET /api/v1/odl/{session_id}/head
 GET /api/v1/odl/{session_id}/view?layer={name}
 ```
 
+### Build a plan (server-side planner)
+```
+GET /api/v1/odl/sessions/{session_id}/plan?command={text}
+```
+Parses the natural-language command (e.g., “design a 5 kW solar PV system”)
+and returns a deterministic plan of tasks that clients can execute via `/odl/{sid}/act`.
+For MVP the planner is rule-based (no model calls) and emits:
+- `make_placeholders` (inverter)
+- `make_placeholders` (N panels calculated from target kW and panel wattage)
+- `generate_wiring`
+
 ## AI orchestrator
 
 ### Perform a typed action
@@ -46,7 +57,6 @@ The following legacy endpoints have been removed. The backend responds with **41
 
 - `/api/v1/ai/analyze-design` → Use `POST /api/v1/ai/act`
 - `/api/v1/ai/plan` → Build a planner that emits `POST /api/v1/ai/act`
-- `/api/v1/odl/sessions/{session_id}/plan` → Planner should write via `POST /api/v1/ai/act`
 - `/api/v1/odl/sessions/{session_id}/text` → Use `GET /api/v1/odl/{session_id}/view?layer=...`
 
 > If you need a text serializer for the "ODL Code" pane, add a dedicated

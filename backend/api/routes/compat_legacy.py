@@ -25,14 +25,6 @@ def ai_plan_removed() -> None:
 
 
 # --- Legacy ODL session-scoped endpoints -------------------------------------
-# Old shape: /odl/sessions/{session_id}/plan
-@router.get("/odl/sessions/{session_id}/plan")
-def odl_plan_removed(session_id: str) -> None:  # pragma: no cover - simple 410
-    _gone(
-        "`GET /odl/sessions/{sid}/plan` has been removed. Use client/server planner to call `/ai/act`."
-    )
-
-
 # Old shape: /odl/sessions/{session_id}/text
 @router.get("/odl/sessions/{session_id}/text")
 def odl_text_removed(session_id: str) -> None:  # pragma: no cover - simple 410
