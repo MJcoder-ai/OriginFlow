@@ -1,6 +1,12 @@
+/**
+ * Renders ODL text for the current session.
+ * If the backend doesn't ship `/odl/sessions/{id}/text`, the API helper
+ * falls back to `/odl/{id}/view?layer=electrical` and formats a minimal text.
+ * This keeps the panel useful during migration and in MVP environments.
+ */
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useAppStore } from '../appStore';
-import { API_BASE_URL } from '../config';
+import { api } from '../services/api';
 
 interface ODLCodeViewProps {
   sessionId: string;
@@ -32,15 +38,14 @@ export const ODLCodeView: React.FC<ODLCodeViewProps> = ({ sessionId }) => {
     setError(null);
 
     try {
-      const url = `${API_BASE_URL}/odl/sessions/${sessionId}/text`;
-      const data = await fetch(url)
-        .then(response => {
-          if (!response.ok) {
-            throw new Error(`Failed to fetch ODL text: ${response.statusText}`);
-          }
-          return response.json();
-        });
-      setOdlData(data);
+      const data = await api.getOdlText(sessionId);
+      setOdlData({
+        text: data.text ?? '# ODL text not available\n# Using /view fallback or awaiting server serializer…',
+        version: data.version,
+        node_count: data.node_count ?? 0,
+        edge_count: data.edge_count ?? 0,
+        last_updated: data.last_updated,
+      });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       setError(errorMessage);
