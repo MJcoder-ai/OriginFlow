@@ -86,6 +86,13 @@ Several services contain placeholder implementations that are ready for developm
 - `backend/services/learning_agent_service.py` - ML model integration for action confidence scoring
 - `backend/services/vector_store.py` - Vector database abstractions
 
+### 🚀 Running the API locally
+Use Uvicorn's log configuration to enable structured JSON logs without duplicates:
+
+```bash
+poetry run uvicorn backend.main:app --reload --host 0.0.0.0 --log-config backend/logging.dev.json
+```
+
 ### 🧪 Testing
 - Test infrastructure is in place but requires pytest installation: `pip install pytest pytest-asyncio`
 - Backend tests located in `backend/tests/` and root `tests/` directory

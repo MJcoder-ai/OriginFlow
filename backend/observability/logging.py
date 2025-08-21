@@ -99,18 +99,20 @@ def init_logging() -> None:
     Idempotent; safe to call at import time.
     """
     level = getattr(logging, LOG_LEVEL, logging.INFO)
+
+    # Configure root logger with a single stream handler
     root = logging.getLogger()
     root.setLevel(level)
-
-    # Handler
+    root.handlers.clear()
     handler = logging.StreamHandler(stream=sys.stdout)
     handler.setLevel(level)
     handler.setFormatter(_JsonFormatter() if LOG_JSON else _ConsoleFormatter())
+    root.addHandler(handler)
 
-    # Reset existing handlers for key loggers to ensure consistency
-    for name in ("", "uvicorn", "uvicorn.error", "uvicorn.access", "backend"):
+    # Ensure app and uvicorn loggers don't retain their own handlers
+    for name in ("uvicorn", "uvicorn.error", "uvicorn.access", "backend"):
         lg = logging.getLogger(name)
-        lg.handlers = [handler]
+        lg.handlers.clear()
         lg.propagate = True
         lg.setLevel(level)
 
