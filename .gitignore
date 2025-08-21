@@ -25,6 +25,7 @@ __pycache__/
 # SQLite / DB / Alembic
 originflow.db
 alembic/versions/__pycache__/
+qdrant_storage/
 
 # -----------------------------------------------------------------------------
 # Jupyter / Notebooks
