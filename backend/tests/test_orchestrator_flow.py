@@ -80,3 +80,25 @@ def test_orchestrator_generate_wiring_happy_path():
     body = r.json()
     assert body["status"] == "complete"
     assert body["output"]["card"]["title"] == "Patch Applied"
+
+
+def test_make_placeholders_component_type():
+    app = _make_app()
+    c = TestClient(app)
+    sid = "sess-orch-placeholder"
+
+    assert c.post(f"/odl/sessions?session_id={sid}").status_code == 200
+
+    req = {
+        "session_id": sid,
+        "task": "make_placeholders",
+        "request_id": "r-ph-1",
+        "args": {"component_type": "panel", "count": 2, "layer": "electrical"},
+    }
+    r = c.post("/ai/act", json=req)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "complete"
+
+    view = c.get(f"/odl/{sid}/view?layer=electrical").json()
+    assert sum(1 for n in view["nodes"] if n["type"] == "panel") == 2

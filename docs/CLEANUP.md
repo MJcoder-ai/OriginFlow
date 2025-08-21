@@ -22,7 +22,7 @@ This phase removes brittle legacy references and unifies imports to reduce surpr
 
 ## Frontend
 1. **Deprecation hint**
-   - `analyzeDesign()` now logs a single deprecation warning and returns a no-op result. Prefer `getPlanForSession()` + `act()`.
+   - `analyzeDesign()` helper has been removed. Use `getPlanForSession()` followed by `act()`.
 
 ## Rollout guidance
 - Keep clients on the OriginFlow API surface documented in `docs/API_ENDPOINTS.md`.

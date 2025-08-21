@@ -25,6 +25,7 @@ class ActArgs(BaseModel):
     mount_type: str | None = None
     device_type: str | None = None
     placeholder_type: str | None = None
+    component_type: str | None = None
     count: int | None = None
     attrs: dict[str, object] | None = None
     # Replacement-specific extras
@@ -73,11 +74,16 @@ def run_task(
         return monitoring.add_monitoring_device(inp)
 
     if task == "make_placeholders":
+        placeholder_type = (
+            args.placeholder_type
+            or args.component_type
+            or "generic_panel"
+        )
         inp = MakePlaceholdersInput(
             session_id=session_id,
             request_id=request_id,
             count=args.count or 1,
-            placeholder_type=args.placeholder_type or "generic_panel",
+            placeholder_type=placeholder_type,
             attrs=args.attrs or {"layer": args.layer},
         )
         return placeholders.make_placeholders(inp)
