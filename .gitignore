@@ -25,7 +25,6 @@ __pycache__/
 # SQLite / DB / Alembic
 originflow.db
 alembic/versions/__pycache__/
-qdrant_storage/
 
 # -----------------------------------------------------------------------------
 # Jupyter / Notebooks
@@ -57,6 +56,14 @@ qdrant_storage/
 # -----------------------------------------------------------------------------
 build/
 dist/
+
+# --- Ops/Runtime artifacts we never want in Git ---
+# Local SQLite storage (Phase 1 hardened engines recommend file-backed in dev)
+.localdb/
+# Qdrant local vector store (prevents permission errors on git pull/push)
+qdrant_storage/
+# Uvicorn reload cache
+.uvicorn.reload
 *.egg-info/
 .eggs/
 *.egg
@@ -92,5 +99,3 @@ desktop.ini
 docker/*.pid
 docker/*.sock
 docker/tmp/
-
-qdrant_storage/
