@@ -32,6 +32,17 @@ For MVP the planner is rule-based (no model calls) and emits:
 - `make_placeholders` (N panels calculated from target kW and panel wattage)
 - `generate_wiring`
 
+### Get canonical ODL text (for the active layer)
+```
+GET /api/v1/odl/sessions/{session_id}/text?layer=single-line|electrical
+```
+Returns:
+```json
+{ "session_id": "demo", "version": 7, "text": "node inv1 : inverter\nlink inv1 -> p1\n" }
+```
+This is a stable, line-oriented format intended for copy/paste, diff, and export.
+If `layer` is omitted, `single-line` is used.
+
 ## AI orchestrator
 
 ### Perform a typed action
@@ -59,9 +70,4 @@ The following endpoints are not part of the current OriginFlow API and are **not
 
 - `/api/v1/ai/analyze-design` – use `GET /api/v1/odl/{sid}/plan` + `POST /api/v1/ai/act`
 - `/api/v1/ai/plan` – use `GET /api/v1/odl/{sid}/plan`
-- `/api/v1/odl/sessions/{sid}/text` – prefer `GET /api/v1/odl/{sid}/view?layer=...`
-
-> If you need a text serializer for the "ODL Code" pane, implement
-> `GET /api/v1/odl/sessions/{sid}/text` using the graph serializer and return
-> `{ "session_id": sid, "version": n, "text": "..." }`.
 

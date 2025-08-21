@@ -20,6 +20,7 @@ from backend.database.session import get_session
 from backend.odl.schemas import ODLGraph, ODLPatch
 from backend.odl.store import ODLStore
 from backend.odl.views import layer_view
+from backend.odl.serializer import view_to_odl
 from backend.utils.adpf import wrap_response
 
 router = APIRouter(prefix="/odl", tags=["ODL"])
@@ -86,6 +87,21 @@ async def get_view(
         raise HTTPException(404, "Session not found")
     view = layer_view(g, layer)
     return view
+
+
+@router.get("/sessions/{session_id}/text")
+async def get_odl_text(
+    session_id: str,
+    layer: str = Query("single-line"),
+    db: AsyncSession = Depends(get_session),
+):
+    store = await _store_from_session(db)
+    g = await store.get_graph(db, session_id)
+    if not g:
+        raise HTTPException(404, "Session not found")
+    view = layer_view(g, layer)
+    text = view_to_odl(view)
+    return {"session_id": session_id, "version": g.version, "text": text}
 
 
 @router.get("/{session_id}/head")

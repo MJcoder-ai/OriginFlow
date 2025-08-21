@@ -6,7 +6,7 @@
  *   - GET  /api/v1/odl/sessions/{sid}/plan?command=...
  *   - POST /api/v1/ai/act
  *   - GET  /api/v1/odl/{sid}/view?layer=...
- *   - GET  /api/v1/odl/sessions/{sid}/text
+ *   - GET  /api/v1/odl/sessions/{sid}/text?layer=...
  *
  * This module gracefully degrades when legacy endpoints are missing.
  */
@@ -543,7 +543,10 @@ export const api = {
       last_updated?: string;
     }> {
       layer = canonicalLayer(layer);
-      const txt = await fetch(`${API_BASE_URL}/odl/sessions/${encodeURIComponent(sessionId)}/text`);
+      // Prefer /text if server ships it… (now includes layer parameter)
+      const txt = await fetch(
+        `${API_BASE_URL}/odl/sessions/${encodeURIComponent(sessionId)}/text?layer=${encodeURIComponent(layer)}`
+      );
       if (txt.ok) return txt.json();
       if (txt.status === 404 || txt.status === 410) {
         const view = await fetch(

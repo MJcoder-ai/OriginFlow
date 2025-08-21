@@ -115,14 +115,14 @@ The backend exposes:
 - `GET  /api/v1/odl/sessions/{session_id}/plan?command=...`  ← **server-side planner (Phase 3)**
 - `GET  /api/v1/odl/{session_id}/head`
 - `GET  /api/v1/odl/{session_id}/view?layer=...`
+- `GET  /api/v1/odl/sessions/{session_id}/text?layer=...` (canonical text export)
 - `POST /api/v1/ai/act`
 - `POST /api/v1/ai/apply` (Intent Firewall direct actions, optional)
 
 Removed endpoints (not provided):
 - `/api/v1/ai/analyze-design`, `/api/v1/ai/plan`
-- `/api/v1/odl/sessions/{session_id}/text`
 
-See [docs/API_ENDPOINTS.md](docs/API_ENDPOINTS.md) for more details.
+See [docs/API_ENDPOINTS.md](docs/API_ENDPOINTS.md) and [docs/ODL_SPEC.md](docs/ODL_SPEC.md) for more details.
 
 ### Ops & Health
 - `GET /api/v1/system/healthz` – liveness

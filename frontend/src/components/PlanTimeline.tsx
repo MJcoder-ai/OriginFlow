@@ -36,12 +36,15 @@ const PlanTimeline: React.FC = () => {
   const addMessage = useAppStore((s) => s.addMessage);
   const updatePlanTaskStatus = useAppStore((s) => s.updatePlanTaskStatus);
   const isAiProcessing = useAppStore((s) => s.isAiProcessing);
-  
+
   if (!tasks || tasks.length === 0) return null;
-  
+
+  const total = tasks.length;
+  const done = tasks.filter((t) => t.status === 'complete').length;
+
   // Find the current task (first pending/blocked task)
-  const currentTaskIndex = tasks.findIndex(task => 
-    task.status === 'pending' || task.status === 'blocked'
+  const currentTaskIndex = tasks.findIndex(
+    (task) => task.status === 'pending' || task.status === 'blocked'
   );
   
   // Helper to check if a task can be executed
@@ -62,7 +65,7 @@ const PlanTimeline: React.FC = () => {
       <div className="mb-3 flex items-center justify-between">
         <div className="text-xs font-semibold uppercase text-gray-600">Plan</div>
         <div className="text-xs text-gray-500">
-          {tasks.filter(t => t.status === 'complete').length} of {tasks.length} complete
+          {done} of {total} complete
         </div>
       </div>
       

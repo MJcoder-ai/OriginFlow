@@ -53,8 +53,8 @@ if [[ "${VER}" == "0" || -z "${VER}" ]]; then
   exit 1
 fi
 
-echo "[smoke] planner"
-PLAN=$(curl -fsS "${BASE}/odl/sessions/${SID}/plan?command=$(python3 -c "import urllib.parse; print(urllib.parse.quote('design a 5kW solar PV system'))")")
+echo "[smoke] planner (single-line layer)"
+PLAN=$(curl -fsS "${BASE}/odl/sessions/${SID}/plan?command=$(python3 -c "import urllib.parse; print(urllib.parse.quote('design a 5kW solar PV system'))")&layer=single-line")
 PANEL_COUNT=$(echo "${PLAN}" | jq -r '.tasks[] | select(.id=="make_placeholders" and .args.component_type=="panel") | .args.count')
 if [[ -z "${PANEL_COUNT}" ]]; then
   echo "[smoke] planner did not return a panel task: ${PLAN}" >&2
@@ -65,27 +65,27 @@ HEAD() { curl -fsS "${BASE}/odl/${SID}/head" | jq -r '.version'; }
 
 CURV=$(HEAD)
 echo "[smoke] act: inverter (If-Match ${CURV})"
-INV=$(curl -fsS -X POST "${BASE}/odl/sessions/${SID}/act" \
+INV=$(curl -fsS -X POST "${BASE}/ai/act" \
   -H "Content-Type: application/json" \
   -H "If-Match: ${CURV}" \
-  -d '{"task":"make_placeholders","request_id":"r1","args":{"component_type":"inverter","count":1,"layer":"electrical"}}')
+  -d '{"session_id":"'"${SID}"'","task":"make_placeholders","request_id":"r1","args":{"component_type":"inverter","count":1,"layer":"single-line"}}')
 CURV=$(HEAD)
 
 echo "[smoke] act: panels x${PANEL_COUNT} (If-Match ${CURV})"
-PAN=$(curl -fsS -X POST "${BASE}/odl/sessions/${SID}/act" \
+PAN=$(curl -fsS -X POST "${BASE}/ai/act" \
   -H "Content-Type: application/json" \
   -H "If-Match: ${CURV}" \
-  -d "{\"task\":\"make_placeholders\",\"request_id\":\"r2\",\"args\":{\"component_type\":\"panel\",\"count\":${PANEL_COUNT},\"layer\":\"electrical\"}}")
+  -d '{"session_id":"'"${SID}"'","task":"make_placeholders","request_id":"r2","args":{"component_type":"panel","count":'"${PANEL_COUNT}"',"layer":"single-line"}}')
 CURV=$(HEAD)
 
 echo "[smoke] act: generate wiring (If-Match ${CURV})"
-WIR=$(curl -fsS -X POST "${BASE}/odl/sessions/${SID}/act" \
+WIR=$(curl -fsS -X POST "${BASE}/ai/act" \
   -H "Content-Type: application/json" \
   -H "If-Match: ${CURV}" \
-  -d '{"task":"generate_wiring","request_id":"r3","args":{"layer":"electrical"}}')
+  -d '{"session_id":"'"${SID}"'","task":"generate_wiring","request_id":"r3","args":{"layer":"single-line"}}')
 
-echo "[smoke] verify view"
-VIEW=$(curl -fsS "${BASE}/odl/${SID}/view?layer=electrical")
+echo "[smoke] verify view (single-line layer)"
+VIEW=$(curl -fsS "${BASE}/odl/${SID}/view?layer=single-line")
 NODES=$(echo "${VIEW}" | jq '.nodes | length')
 EDGES=$(echo "${VIEW}" | jq '.edges | length')
 
@@ -93,4 +93,10 @@ if [[ "${NODES}" -lt 2 || "${EDGES}" -lt 1 ]]; then
   echo "[smoke] unexpected view (need at least inverter + one panel and one link): ${VIEW}" >&2
   exit 1
 fi
+
+echo "[smoke] verify text endpoint"
+TEXT=$(curl -fsS "${BASE}/odl/sessions/${SID}/text?layer=single-line" | jq -r '.text')
+echo "${TEXT}" | grep -q "node" || { echo "[smoke] text endpoint missing node lines" >&2; exit 1; }
+echo "${TEXT}" | grep -q "link" || { echo "[smoke] text endpoint missing link lines" >&2; exit 1; }
+
 echo "[smoke] OK (nodes=${NODES}, edges=${EDGES})"
