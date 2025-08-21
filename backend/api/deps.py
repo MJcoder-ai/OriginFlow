@@ -1,5 +1,13 @@
 # backend/api/deps.py
-"""FastAPI dependencies for database access and shared services."""
+"""
+FastAPI dependency helpers.
+
+NOTE:
+- We intentionally avoid importing legacy ``backend.services.ai_service`` or
+  ``AiOrchestrator`` here to prevent ``ModuleNotFoundError`` observed previously.
+- The orchestrator is invoked via the /ai/act endpoint; this module should
+  only provide common dependencies like DB sessions and shared services.
+"""
 from __future__ import annotations
 
 from functools import lru_cache

@@ -121,6 +121,9 @@ function fallbackPlanFromPrompt(command: string): AiPlan {
   };
 }
 
+/** @deprecated vNext removed analyzeDesign; use getPlan + act instead. */
+let _warnedAnalyzeDesign = false;
+
 export const api = {
   async getComponents(): Promise<CanvasComponent[]> {
     const response = await fetch(`${API_BASE_URL}/components/`);
@@ -199,8 +202,16 @@ export const api = {
     return res.json();
   },
 
-  async analyzeDesign(_snapshot: DesignSnapshot, _command: string): Promise<AiAction[]> {
-    // vNext removes this endpoint; return a harmless no-op so legacy callers stay alive.
+  async analyzeDesign(
+    _snapshot: DesignSnapshot,
+    _command: string
+  ): Promise<AiAction[]> {
+    if (!_warnedAnalyzeDesign && typeof console !== 'undefined') {
+      _warnedAnalyzeDesign = true;
+      console.warn(
+        '[deprecated] analyzeDesign(): removed in vNext. Call getPlan() then act().'
+      );
+    }
     return [];
   },
 

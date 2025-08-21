@@ -56,12 +56,8 @@ async def readyz(request: Request):
 
     # 2) DB connectivity (works for SQLite + aiosqlite, and other drivers)
     try:
-        # Import path flexibility (Phase 1 hardening introduced
-        # backend.database.session)
-        try:
-            from backend.database.session import async_engine  # type: ignore
-        except Exception:
-            from backend.db.session import async_engine  # type: ignore
+        # Single source of truth for async engine (Phase 6 cleanup)
+        from backend.database.session import async_engine  # type: ignore
         async with async_engine.connect() as conn:
             await conn.exec_driver_sql("SELECT 1")
         checks["db"] = True

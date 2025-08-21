@@ -1,8 +1,12 @@
-"""Synchronous SQLAlchemy engine for admin/utility paths.
+"""
+DB session shims.
 
-Hardened for SQLite so test/dev behave predictably:
- - File-backed DBs "just work"
- - In-memory DBs use ``StaticPool`` so all connections share one DB
+This module provides:
+ - A synchronous engine and session helpers for admin/utility code.
+ - Re-exports of the canonical async engine and get_session from
+   ``backend.database.session`` (single source of truth).
+
+Keep this file to avoid breaking older imports that referenced ``backend.db.session``.
 """
 from __future__ import annotations
 
@@ -15,6 +19,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from backend.config import settings
+from backend.database.session import async_engine, get_session  # re-export canonical async pieces
 
 # Use synchronous variant of the database URL (strip async driver if present)
 DATABASE_URL = settings.database_url.replace("+aiosqlite", "")
@@ -48,3 +53,6 @@ def get_db() -> Generator[Session, None, None]:
         yield db
     finally:
         db.close()
+
+# Public symbols
+__all__ = ["engine", "SessionLocal", "get_db", "async_engine", "get_session"]
