@@ -17,6 +17,9 @@ from backend.orchestrator.context import load_graph_and_view_nodes
 from backend.orchestrator.router import run_task, ActArgs
 from backend.orchestrator.policy import decide
 from backend.odl.store import ODLStore
+from backend.services.component_library import find_by_categories
+from backend.tools.selection import find_components
+from backend.tools.schemas import SelectionInput
 
 
 class Orchestrator:
@@ -42,14 +45,78 @@ class Orchestrator:
                 status="blocked",
             )
 
-        # 2) Route to a tool
-        patch = run_task(
-            task=task,
-            session_id=session_id,
-            request_id=request_id,
-            layer_nodes=view_nodes,
-            args=args,
-        )
+        # 2) Special handling for placeholder replacement: select real components, then build patch
+        if task == "replace_placeholders":
+            # Identify placeholders in current layer
+            placeholder_nodes = [n for n in view_nodes if (n.attrs or {}).get("placeholder") is True]
+            if args.placeholder_type:
+                placeholder_nodes = [n for n in placeholder_nodes if n.type == args.placeholder_type]
+            if not placeholder_nodes:
+                return wrap_response(
+                    thought="No placeholders to replace in the current layer",
+                    card={"title": "Nothing to Replace", "body": "No matching placeholders found."},
+                    status="complete",
+                )
+            # Build candidate pool
+            pool = list(args.pool or [])
+            if not pool:
+                categories = list(args.categories or [])
+                # default mapping if categories not provided
+                if not categories and args.placeholder_type:
+                    if args.placeholder_type == "generic_panel":
+                        categories = ["panel", "pv_module", "solar_panel"]
+                    elif args.placeholder_type == "generic_inverter":
+                        categories = ["inverter", "string_inverter"]
+                    else:
+                        categories = [args.placeholder_type.replace("generic_", "")]
+                min_power = None
+                if args.requirements:
+                    mp = args.requirements.get("target_power")
+                    if mp:
+                        try:
+                            min_power = float(mp) / max(len(placeholder_nodes), 1)
+                        except Exception:
+                            pass
+                pool = await db.run_sync(lambda s: find_by_categories(s, categories=categories, min_power=min_power))
+            # Rank candidates (simple heuristic over provided pool)
+            sel = find_components(SelectionInput(
+                session_id=session_id,
+                request_id=request_id,
+                placeholder_type=args.placeholder_type or "generic",
+                requirements=args.requirements or {},
+                pool=pool,
+            ))
+            if not sel.candidates:
+                return wrap_response(
+                    thought="No suitable real components found for replacement",
+                    card={"title": "No Candidates", "body": "Try relaxing requirements or adding components."},
+                    status="blocked",
+                )
+            # Compose replacement items (naive: take the top candidate for all placeholders)
+            top = sel.candidates[0]
+            new_type = (args.placeholder_type or "").replace("generic_", "") or None
+            repl_items = [
+                {"node_id": n.id, "part_number": top.part_number, "new_type": new_type, "attrs": {"selected_name": top.name}}
+                for n in placeholder_nodes
+            ]
+            # Build replacement patch via router
+            rep_args = ActArgs(layer=args.layer, attrs={"repl_items": repl_items})
+            patch = run_task(
+                task=task,
+                session_id=session_id,
+                request_id=request_id,
+                layer_nodes=view_nodes,
+                args=rep_args,
+            )
+        else:
+            # Route to a tool
+            patch = run_task(
+                task=task,
+                session_id=session_id,
+                request_id=request_id,
+                layer_nodes=view_nodes,
+                args=args,
+            )
         if patch is None:
             return wrap_response(
                 thought=f"Unknown task '{task}'",

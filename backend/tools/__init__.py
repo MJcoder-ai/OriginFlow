@@ -6,7 +6,7 @@ access to databases or global stores.  The orchestrator is responsible for
 composing tools and applying the resulting patches.
 """
 
-from . import wiring, structural, monitoring, placeholders, selection, consensus, schemas
+from . import wiring, structural, monitoring, placeholders, selection, consensus, schemas, replacement
 
 __all__ = [
     "wiring",
@@ -16,4 +16,5 @@ __all__ = [
     "selection",
     "consensus",
     "schemas",
+    "replacement",
 ]

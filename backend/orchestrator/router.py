@@ -15,6 +15,7 @@ from backend.tools.schemas import (
     MakePlaceholdersInput,
 )
 from backend.tools import wiring, structural, monitoring, placeholders
+from backend.tools.replacement import apply_replacements, ReplaceInput, ReplacementItem
 
 
 class ActArgs(BaseModel):
@@ -26,6 +27,11 @@ class ActArgs(BaseModel):
     placeholder_type: str | None = None
     count: int | None = None
     attrs: dict[str, object] | None = None
+    # Replacement-specific extras
+    requirements: dict[str, float] | None = None
+    categories: list[str] | None = None
+    # Optional explicit candidate pool (bypass DB)
+    pool: list[dict] | None = None
 
 
 def run_task(
@@ -75,5 +81,14 @@ def run_task(
             attrs=args.attrs or {"layer": args.layer},
         )
         return placeholders.make_placeholders(inp)
+
+    # Replacement patch is constructed by orchestrator (after choosing candidates)
+    if task == "replace_placeholders":
+        # The orchestrator composes replacements; run_task simply wraps into a patch.
+        # We expect args.attrs['repl_items'] as a list of {node_id, part_number, new_type?, attrs?}
+        items = (args.attrs or {}).get("repl_items") or []
+        repls = [ReplacementItem(**it) for it in items]
+        inp = ReplaceInput(session_id=session_id, request_id=request_id, replacements=repls)
+        return apply_replacements(inp)
 
     return None

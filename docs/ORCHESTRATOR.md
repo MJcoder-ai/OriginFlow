@@ -29,6 +29,15 @@ The orchestrator provides a single AI entrypoint that:
 - **Execution** — `backend/orchestrator/orchestrator.py` composes the above and
   applies patches via the ODL store (`apply_patch_cas`).
 
+## Placeholder → Real (Phase 5)
+Task: `replace_placeholders`
+- The orchestrator loads the layer view and selects nodes with `attrs.placeholder=true`.
+- It fetches candidate components (either from `args.pool` or via
+  `component_library.find_by_categories`) and ranks them with `tools.selection`.
+- It builds a replacement patch using `tools.replacement.apply_replacements`.
+- **Risk** defaults to `review_required`, returning a `propose_patch` action.
+  Approvals then apply the patch.
+
 ## Adding a new task
 1. Implement a tool in `backend/tools/` (typed inputs/outputs).
 2. Extend the task router to build the tool input.

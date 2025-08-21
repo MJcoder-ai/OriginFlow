@@ -25,6 +25,8 @@ TASK_RISK: dict[str, Risk] = {
     "add_monitoring": "low",
     # low: adds placeholders (reversible)
     "make_placeholders": "low",
+    # replacement mutates existing nodes → review by default (tunable in Phase 6)
+    "replace_placeholders": "medium",
 }
 
 
