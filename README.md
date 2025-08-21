@@ -124,13 +124,23 @@ Removed endpoints (now return **410 Gone**):
 
 See [docs/API_ENDPOINTS.md](docs/API_ENDPOINTS.md) for more details.
 
-### 🧪 Testing
-- Test infrastructure is in place but requires pytest installation: `pip install pytest pytest-asyncio`
-- Backend tests located in `backend/tests/` and root `tests/` directory
-- Set environment variables for a clean run:
-  - `export DATABASE_URL="sqlite+aiosqlite:///:memory:"`
-  - `export OPENAI_API_KEY="dummy"`
-- Run tests with: `pytest -q`
+## Testing & CI
+
+Run unit tests:
+```bash
+poetry install
+export DATABASE_URL="sqlite+aiosqlite:///$PWD/.localdb/local.db"
+mkdir -p .localdb
+poetry run pytest -q
+```
+
+Run the end-to-end smoke test:
+```bash
+chmod +x scripts/smoke.sh
+./scripts/smoke.sh
+```
+
+CI runs on GitHub Actions and executes both pytest and the smoke script.
 
 ## License
 
