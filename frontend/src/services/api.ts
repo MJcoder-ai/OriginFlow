@@ -11,8 +11,6 @@
  * This module gracefully degrades when legacy endpoints are missing.
  */
 import { CanvasComponent, Link, PlanTask } from '../appStore';
-import { AiAction } from '../types/ai';
-import { DesignSnapshot } from '../types/analysis';
 import { API_BASE_URL } from '../config';
 
 export type AiPlan = {
@@ -161,9 +159,6 @@ function fallbackPlanFromPrompt(command: string, layer: string = 'single-line'):
   };
 }
 
-/** @deprecated OriginFlow removed this route. Use `getPlanForSession` + `act` instead. */
-let _warnedAnalyzeDesign = false;
-
 export const api = {
   async getComponents(): Promise<CanvasComponent[]> {
     const response = await fetch(`${API_BASE_URL}/components/`);
@@ -240,19 +235,6 @@ export const api = {
       throw new Error(`Plan endpoint error ${res.status}: ${text.slice(0, 120)}`);
     }
     return res.json();
-  },
-
-  async analyzeDesign(
-    _snapshot: DesignSnapshot,
-    _command: string
-  ): Promise<AiAction[]> {
-    if (!_warnedAnalyzeDesign && typeof console !== 'undefined') {
-      _warnedAnalyzeDesign = true;
-      console.warn(
-        '[deprecated] analyzeDesign(): removed. Call getPlanForSession() then act().'
-      );
-    }
-    return [];
   },
 
   act,

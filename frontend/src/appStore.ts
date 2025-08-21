@@ -991,81 +991,60 @@ export const useAppStore = create<AppState>((set, get) => ({
     setIsAiProcessing(true);
     get().addStatusMessage('Processing command', 'info');
 
-    (async () => {
-      try {
-        const sessionId = (get() as any).sessionId || 'global';
-        // Ensure session exists
-        try {
-          const created = await api.createOdlSession(sessionId !== 'global' ? sessionId : undefined);
-          if (created?.session_id) get().setSessionId(created.session_id);
-        } catch (err) {
-          console.warn('ODL session init failed', err);
-        }
-        // Request a plan for this session
-        const plan = await api.getPlanForSession(
-          get().sessionId,
-          command,
-          get().currentLayer
-        );
-        // Sync the graph version so the first act call uses the current version
-        await (get() as any).syncGraphVersion(get().sessionId);
-        if (plan.tasks && Array.isArray(plan.tasks)) {
-          // Merge new tasks with existing ones, preserving their statuses
-          const existingTasks = get().planTasks;
-          const merged: PlanTask[] = plan.tasks.map((t: any) => {
-            const existing = existingTasks.find((et) => et.id === t.id);
-            return {
-              id: t.id,
-              title: t.title,
-              description: t.description,
-              status: existing ? existing.status : ((t.status ?? 'pending') as any),
-            };
-          });
-          setPlanTasks(merged);
-        }
-        if (plan.quick_actions && Array.isArray(plan.quick_actions)) {
-          setQuickActions(
-            plan.quick_actions.map((qa: any) => ({
-              id: qa.id,
-              label: qa.label,
-              command: qa.command,
-            }))
-          );
-        }
-        // Execute each plan task automatically via act endpoint
-        if (plan.tasks && Array.isArray(plan.tasks)) {
-          for (const t of plan.tasks) {
-            const status = await get().performPlanTask({
-              id: t.id,
-              title: t.title,
-              description: t.description,
-              status: (t.status ?? 'pending') as any,
-            } as any);
-            if (status === 'blocked') break;
-          }
-        }
-      } catch (err) {
-        console.error('Failed to load plan', err);
-      }
-    })();
     try {
-      const { canvasComponents, links } = get();
-      const snapshot = { components: canvasComponents, links };
-      /*
-       * Send every command through the analysis route.  The router agent will
-       * classify the intent (design vs. component vs. wiring, etc.) and return
-       * one or more AiActions.  Removing the old substring check on “design”
-       * allows natural‑language requests like “add another solar panel to this
-       * design” to be handled by the component_agent instead of being
-       * mis‑routed to the planner.
-       */
-      let actions: AiAction[] = [];
-      actions = await api.analyzeDesign(snapshot, command);
-      if (actions.length > 0) {
-        await get().executeAiActions(actions);
+      const sessionId = (get() as any).sessionId || 'global';
+      // Ensure session exists
+      try {
+        const created = await api.createOdlSession(sessionId !== 'global' ? sessionId : undefined);
+        if (created?.session_id) get().setSessionId(created.session_id);
+      } catch (err) {
+        console.warn('ODL session init failed', err);
+      }
+      // Request a plan for this session
+      const plan = await api.getPlanForSession(
+        get().sessionId,
+        command,
+        get().currentLayer
+      );
+      // Sync the graph version so the first act call uses the current version
+      await (get() as any).syncGraphVersion(get().sessionId);
+      if (plan.tasks && Array.isArray(plan.tasks)) {
+        // Merge new tasks with existing ones, preserving their statuses
+        const existingTasks = get().planTasks;
+        const merged: PlanTask[] = plan.tasks.map((t: any) => {
+          const existing = existingTasks.find((et) => et.id === t.id);
+          return {
+            id: t.id,
+            title: t.title,
+            description: t.description,
+            status: existing ? existing.status : ((t.status ?? 'pending') as any),
+          };
+        });
+        setPlanTasks(merged);
+      }
+      if (plan.quick_actions && Array.isArray(plan.quick_actions)) {
+        setQuickActions(
+          plan.quick_actions.map((qa: any) => ({
+            id: qa.id,
+            label: qa.label,
+            command: qa.command,
+          }))
+        );
+      }
+      // Execute each plan task automatically via act endpoint
+      if (plan.tasks && Array.isArray(plan.tasks)) {
+        for (const t of plan.tasks) {
+          const status = await get().performPlanTask({
+            id: t.id,
+            title: t.title,
+            description: t.description,
+            status: (t.status ?? 'pending') as any,
+          } as any);
+          if (status === 'blocked') break;
+        }
       }
     } catch (err) {
-      console.error('Failed to analyze design', err);
+      console.error('Failed to process command', err);
       get().addStatusMessage('Failed to perform actions', 'error');
     } finally {
       setIsAiProcessing(false);
