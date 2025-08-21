@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import uvicorn
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import FastAPI, Request, HTTPException
@@ -26,11 +27,12 @@ from backend.middleware.security import (
 )
 
 # ---- Logging (init first so all subsequent imports use structured logs) ----
-try:
-    from backend.observability.logging import init_logging
-    init_logging()
-except Exception:
-    pass
+if not logging.getLogger().handlers:
+    try:
+        from backend.observability.logging import init_logging
+        init_logging()
+    except Exception:
+        pass
 
 
 @asynccontextmanager
@@ -264,7 +266,14 @@ async def read_root() -> dict[str, str]:
 
 def main() -> None:
     """Entry point for ``originflow-backend`` console script."""
-    uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)
+    log_config = Path(__file__).with_name("logging.dev.json")
+    uvicorn.run(
+        "backend.main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        log_config=str(log_config),
+    )
 
 
 if __name__ == "__main__":  # pragma: no cover
