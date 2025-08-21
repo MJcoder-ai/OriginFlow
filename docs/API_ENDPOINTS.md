@@ -23,7 +23,7 @@ GET /api/v1/odl/{session_id}/view?layer={name}
 
 ### Build a plan (server-side planner)
 ```
-GET /api/v1/odl/sessions/{session_id}/plan?command={text}
+GET /api/v1/odl/sessions/{session_id}/plan?command={text}[&layer=single-line|electrical]
 ```
 Parses the natural-language command (e.g., “design a 5 kW solar PV system”)
 and returns a deterministic plan of tasks that clients can execute via `/odl/{sid}/act`.

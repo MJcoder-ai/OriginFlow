@@ -192,8 +192,13 @@ const PlanTimeline: React.FC = () => {
                 const sessionId = (useAppStore.getState() as any).sessionId;
                 if (sessionId) {
                   await api.getRequirementsStatus(sessionId);
-                  const plan = await api.getPlanForSession(sessionId, 'design system');
-                  if (Array.isArray(plan.tasks)) useAppStore.getState().setPlanTasks(plan.tasks as any);
+                  const plan = await api.getPlanForSession(
+                    sessionId,
+                    'design system',
+                    useAppStore.getState().currentLayer,
+                  );
+                  if (Array.isArray(plan.tasks))
+                    useAppStore.getState().setPlanTasks(plan.tasks as any);
                 }
               } catch (e) {
                 console.error(e);

@@ -22,6 +22,7 @@ const ChatSidebar: React.FC = () => {
   const addMessage = useAppStore((s) => s.addMessage);
   const graphVersion = useAppStore((s) => s.graphVersion);
   const setGraphVersion = useAppStore((s) => s.setGraphVersion);
+  const currentLayer = useAppStore((s) => s.currentLayer);
 
   const [autoIterate, setAutoIterate] = useState<boolean>(false);
   const [minConfidence, setMinConfidence] = useState<number>(0.6);
@@ -60,7 +61,7 @@ const ChatSidebar: React.FC = () => {
         } else {
           // Fallback: refresh plan
           try {
-            const plan = await api.getPlanForSession(sessionId, 'design system');
+            const plan = await api.getPlanForSession(sessionId, 'design system', currentLayer);
             if (Array.isArray(plan.tasks)) setPlanTasks(plan.tasks as any);
           } catch {}
         }

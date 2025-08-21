@@ -117,7 +117,7 @@ export async function act(
 }
 
 // --- Minimal client-side fallback planner ------------------------------------
-function fallbackPlanFromPrompt(command: string): AiPlan {
+function fallbackPlanFromPrompt(command: string, layer: string = 'single-line'): AiPlan {
   const lower = (command || '').toLowerCase();
   const kwMatch = /(\d+(?:\.\d+)?)\s*kw\b/.exec(lower);
   const targetKW = kwMatch ? parseFloat(kwMatch[1]) : 5;
@@ -129,26 +129,26 @@ function fallbackPlanFromPrompt(command: string): AiPlan {
       {
         id: 'make_placeholders',
         title: 'Create inverter',
-        description: 'Add one inverter on the electrical layer',
+        description: `Add one inverter on the ${layer} layer`,
         status: 'pending',
-        args: { component_type: 'inverter', count: 1, layer: 'electrical' },
+        args: { component_type: 'inverter', count: 1, layer },
       } as any,
       {
         id: 'make_placeholders',
         title: `Create ${count} panels`,
-        description: `Add ${count} x ~${panelW}W panels`,
+        description: `Add ${count} x ~${panelW}W panels on the ${layer} layer`,
         status: 'pending',
-        args: { component_type: 'panel', count, layer: 'electrical' },
+        args: { component_type: 'panel', count, layer },
       } as any,
       {
         id: 'generate_wiring',
         title: 'Generate wiring',
-        description: 'Auto-connect inverter and panels on electrical layer',
+        description: `Auto-connect inverter and panels on ${layer} layer`,
         status: 'pending',
-        args: { layer: 'electrical' },
+        args: { layer },
       } as any,
     ],
-    metadata: { fallback: true, targetKW, panelW, count },
+    metadata: { fallback: true, targetKW, panelW, count, layer },
   };
 }
 
@@ -273,12 +273,12 @@ export const api = {
   async getPlanForSession(
     sessionId: string,
     command: string,
+    layer: string = 'single-line',
   ): Promise<{ tasks: any[]; quick_actions?: any[]; metadata?: Record<string, any> }> {
     try {
+      const params = new URLSearchParams({ command, layer });
       const res = await fetch(
-        `${API_BASE_URL}/odl/sessions/${encodeURIComponent(sessionId)}/plan?command=${encodeURIComponent(
-          command
-        )}`
+        `${API_BASE_URL}/odl/sessions/${encodeURIComponent(sessionId)}/plan?${params.toString()}`
       );
       if (res.ok) {
         const data = await res.json();
@@ -288,12 +288,12 @@ export const api = {
         return data;
       }
       if (res.status === 404 || res.status === 410) {
-        return fallbackPlanFromPrompt(command) as any;
+        return fallbackPlanFromPrompt(command, layer) as any;
       }
       const text = await res.text();
       throw new Error(`Plan session error ${res.status}: ${text.slice(0, 200)}`);
     } catch {
-      return fallbackPlanFromPrompt(command) as any;
+      return fallbackPlanFromPrompt(command, layer) as any;
     }
   },
 
@@ -539,39 +539,44 @@ export const api = {
   },
 
   /** Get ODL text representation, with /view fallback */
-  async getOdlText(sessionId: string): Promise<{
-    text?: string;
-    version: number;
-    node_count?: number;
-    edge_count?: number;
-    last_updated?: string;
-  }> {
-    const txt = await fetch(`${API_BASE_URL}/odl/sessions/${encodeURIComponent(sessionId)}/text`);
-    if (txt.ok) return txt.json();
-    if (txt.status === 404 || txt.status === 410) {
-      const view = await fetch(`${API_BASE_URL}/odl/${encodeURIComponent(sessionId)}/view?layer=electrical`);
-      if (view.ok) {
-        const data = await view.json();
-        const nodes: Array<{ id: string; type?: string }> = data?.nodes ?? [];
-        const edges: Array<{ source: string; target: string }> = data?.edges ?? [];
-        const lines = [
-          '# ODL (view fallback)',
-          ...nodes.map(n => `node ${n.id}${n.type ? ` : ${n.type}` : ''}`),
-          ...edges.map(e => `link ${e.source} -> ${e.target}`),
-        ];
-        return {
-          text: lines.join('\n'),
-          version: Number(data?.version ?? 0),
-          node_count: nodes.length,
-          edge_count: edges.length,
-          last_updated: data?.last_updated,
-        };
+    async getOdlText(
+      sessionId: string,
+      layer: string = 'single-line',
+    ): Promise<{
+      text?: string;
+      version: number;
+      node_count?: number;
+      edge_count?: number;
+      last_updated?: string;
+    }> {
+      const txt = await fetch(`${API_BASE_URL}/odl/sessions/${encodeURIComponent(sessionId)}/text`);
+      if (txt.ok) return txt.json();
+      if (txt.status === 404 || txt.status === 410) {
+        const view = await fetch(
+          `${API_BASE_URL}/odl/${encodeURIComponent(sessionId)}/view?layer=${encodeURIComponent(layer)}`
+        );
+        if (view.ok) {
+          const data = await view.json();
+          const nodes: Array<{ id: string; type?: string }> = data?.nodes ?? [];
+          const edges: Array<{ source: string; target: string }> = data?.edges ?? [];
+          const lines = [
+            '# ODL (view fallback)',
+            ...nodes.map(n => `node ${n.id}${n.type ? ` : ${n.type}` : ''}`),
+            ...edges.map(e => `link ${e.source} -> ${e.target}`),
+          ];
+          return {
+            text: lines.join('\n'),
+            version: Number(data?.version ?? 0),
+            node_count: nodes.length,
+            edge_count: edges.length,
+            last_updated: data?.last_updated,
+          };
+        }
+        return { text: undefined, version: 0, node_count: 0, edge_count: 0 };
       }
-      return { text: undefined, version: 0, node_count: 0, edge_count: 0 };
-    }
-    const t = await txt.text();
-    throw new Error(`Get ODL text failed: ${txt.status} ${t}`);
-  },
+      const t = await txt.text();
+      throw new Error(`Get ODL text failed: ${txt.status} ${t}`);
+    },
 
   /** Select component to replace placeholder */
   async selectComponent(sessionId: string, placeholderId: string, component: any): Promise<{

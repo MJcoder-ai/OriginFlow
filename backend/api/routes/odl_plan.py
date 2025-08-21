@@ -10,7 +10,7 @@ is intentionally rule-based for MVP reliability; it parses key quantities
 from natural language (e.g., "design a 5kW ...") and emits typed tasks.
 """
 from fastapi import APIRouter, Query, Path, Depends
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,6 +25,9 @@ router = APIRouter()
 async def get_plan_for_session(
     session_id: str = Path(..., description="ODL session id"),
     command: str = Query(..., description="Natural language design request"),
+    layer: Optional[str] = Query(
+        None, description="Target layer override (e.g., 'single-line' or 'electrical')"
+    ),
     db: AsyncSession = Depends(get_session),
 ) -> AiPlan:
     """
@@ -36,6 +39,9 @@ async def get_plan_for_session(
       validate preconditions when executed.
     """
     plan = parse_design_command(command)
+    # Allow client to override the target layer to match the active canvas tab
+    if layer in {"single-line", "electrical"}:
+        plan.layer = layer
 
     # Enforce consistent args for vNext tools.
     # Emit two placeholder tasks (inverter, panels) followed by wiring.
@@ -43,7 +49,7 @@ async def get_plan_for_session(
         AiPlanTask(
             id="make_placeholders",
             title="Create inverter",
-            description="Add one inverter placeholder on the electrical layer",
+            description=f"Add one inverter placeholder on the {plan.layer} layer",
             status="pending",
             args={"component_type": "inverter", "count": 1, "layer": plan.layer},
         ),
