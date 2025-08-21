@@ -89,7 +89,10 @@ Several services contain placeholder implementations that are ready for developm
 ### 🧪 Testing
 - Test infrastructure is in place but requires pytest installation: `pip install pytest pytest-asyncio`
 - Backend tests located in `backend/tests/` and root `tests/` directory
-- Run tests with: `python -m pytest backend/tests/ -v`
+- Set environment variables for a clean run:
+  - `export DATABASE_URL="sqlite+aiosqlite:///:memory:"`
+  - `export OPENAI_API_KEY="dummy"`
+- Run tests with: `pytest -q`
 
 ## License
 
