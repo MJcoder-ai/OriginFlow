@@ -7,7 +7,7 @@ from backend.services.layout_provider import suggest_positions
 from backend.services.edge_router import route_edges
 from backend.services.odl_sync import rebuild_odl_for_session
 from backend.services.wiring import AutoWiringService
-from backend.api.deps import get_session
+from backend.database.session import get_session
 
 try:
     from backend.services.snapshot_provider import get_current_snapshot  # type: ignore

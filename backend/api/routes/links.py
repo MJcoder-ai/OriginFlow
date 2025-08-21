@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.api.deps import get_session
+from backend.database.session import get_session
 from backend.models.link import Link as LinkModel
 from backend.schemas.link import Link, LinkCreate
 from backend.services.link_service import LinkService

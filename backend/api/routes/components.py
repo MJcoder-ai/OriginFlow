@@ -11,7 +11,7 @@ from backend.schemas.components import (
 from backend.schemas.component import Component as ComponentSchema, ComponentCreate, ComponentUpdate
 from backend.services.component_db_service import ComponentDBService
 from backend.services.component_service import ComponentService
-from backend.api.deps import get_session
+from backend.database.session import get_session
 
 router = APIRouter(prefix="/components", tags=["components"])
 

@@ -16,7 +16,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.api.deps import get_session
+from backend.database.session import get_session
 from backend.models.memory import Memory as MemoryModel
 from backend.schemas.memory import Memory as MemorySchema
 

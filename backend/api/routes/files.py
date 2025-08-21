@@ -20,7 +20,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from openai import AsyncOpenAI
 from backend.config import settings
-from backend.api.deps import get_session, get_ai_client
+from backend.api.deps import get_ai_client
+from backend.database.session import get_session
 from backend.auth.dependencies import require_file_upload
 from backend.auth.models import User
 from backend.schemas.file_asset import FileAssetRead, FileAssetUpdate

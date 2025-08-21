@@ -16,7 +16,8 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.api.deps import get_session, get_anonymizer, get_embedder
+from backend.api.deps import get_anonymizer, get_embedder
+from backend.database.session import get_session
 from backend.models.ai_action_log import AiActionLog
 from backend.models.ai_action_vector import AiActionVector
 from backend.models.memory import Memory as MemoryModel

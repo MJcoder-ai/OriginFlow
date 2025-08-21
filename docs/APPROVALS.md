@@ -17,7 +17,7 @@ Resolved per-tenant:
 Evaluation order: **denylist → allowlist → threshold(compare confidence)**.
 
 ## Backend integration
-`AiOrchestrator.process` (and other action planners) now:
+`Orchestrator.run` (and other action planners) now:
 1. Plan and validate actions as before.
 2. For each action, call `ApprovalPolicyService.evaluate(...)`.
 3. If **auto-approved**: proceed normally.
