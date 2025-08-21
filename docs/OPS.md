@@ -30,6 +30,7 @@ curl -s localhost:8000/api/v1/system/healthz | jq
 curl -s localhost:8000/api/v1/system/readyz | jq
 curl -s localhost:8000/api/v1/system/info | jq
 curl -s localhost:8000/api/v1/system/metrics | jq
+curl -s "http://localhost:8000/api/v1/odl/sessions/demo/text?layer=single-line" | jq
 ```
 
 ## CORS (dev)

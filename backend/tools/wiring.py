@@ -18,7 +18,8 @@ def generate_wiring(inp: GenerateWiringInput):
     inverters = [n for n in inp.view_nodes if n.type == "inverter"]
     panels = [n for n in inp.view_nodes if n.type == "panel"]
     if not inverters or not panels:
-        # Nothing to connect to, return empty patch
+        # Nothing to connect to – return empty patch
+        # (applying still bumps version)
         return make_patch(inp.request_id, ops=[])
     inv = inverters[0]
 
