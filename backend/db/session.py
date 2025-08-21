@@ -1,12 +1,13 @@
 """
 DB session shims.
 
-This module provides:
- - A synchronous engine and session helpers for admin/utility code.
+Provides:
+ - A synchronous engine for admin/utility code.
  - Re-exports of the canonical async engine and get_session from
-   ``backend.database.session`` (single source of truth).
+   backend.database.session (single source of truth).
 
-Keep this file to avoid breaking older imports that referenced ``backend.db.session``.
+Kept to avoid breaking older imports that referenced backend.db.session.
+Prefer importing from backend.database.session going forward.
 """
 from __future__ import annotations
 
@@ -55,4 +56,4 @@ def get_db() -> Generator[Session, None, None]:
         db.close()
 
 # Public symbols
-__all__ = ["engine", "SessionLocal", "get_db", "async_engine", "get_session"]
+__all__ = ["engine", "async_engine", "get_session"]

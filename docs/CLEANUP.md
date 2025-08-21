@@ -8,13 +8,14 @@ This phase removes brittle legacy references and unifies imports to reduce surpr
    - `backend/db/session.py`:
      - keeps the **sync** `engine` for utility code,
      - **re-exports** `async_engine` and `get_session` from `backend.database.session`.
-   - Import `async_engine` from `backend.database.session` going forward.
+   - Prefer importing from `backend.database.session` going forward.
 
 2. **Deps module**
    - `backend/api/deps.py` no longer imports or references legacy `AiOrchestrator`/`ai_service`. This prevents `ModuleNotFoundError` seen earlier.
 
-3. **Legacy 410 router gating**
-   - Mounting of `compat_legacy` is controlled by `ENABLE_LEGACY_410_ROUTES` (default **off**). Enable in staging if you need explicit 410s for straggler clients.
+3. **Legacy 410 router**
+   - The compatibility router has been **removed**. Unknown legacy paths now return 404.
+   - Keep clients on the vNext surface documented in `docs/API_ENDPOINTS.md`.
 
 4. **Health checks**
    - `/api/v1/system/readyz` imports the async engine from the canonical module.
@@ -24,5 +25,7 @@ This phase removes brittle legacy references and unifies imports to reduce surpr
    - `analyzeDesign()` now logs a single deprecation warning and returns a no-op result. Prefer `getPlanForSession()` + `act()`.
 
 ## Rollout guidance
+- Keep clients on the OriginFlow API surface documented in `docs/API_ENDPOINTS.md`.
 - Set `ENABLE_LEGACY_410_ROUTES=1` in non-prod environments to catch any stale client calls to removed endpoints.
 - After a full sprint with clean logs, remove the env var and optionally delete `compat_legacy.py`.
+

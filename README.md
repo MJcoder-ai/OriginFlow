@@ -4,7 +4,7 @@
 
 ## Overview
 
-> **Breaking Change (vNext)**  
+> **Breaking Change (OriginFlow API)**
 > The server returns a **single response envelope** for AI actions: `thought`, `output.card`, `output.patch`, `status`, and optional `warnings`. Legacy top-level `card`/`patch` fields were removed. See `docs/BREAKING_CHANGES.md` and `backend/utils/adpf.py`.
 
 OriginFlow is a browser-based, AI-powered design environment that converts rough engineering sketches and customer inputs into standards-compliant schematics and bills-of-materials. It supports both engineers and non-technical users, offering drag-and-drop datasheets, AI auto-completion, and real-time compliance checks.
@@ -109,7 +109,7 @@ poetry run uvicorn backend.main:app --reload --host 0.0.0.0 --log-config backend
   ```
   > Note: an in-memory DB is ephemeral; restart clears all data.
 
-### Canonical API surface (vNext)
+### Canonical OriginFlow API surface
 The backend exposes:
 - `POST /api/v1/odl/sessions?session_id=...`
 - `GET  /api/v1/odl/sessions/{session_id}/plan?command=...`  ← **server-side planner (Phase 3)**
@@ -118,13 +118,13 @@ The backend exposes:
 - `POST /api/v1/ai/act`
 - `POST /api/v1/ai/apply` (Intent Firewall direct actions, optional)
 
-Removed endpoints (now return **410 Gone**):
+Removed endpoints (not provided):
 - `/api/v1/ai/analyze-design`, `/api/v1/ai/plan`
 - `/api/v1/odl/sessions/{session_id}/text`
 
 See [docs/API_ENDPOINTS.md](docs/API_ENDPOINTS.md) for more details.
 
-### Ops & Health (Phase 5)
+### Ops & Health
 - `GET /api/v1/system/healthz` – liveness
 - `GET /api/v1/system/readyz` – readiness (DB + AI)
 - `GET /api/v1/system/info` – non-sensitive runtime info
@@ -132,11 +132,11 @@ See [docs/API_ENDPOINTS.md](docs/API_ENDPOINTS.md) for more details.
 - Use `backend/logging.prod.json` for structured logs in production.
 See [docs/OPS.md](docs/OPS.md) for quick curl checks.
 
-### Cleanup (Phase 6)
+### Cleanup
 - Canonical async DB engine is `backend/database/session.py:async_engine` (alias `engine` retained for compatibility).
 - `backend/db/session.py` re-exports `async_engine` and `get_session` and hosts the sync `engine`.
-- Legacy compatibility router can be toggled via `ENABLE_LEGACY_410_ROUTES=1` to emit 410s for removed endpoints in staging.
-- Frontend `analyzeDesign()` is deprecated; use `getPlanForSession` + `act`.
+- No legacy compatibility routes are mounted; unknown legacy paths return 404.
+- Frontend should use `getPlanForSession` + `act` (no `/ai/analyze-design` or `/ai/plan`).
 See [docs/CLEANUP.md](docs/CLEANUP.md) for details.
 
 ## Testing & CI
