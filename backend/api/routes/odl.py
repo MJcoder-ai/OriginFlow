@@ -87,5 +87,38 @@ async def get_view(
     view = layer_view(g, layer)
     return view
 
+
+@router.get("/{session_id}/head")
+async def get_head(session_id: str, db: AsyncSession = Depends(get_session)):
+    """
+    Lightweight head endpoint for canvas sync. Returns current version only.
+    """
+    store = await _store_from_session(db)
+    g = await store.get_graph(db, session_id)
+    if not g:
+        raise HTTPException(404, "Session not found")
+    return {"session_id": session_id, "version": g.version}
+
+
+@router.get("/{session_id}/view_delta")
+async def get_view_delta(
+    session_id: str,
+    since: int = Query(..., description="Client's last known version"),
+    layer: str = Query("single-line"),
+    db: AsyncSession = Depends(get_session),
+):
+    """
+    Return `{changed, version, view?}` for efficient canvas refresh.
+    If no change since `since`, returns `changed=false` with current head version.
+    """
+    store = await _store_from_session(db)
+    g = await store.get_graph(db, session_id)
+    if not g:
+        raise HTTPException(404, "Session not found")
+    if g.version <= since:
+        return {"changed": False, "version": g.version}
+    view = layer_view(g, layer)
+    return {"changed": True, "version": g.version, "view": view}
+
 # IMPORTANT: Register this router in your API aggregator or FastAPI app:
 #   app.include_router(backend.api.routes.odl.router)

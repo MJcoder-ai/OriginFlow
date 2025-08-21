@@ -38,6 +38,11 @@ Task: `replace_placeholders`
 - **Risk** defaults to `review_required`, returning a `propose_patch` action.
   Approvals then apply the patch.
 
+## Domains (Phase 7)
+Domains are configured in `backend/domains/domain.yaml`. The orchestrator reads
+`ODL.meta.domain` (default `PV`) and uses domain mappings for placeholder
+categories and risk overrides.
+
 ## Adding a new task
 1. Implement a tool in `backend/tools/` (typed inputs/outputs).
 2. Extend the task router to build the tool input.

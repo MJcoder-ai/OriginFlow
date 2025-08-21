@@ -1,0 +1,35 @@
+# Declarative domain configuration (Phase 7)
+# You can extend or override these defaults per deployment.
+
+PV:
+  tools_enabled:
+    - generate_wiring
+    - generate_mounts
+    - add_monitoring
+    - make_placeholders
+    - replace_placeholders
+  placeholder_mappings:
+    generic_panel: [panel, pv_module, solar_panel]
+    generic_inverter: [inverter, string_inverter]
+    generic_battery: [battery, energy_storage]
+  risk_overrides:
+    replace_placeholders: medium     # review by default
+
+HVAC:
+  tools_enabled:
+    - make_placeholders
+    - replace_placeholders
+  placeholder_mappings:
+    generic_fan: [fan, blower]
+    generic_pump: [pump, hvac_pump]
+  risk_overrides:
+    replace_placeholders: medium
+
+Water:
+  tools_enabled:
+    - make_placeholders
+    - replace_placeholders
+  placeholder_mappings:
+    generic_pump: [pump, water_pump]
+  risk_overrides:
+    replace_placeholders: medium

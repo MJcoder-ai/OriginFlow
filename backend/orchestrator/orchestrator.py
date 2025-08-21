@@ -20,6 +20,10 @@ from backend.odl.store import ODLStore
 from backend.services.component_library import find_by_categories
 from backend.tools.selection import find_components
 from backend.tools.schemas import SelectionInput
+from backend.domains.registry import (
+    categories_for_placeholder,
+    risk_override as domain_risk_override,
+)
 
 
 class Orchestrator:
@@ -45,7 +49,10 @@ class Orchestrator:
                 status="blocked",
             )
 
-        # 2) Special handling for placeholder replacement: select real components, then build patch
+        # 2) Determine domain from graph meta (default 'PV')
+        domain = (graph.meta or {}).get("domain") or "PV"
+
+        # 3) Special handling for placeholder replacement: select real components, then build patch
         if task == "replace_placeholders":
             # Identify placeholders in current layer
             placeholder_nodes = [n for n in view_nodes if (n.attrs or {}).get("placeholder") is True]
@@ -61,14 +68,10 @@ class Orchestrator:
             pool = list(args.pool or [])
             if not pool:
                 categories = list(args.categories or [])
-                # default mapping if categories not provided
+                # Use domain registry when categories are not explicitly provided
                 if not categories and args.placeholder_type:
-                    if args.placeholder_type == "generic_panel":
-                        categories = ["panel", "pv_module", "solar_panel"]
-                    elif args.placeholder_type == "generic_inverter":
-                        categories = ["inverter", "string_inverter"]
-                    else:
-                        categories = [args.placeholder_type.replace("generic_", "")]
+                    mapped = categories_for_placeholder(domain, args.placeholder_type)
+                    categories = mapped or [args.placeholder_type.replace("generic_", "")]
                 min_power = None
                 if args.requirements:
                     mp = args.requirements.get("target_power")
@@ -124,8 +127,8 @@ class Orchestrator:
                 status="blocked",
             )
 
-        # 3) Risk decision
-        decision = decide(task)
+        # 4) Risk decision (allow domain override)
+        decision = decide(task, risk_override=domain_risk_override(domain, task))
         if decision == "blocked":
             return wrap_response(
                 thought=f"Task '{task}' blocked by policy",
@@ -145,7 +148,7 @@ class Orchestrator:
                 status="pending",
             )
 
-        # 4) Apply patch with CAS (auto-approved)
+        # 5) Apply patch with CAS (auto-approved)
         store = ODLStore()
         new_graph, new_version = await store.apply_patch_cas(
             db=db,

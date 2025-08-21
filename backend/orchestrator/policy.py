@@ -10,7 +10,7 @@ In Phase 6 we will extend this with confidence calibration and approvals.
 """
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, Optional
 
 Decision = Literal["auto", "review_required", "blocked"]
 Risk = Literal["low", "medium", "high"]
@@ -30,9 +30,9 @@ TASK_RISK: dict[str, Risk] = {
 }
 
 
-def decide(task: str, confidence: float | None = None) -> Decision:
-    """Return decision for a task based on static risk and optional confidence."""
-    risk = TASK_RISK.get(task, "medium")
+def decide(task: str, confidence: float | None = None, risk_override: Optional[str] = None) -> Decision:
+    """Return decision for a task based on risk (with optional override) and confidence."""
+    risk = (risk_override or TASK_RISK.get(task, "medium"))
     # Simple rule-set; extend later with calibrated confidence + user/org policy:
     if risk == "low":
         return "auto"
