@@ -53,13 +53,15 @@ POST /api/v1/ai/apply
 ```
 
 ## Removed endpoints (not available)
+
 The following endpoints are not part of the current OriginFlow API and are **not provided**:
 
-- `/api/v1/ai/analyze-design` → Use `POST /api/v1/ai/act`
-- `/api/v1/ai/plan` → Build a planner that emits `POST /api/v1/ai/act`
-- `/api/v1/odl/sessions/{session_id}/text` → Use `GET /api/v1/odl/{session_id}/view?layer=...`
 
-> If you need a text serializer for the "ODL Code" pane, add a dedicated
-> `GET /api/v1/odl/{session_id}/text` that uses the graph serializer and return
-> `{ session_id, version, text }`.
+- `/api/v1/ai/analyze-design` – use `GET /api/v1/odl/{sid}/plan` + `POST /api/v1/ai/act`
+- `/api/v1/ai/plan` – use `GET /api/v1/odl/{sid}/plan`
+- `/api/v1/odl/sessions/{sid}/text` – prefer `GET /api/v1/odl/{sid}/view?layer=...`
+
+> If you need a text serializer for the "ODL Code" pane, implement
+> `GET /api/v1/odl/sessions/{sid}/text` using the graph serializer and return
+> `{ "session_id": sid, "version": n, "text": "..." }`.
 

@@ -172,7 +172,6 @@ from backend.api.routes import (
     ai_tools,
     datasheet_parse,
     compatibility,
-    compat_legacy,
     feedback_v2,
     design_knowledge,
     naming_policy,
@@ -230,7 +229,6 @@ app.include_router(links.router, prefix=settings.api_prefix)
 app.include_router(files.router, prefix=settings.api_prefix)
 app.include_router(ai_act.router, prefix=settings.api_prefix)
 app.include_router(ai_apply.router, prefix=settings.api_prefix)  # Intent Firewall
-app.include_router(compat_legacy.router, prefix=settings.api_prefix)
 app.include_router(ai_tools.router, prefix=settings.api_prefix)
 app.include_router(datasheet_parse.router, prefix=settings.api_prefix)
 app.include_router(compatibility.router, prefix=settings.api_prefix)
