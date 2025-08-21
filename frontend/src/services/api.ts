@@ -256,11 +256,12 @@ export const api = {
     const url = sessionId
       ? `${API_BASE_URL}/odl/sessions?session_id=${encodeURIComponent(sessionId)}`
       : `${API_BASE_URL}/odl/sessions`;
-    const res = await fetch(url, { method: 'POST' });
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Create session error ${res.status}: ${text.slice(0, 200)}`);
-    }
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    if (!res.ok) throw new Error(`Create session error ${res.status}: ${await res.text()}`);
     return res.json();
   },
 
