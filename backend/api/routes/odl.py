@@ -142,8 +142,8 @@ async def apply_patch(
 @router.get("/{session_id}/view")
 async def get_view(
     session_id: str,
-    layer: str = Query("single-line"),
     response: Response,
+    layer: str = Query("single-line"),
     db: AsyncSession = Depends(get_session),
 ):
     """Return the current ODL view for a layer.
@@ -239,8 +239,8 @@ async def get_head(session_id: str, db: AsyncSession = Depends(get_session)):
 @router.get("/{session_id}/components", tags=["odl"])
 async def get_odl_components(
     session_id: str,
-    layer: str = Query("single-line"),
     response: Response,
+    layer: str = Query("single-line"),
     db: AsyncSession = Depends(get_session),
 ):
     """
@@ -299,8 +299,8 @@ async def get_odl_components(
 @router.get("/{session_id}/links", tags=["odl"])
 async def get_odl_links(
     session_id: str,
-    layer: str = Query("single-line"),
     response: Response,
+    layer: str = Query("single-line"),
     db: AsyncSession = Depends(get_session),
 ):
     """
