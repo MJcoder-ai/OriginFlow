@@ -13,7 +13,7 @@ Headers:
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Header, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Header, Query, Request, Response
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 import logging
@@ -143,6 +143,7 @@ async def apply_patch(
 async def get_view(
     session_id: str,
     layer: str = Query("single-line"),
+    response: Response,
     db: AsyncSession = Depends(get_session),
 ):
     """Return the current ODL view for a layer.
@@ -156,7 +157,11 @@ async def get_view(
         g = await store.get_graph(db, session_id)
         if not g:
             logger.warning("ODL /view session not found sid=%s layer=%s", session_id, layer_name)
+            response.headers["X-Graph-Version"] = "0"
             return _default_empty_view(session_id, layer_name)
+        
+        # Set version header for optimistic concurrency
+        response.headers["X-Graph-Version"] = str(g.version)
         view = _view_to_dict(layer_view(g, layer_name))
         for n in (view.get("nodes") or []):
             n.setdefault("_render", {})
@@ -175,6 +180,7 @@ async def get_view(
         return view
     except Exception as ex:
         logger.exception("ODL /view failed sid=%s layer=%s: %s", session_id, layer_name, ex)
+        response.headers["X-Graph-Version"] = "0"  # Set fallback version on error
         return _default_empty_view(session_id, layer_name)
 
 
@@ -234,6 +240,7 @@ async def get_head(session_id: str, db: AsyncSession = Depends(get_session)):
 async def get_odl_components(
     session_id: str,
     layer: str = Query("single-line"),
+    response: Response,
     db: AsyncSession = Depends(get_session),
 ):
     """
@@ -247,7 +254,11 @@ async def get_odl_components(
         # If session doesn't exist, return empty array (don't error)
         if not g:
             logger.info("ODL /components bridge: session %s not found, returning empty", session_id)
+            response.headers["X-Graph-Version"] = "0"
             return []
+        
+        # Set version header for optimistic concurrency
+        response.headers["X-Graph-Version"] = str(g.version)
 
         layer_name = (layer or "single-line").strip().lower()
         view = _view_to_dict(layer_view(g, layer_name))
@@ -281,6 +292,7 @@ async def get_odl_components(
     except Exception as ex:
         # Never let exceptions escape - return empty array instead of 500
         logger.exception("ODL /components bridge failed sid=%s: %s", session_id, ex)
+        response.headers["X-Graph-Version"] = "0"  # Set fallback version on error
         return []
 
 
@@ -288,6 +300,7 @@ async def get_odl_components(
 async def get_odl_links(
     session_id: str,
     layer: str = Query("single-line"),
+    response: Response,
     db: AsyncSession = Depends(get_session),
 ):
     """
@@ -301,7 +314,11 @@ async def get_odl_links(
         # If session doesn't exist, return empty array (don't error)
         if not g:
             logger.info("ODL /links bridge: session %s not found, returning empty", session_id)
+            response.headers["X-Graph-Version"] = "0"
             return []
+        
+        # Set version header for optimistic concurrency
+        response.headers["X-Graph-Version"] = str(g.version)
 
         layer_name = (layer or "single-line").strip().lower()
         view = _view_to_dict(layer_view(g, layer_name))
@@ -327,6 +344,7 @@ async def get_odl_links(
     except Exception as ex:
         # Never let exceptions escape - return empty array instead of 500
         logger.exception("ODL /links bridge failed sid=%s: %s", session_id, ex)
+        response.headers["X-Graph-Version"] = "0"  # Set fallback version on error
         return []
 
 

@@ -638,13 +638,19 @@ export const api = {
     },
 
   // Fetch the structured graph view used for rendering the canvas
-  async getGraphView(sessionId: string, layer: string = 'single-line') {
+  async getGraphView(sessionId: string, layer: string = 'single-line'): Promise<{ view: any; version?: number }> {
     layer = canonicalLayer(layer);
     const res = await fetch(
       `${API_BASE_URL}/odl/${encodeURIComponent(sessionId)}/view?layer=${encodeURIComponent(layer)}`
     );
     if (!res.ok) throw new Error(`getGraphView failed: ${res.status}`);
-    return res.json();
+    const view = await res.json();
+    
+    // Extract version from response headers if available
+    const versionHeader = res.headers.get('X-Graph-Version');
+    const version = versionHeader ? parseInt(versionHeader, 10) : undefined;
+    
+    return { view, version };
   },
 
   /** Get debug information for an ODL session */

@@ -44,7 +44,78 @@ async def get_plan_for_session(
 
     delete_re = re.compile(r"\b(delete|remove|clear|erase|wipe|reset)\b")
     panel_re = re.compile(r"\b(solar\s+)?panels?\b")
+    inverter_re = re.compile(r"\b(inverters?|inv)\b")
+    battery_re = re.compile(r"\b(batteries|battery|storage)\b")
     all_re = re.compile(r"\ball\b|everything|canvas|diagram")
+    add_re = re.compile(r"\b(add|create|insert|place)\b")
+
+    # Handle literal add commands (single component type)
+    if add_re.search(lower):
+        layer_name = chosen_layer or "single-line"
+        
+        # Extract quantity if specified
+        quantity_match = re.search(r"\b(\d+)\b", command)
+        count = int(quantity_match.group(1)) if quantity_match else 1
+        
+        if panel_re.search(lower) and not inverter_re.search(lower):
+            tasks = [
+                AiPlanTask(
+                    id="make_placeholders",
+                    title=f"Add {count} solar panel{'s' if count != 1 else ''}",
+                    description=f"Add {count} panel placeholder{'s' if count != 1 else ''} on the {layer_name} layer",
+                    status="pending",
+                    args={"component_type": "panel", "count": count, "layer": layer_name},
+                )
+            ]
+            return AiPlan(
+                tasks=tasks,
+                metadata={
+                    "session_id": session_id,
+                    "parsed": {"layer": layer_name, "component": "panel", "count": count},
+                    "intent": "add_literal",
+                    "raw": command,
+                },
+            )
+        
+        if inverter_re.search(lower) and not panel_re.search(lower):
+            tasks = [
+                AiPlanTask(
+                    id="make_placeholders",
+                    title=f"Add {count} inverter{'s' if count != 1 else ''}",
+                    description=f"Add {count} inverter placeholder{'s' if count != 1 else ''} on the {layer_name} layer",
+                    status="pending",
+                    args={"component_type": "inverter", "count": count, "layer": layer_name},
+                )
+            ]
+            return AiPlan(
+                tasks=tasks,
+                metadata={
+                    "session_id": session_id,
+                    "parsed": {"layer": layer_name, "component": "inverter", "count": count},
+                    "intent": "add_literal",
+                    "raw": command,
+                },
+            )
+        
+        if battery_re.search(lower):
+            tasks = [
+                AiPlanTask(
+                    id="make_placeholders",
+                    title=f"Add {count} battery{'ies' if count != 1 else 'y'}",
+                    description=f"Add {count} battery placeholder{'s' if count != 1 else ''} on the {layer_name} layer",
+                    status="pending",
+                    args={"component_type": "battery", "count": count, "layer": layer_name},
+                )
+            ]
+            return AiPlan(
+                tasks=tasks,
+                metadata={
+                    "session_id": session_id,
+                    "parsed": {"layer": layer_name, "component": "battery", "count": count},
+                    "intent": "add_literal", 
+                    "raw": command,
+                },
+            )
 
     if delete_re.search(lower) and panel_re.search(lower):
         layer_name = chosen_layer or "single-line"

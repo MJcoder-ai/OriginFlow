@@ -178,8 +178,8 @@ interface AppState {
   planTasks: PlanTask[];
   /** Replace the entire plan tasks list. */
   setPlanTasks: (tasks: PlanTask[]) => void;
-  /** Update the status of a single task by id. */
-  updatePlanTaskStatus: (id: string, status: PlanTaskStatus) => void;
+  /** Update the status of a single task by task object or id. */
+  updatePlanTaskStatus: (taskRef: string | PlanTask, status: PlanTaskStatus) => void;
   /** Clear all plan tasks. */
   clearPlanTasks: () => void;
   /** Execute the next pending plan task, if any. */
@@ -280,6 +280,8 @@ interface AppState {
   chatMode: ChatMode;
   /** Flag indicating whether the AI is processing a request. */
   isAiProcessing: boolean;
+  /** Mutex to prevent concurrent task executions */
+  taskExecutionMutex: boolean;
   /** Adds a message to the chat history. */
   addMessage: (message: Message) => void;
   /** Update chat mode. */
@@ -453,7 +455,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       const sessionId = get().sessionId;
       if (!sessionId) return;
       const activeLayer = layer || get().currentLayer;
-      const view = await api.getGraphView(sessionId, activeLayer);
+      const { view, version } = await api.getGraphView(sessionId, activeLayer);
+      
+      // Update graph version from header if available
+      if (typeof version === 'number') {
+        set({ graphVersion: version });
+      }
+      
       const components = (view?.nodes ?? []).map((n: any) => ({
         id: n.id,
         name: n.type || n.id,
@@ -497,11 +505,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   // generates a plan it will replace this array.
   planTasks: [],
   setPlanTasks: (tasks) => set({ planTasks: tasks }),
-  updatePlanTaskStatus: (id, status) =>
+  updatePlanTaskStatus: (taskRef: string | PlanTask, status: PlanTaskStatus) =>
     set((s) => ({
-      planTasks: s.planTasks.map((t) =>
-        t.id === id ? { ...t, status } : t
-      ),
+      planTasks: s.planTasks.map((t, index) => {
+        // If we get a task object, match by reference equality
+        if (typeof taskRef === 'object') {
+          return t === taskRef ? { ...t, status } : t;
+        }
+        // Otherwise use ID matching (legacy fallback)
+        return t.id === taskRef ? { ...t, status } : t;
+      }),
     })),
   clearPlanTasks: () => set({ planTasks: [] }),
 
@@ -513,6 +526,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   async performPlanTask(task) {
+    // Prevent concurrent task executions
+    if (get().taskExecutionMutex) {
+      get().addStatusMessage('Another task is already running', 'warning');
+      return 'blocked' as PlanTaskStatus;
+    }
+    
     const sessionId = (get() as any).sessionId || 'global';
     // Helper to apply a graph patch to local state.
     const applyPatch = (patch: {
@@ -585,13 +604,25 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     const execute = async (retry = false): Promise<PlanTaskStatus> => {
       try {
+        // Get the most recent version before making the request
+        const currentVersion = get().graphVersion;
         const { patch, card, status, version, updated_tasks } = await api.act(
           sessionId,
           task.id,
           task.args,
-          get().graphVersion
+          currentVersion
         );
-        if (typeof version === 'number') set({ graphVersion: version });
+        
+        // Always update version from response to stay in sync
+        if (typeof version === 'number') {
+          const newVersion = version;
+          set({ graphVersion: newVersion });
+          
+          // Detect concurrent modifications
+          if (newVersion > currentVersion + 1) {
+            get().addStatusMessage('Design was modified by another user', 'info');
+          }
+        }
         if (patch) applyPatch(patch);
         if (card) {
           get().addMessage({
@@ -609,7 +640,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           });
         }
         const newStatus = (status as PlanTaskStatus) || 'complete';
-        get().updatePlanTaskStatus(task.id, newStatus);
+        get().updatePlanTaskStatus(task, newStatus);
 
         if (Array.isArray(updated_tasks)) {
           set({
@@ -626,6 +657,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
         return newStatus;
       } catch (err: any) {
+        // Handle version conflicts with automatic retry
         if (!retry && err.status === 409) {
           get().addStatusMessage('The design has changed—refreshing…', 'warning');
           let serverVersion: number | undefined;
@@ -654,22 +686,62 @@ export const useAppStore = create<AppState>((set, get) => ({
             // another conflict when we retry the act call.
             await (get() as any).syncGraphVersion(sessionId);
             await (get() as any).refreshGraphView();
-          } catch (_) {}
+          } catch (refreshErr) {
+            console.error('Failed to refresh after 409 conflict', refreshErr);
+            get().updatePlanTaskStatus(task, 'blocked');
+            get().addStatusMessage('Unable to resolve design conflict', 'error');
+            return 'blocked';
+          }
           return await execute(true);
         }
-        console.error('Failed to perform plan task', err);
-        get().updatePlanTaskStatus(task.id, 'blocked');
-        get().addStatusMessage('Failed to perform task', 'error');
+        
+        // Handle network errors
+        if (err.name === 'TypeError' && err.message?.includes('fetch')) {
+          console.error('Network error during task execution:', err);
+          get().updatePlanTaskStatus(task, 'blocked');
+          get().addStatusMessage('Network error - check connection', 'error');
+          return 'blocked';
+        }
+        
+        // Handle HTTP errors with specific status codes
+        if (err.status) {
+          let userMessage = 'Failed to perform task';
+          switch (err.status) {
+            case 400:
+              userMessage = 'Invalid task parameters';
+              break;
+            case 404:
+              userMessage = 'Session not found - try refreshing';
+              break;
+            case 500:
+              userMessage = 'Server error during task execution';
+              break;
+            case 503:
+              userMessage = 'Service temporarily unavailable';
+              break;
+            default:
+              userMessage = `Server error (${err.status})`;
+          }
+          console.error(`HTTP ${err.status} error during task execution:`, err);
+          get().updatePlanTaskStatus(task, 'blocked');
+          get().addStatusMessage(userMessage, 'error');
+          return 'blocked';
+        }
+        
+        // Handle unknown errors
+        console.error('Unknown error during task execution:', err);
+        get().updatePlanTaskStatus(task, 'blocked');
+        get().addStatusMessage('Unexpected error occurred', 'error');
         return 'blocked';
       }
     };
 
-    get().updatePlanTaskStatus(task.id, 'in_progress');
-    set({ isAiProcessing: true });
+    get().updatePlanTaskStatus(task, 'in_progress');
+    set({ isAiProcessing: true, taskExecutionMutex: true });
     try {
       return await execute(false);
     } finally {
-      set({ isAiProcessing: false });
+      set({ isAiProcessing: false, taskExecutionMutex: false });
     }
   },
   // Requirements sync
@@ -708,6 +780,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   statusMessages: [],
   chatMode: 'default',
   isAiProcessing: false,
+  taskExecutionMutex: false,
   // Cost and performance estimations.  These values are populated when the AI
   // returns rough cost or performance estimates (e.g. via the financial or
   // performance agents).  A value of null indicates that no estimate is
