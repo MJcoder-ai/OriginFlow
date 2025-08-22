@@ -767,12 +767,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   addMessage: (message) => set((state) => ({ messages: [...state.messages, message] })),
   selectComponent: (id) => set({ selectedComponentId: id }),
   async fetchProject() {
+    const sessionId = get().sessionId;
     set({ status: 'loading' });
     get().addStatusMessage('Loading project...', 'info');
     try {
+      // Use ODL bridge endpoints if sessionId is available
       const [components, linksFromApi] = await Promise.all([
-        api.getComponents(),
-        api.getLinks(),
+        api.getComponents(sessionId),
+        api.getLinks(sessionId),
       ]);
       const enrichedComponents = components.map((c) => ({
         ...c,
@@ -784,7 +786,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         ],
       }));
       set({ canvasComponents: enrichedComponents, links: linksFromApi, status: 'ready' });
-      get().addStatusMessage('Project loaded', 'success');
+      get().addStatusMessage(`Project loaded with ${components.length} components`, 'success');
+      console.log(`Loaded ${components.length} components and ${linksFromApi.length} links from ODL`);
     } catch (error) {
       console.error('Failed to load project:', error);
       set({ status: 'Error: Could not load project' });

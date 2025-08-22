@@ -23,11 +23,26 @@ from backend.odl.schemas import ODLGraph, ODLPatch
 from backend.odl.store import ODLStore
 from backend.odl.views import layer_view
 from backend.odl.serializer import view_to_odl
+from backend.odl.layout import ensure_positions
 from backend.utils.adpf import wrap_response
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/odl", tags=["ODL"])
+
+
+def _synthesize_text_from_view(view: dict) -> str:
+    """Lossy but robust fallback text used when serializer fails."""
+    lines = ["# ODL (view fallback)"]
+    for n in (view.get("nodes") or []):
+        nid = n.get("id", "")
+        ntype = n.get("type") or "generic"
+        lines.append(f"node {nid} : {ntype}")
+    for e in (view.get("edges") or []):
+        src = e.get("source", "")
+        tgt = e.get("target", "")
+        lines.append(f"link {src} -> {tgt}")
+    return "\n".join(lines) + "\n"
 
 
 async def _store_from_session(db: AsyncSession) -> ODLStore:
@@ -85,11 +100,26 @@ async def get_view(
     layer: str = Query("single-line"),
     db: AsyncSession = Depends(get_session),
 ):
+    """
+    Proxy to the ODL store's view, but guarantee positions so the canvas can render.
+    """
     store = await _store_from_session(db)
     g = await store.get_graph(db, session_id)
     if not g:
         raise HTTPException(404, "Session not found")
-    view = layer_view(g, layer)
+    layer_name = (layer or "single-line").strip().lower()
+    view = layer_view(g, layer_name)
+    view = ensure_positions(view)
+    # Breadcrumbs: helps validate layer/type quickly
+    logger.info(
+        "ODL /view sid=%s layer=%s nodes=%d edges=%d",
+        session_id, layer_name, len(view.get("nodes") or []), len(view.get("edges") or []),
+    )
+    # Rendering hint: map unknown types to a generic visual shape without mutating stored types
+    for n in (view.get("nodes") or []):
+        n.setdefault("_render", {})
+        if n.get("type") == "generic_panel":
+            n["_render"].setdefault("shape", "panel")  # used only by the client renderer if supported
     return view
 
 
@@ -117,7 +147,13 @@ async def get_odl_text(
         edges = len(view.get("edges") or [])
         logger.info("Serialize ODL text sid=%s layer=%s v=%s nodes=%d edges=%d",
                     session_id, layer_name, version, nodes, edges)
-        text = view_to_odl(view)
+        # Try canonical serializer first
+        try:
+            text = view_to_odl(view)
+        except Exception as ser_ex:
+            # Fallback to robust synthesized text (prevents 500s breaking CORS)
+            logger.warning("ODL serializer failed; using fallback. err=%s", ser_ex)
+            text = _synthesize_text_from_view(view)
         return {"session_id": session_id, "version": version, "text": text}
     except KeyError:
         logger.warning("ODL /text session not found sid=%s layer=%s", session_id, layer_name)
@@ -141,6 +177,153 @@ async def get_head(session_id: str, db: AsyncSession = Depends(get_session)):
     if not g:
         raise HTTPException(404, "Session not found")
     return {"session_id": session_id, "version": g.version}
+
+
+@router.get("/{session_id}/components", tags=["odl"])
+async def get_odl_components(
+    session_id: str,
+    layer: str = Query("single-line"),
+    db: AsyncSession = Depends(get_session),
+):
+    """
+    Bridge endpoint: Convert ODL nodes to component format expected by frontend.
+    This allows the canvas to render ODL data without major frontend changes.
+    """
+    store = await _store_from_session(db)
+    g = await store.get_graph(db, session_id)
+    if not g:
+        raise HTTPException(404, "Session not found")
+
+    layer_name = (layer or "single-line").strip().lower()
+    view = layer_view(g, layer_name)
+    view = ensure_positions(view)
+
+    # Convert ODL nodes to component format
+    components = []
+    for node in (view.get("nodes") or []):
+        # Extract position from the layout helper
+        pos = node.get("pos", {})
+        x = pos.get("x", 0) if isinstance(pos, dict) else 0
+        y = pos.get("y", 0) if isinstance(pos, dict) else 0
+
+        component = {
+            "id": node.get("id", ""),
+            "name": node.get("type", "Unknown"),
+            "type": node.get("type", "generic"),
+            "x": x,
+            "y": y,
+            "layer": layer_name,
+            "attrs": node.get("attrs", {}),
+            "_render": node.get("_render", {}),
+        }
+        components.append(component)
+
+    logger.info(
+        "ODL /components bridge sid=%s layer=%s nodes=%d",
+        session_id, layer_name, len(components),
+    )
+    return components
+
+
+@router.get("/{session_id}/links", tags=["odl"])
+async def get_odl_links(
+    session_id: str,
+    layer: str = Query("single-line"),
+    db: AsyncSession = Depends(get_session),
+):
+    """
+    Bridge endpoint: Convert ODL edges to link format expected by frontend.
+    This allows the canvas to render ODL connections without major frontend changes.
+    """
+    store = await _store_from_session(db)
+    g = await store.get_graph(db, session_id)
+    if not g:
+        raise HTTPException(404, "Session not found")
+
+    layer_name = (layer or "single-line").strip().lower()
+    view = layer_view(g, layer_name)
+
+    # Convert ODL edges to link format
+    links = []
+    for i, edge in enumerate(view.get("edges") or []):
+        link = {
+            "id": f"{edge.get('source', '')}_{edge.get('target', '')}_{i}",
+            "source_id": edge.get("source", ""),
+            "target_id": edge.get("target", ""),
+            "kind": edge.get("kind", "electrical"),
+            "locked_in_layers": {},
+            "path_by_layer": {},
+        }
+        links.append(link)
+
+    logger.info(
+        "ODL /links bridge sid=%s layer=%s edges=%d",
+        session_id, layer_name, len(links),
+    )
+    return links
+
+
+@router.get("/{session_id}/debug", tags=["odl"])
+async def debug_odl_session(
+    session_id: str,
+    layer: str = Query("single-line"),
+    db: AsyncSession = Depends(get_session),
+):
+    """
+    Debug endpoint: Get detailed information about an ODL session for troubleshooting.
+    Returns the full graph, view, and layout information.
+    """
+    store = await _store_from_session(db)
+    g = await store.get_graph(db, session_id)
+    if not g:
+        raise HTTPException(404, "Session not found")
+
+    layer_name = (layer or "single-line").strip().lower()
+    view = layer_view(g, layer_name)
+    view_with_layout = ensure_positions(view)
+
+    debug_info = {
+        "session_id": session_id,
+        "version": g.version,
+        "layer": layer_name,
+        "graph": {
+            "total_nodes": len(g.nodes),
+            "total_edges": len(g.edges),
+            "node_types": list(set(n.type for n in g.nodes.values())),
+            "layers": list(set(
+                n.attrs.get("layer", "default") if n.attrs else "default"
+                for n in g.nodes.values()
+            )),
+        },
+        "view": {
+            "nodes_in_layer": len(view.get("nodes") or []),
+            "edges_in_layer": len(view.get("edges") or []),
+            "nodes_with_positions": sum(
+                1 for n in (view.get("nodes") or [])
+                if n.get("pos") or ("x" in n and "y" in n)
+            ),
+        },
+        "layout": {
+            "nodes_positioned": len(view_with_layout.get("nodes") or []),
+            "sample_positions": [
+                {
+                    "id": n.get("id"),
+                    "type": n.get("type"),
+                    "pos": n.get("pos")
+                }
+                for n in (view_with_layout.get("nodes") or [])[:3]  # First 3 nodes
+            ],
+        },
+        "text_synthesis": {
+            "fallback_text": _synthesize_text_from_view(view),
+        }
+    }
+
+    logger.info(
+        "ODL debug sid=%s layer=%s graph_nodes=%d view_nodes=%d",
+        session_id, layer_name, len(g.nodes), len(view.get("nodes") or []),
+    )
+    return debug_info
 
 
 @router.get("/{session_id}/view_delta")

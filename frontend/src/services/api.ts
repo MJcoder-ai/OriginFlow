@@ -160,13 +160,39 @@ function fallbackPlanFromPrompt(command: string, layer: string = 'single-line'):
 }
 
 export const api = {
-  async getComponents(): Promise<CanvasComponent[]> {
+  async getComponents(sessionId?: string): Promise<CanvasComponent[]> {
+    // Use ODL bridge endpoints if sessionId is provided, fallback to legacy for compatibility
+    if (sessionId) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/odl/${encodeURIComponent(sessionId)}/components?layer=single-line`);
+        if (response.ok) {
+          return response.json();
+        }
+      } catch (error) {
+        console.warn('ODL components endpoint failed, falling back to legacy:', error);
+      }
+    }
+
+    // Fallback to legacy components endpoint
     const response = await fetch(`${API_BASE_URL}/components/`);
     if (!response.ok) throw new Error('Failed to fetch components');
     return response.json();
   },
 
-  async getLinks(): Promise<Link[]> {
+  async getLinks(sessionId?: string): Promise<Link[]> {
+    // Use ODL bridge endpoints if sessionId is provided, fallback to legacy for compatibility
+    if (sessionId) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/odl/${encodeURIComponent(sessionId)}/links?layer=single-line`);
+        if (response.ok) {
+          return response.json();
+        }
+      } catch (error) {
+        console.warn('ODL links endpoint failed, falling back to legacy:', error);
+      }
+    }
+
+    // Fallback to legacy links endpoint
     const response = await fetch(`${API_BASE_URL}/links/`);
     if (!response.ok) throw new Error('Failed to fetch links');
     return response.json();
@@ -588,6 +614,15 @@ export const api = {
         return { version: 0 };
       }
     },
+
+  /** Get debug information for an ODL session */
+  async debugOdlSession(sessionId: string, layer: string = 'single-line') {
+    const response = await fetch(
+      `${API_BASE_URL}/odl/${encodeURIComponent(sessionId)}/debug?layer=${encodeURIComponent(layer)}`
+    );
+    if (!response.ok) throw new Error('Failed to get ODL debug info');
+    return response.json();
+  },
 
   /** Select component to replace placeholder */
   async selectComponent(sessionId: string, placeholderId: string, component: any): Promise<{
