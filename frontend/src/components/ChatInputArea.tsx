@@ -11,6 +11,8 @@ const ChatInputArea = () => {
   const setInput = useAppStore((s) => s.setChatDraft);
   const analyzeAndExecute = useAppStore((s) => s.analyzeAndExecute);
   const clearChatDraft = useAppStore((s) => s.clearChatDraft);
+  const planTasks = useAppStore((s) => s.planTasks);
+  const runNextPlanTask = useAppStore((s) => s.runNextPlanTask);
   const voiceMode = useAppStore((s) => s.voiceMode);
   const startListening = useAppStore((s) => s.startListening);
   const stopListening = useAppStore((s) => s.stopListening);
@@ -27,7 +29,12 @@ const ChatInputArea = () => {
 
   const handleSend = async () => {
     const trimmed = input.trim();
-    if (!trimmed) return;
+    if (!trimmed) {
+      const pending = planTasks.find((t) => t.status === 'pending');
+      if (pending) await runNextPlanTask();
+      clearChatDraft();
+      return;
+    }
     const normalized = trimmed.toLowerCase();
     if (
       activeDatasheet &&

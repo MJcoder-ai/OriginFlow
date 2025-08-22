@@ -71,10 +71,10 @@ export const ODLCodeView: React.FC<ODLCodeViewProps> = ({ sessionId }) => {
   // Auto-refresh every 5 seconds when enabled
   useEffect(() => {
     if (!autoRefresh) return;
-    
-    const interval = setInterval(fetchODLText, 5000);
-    return () => clearInterval(interval);
-  }, [autoRefresh, fetchODLText]);
+
+    const id = setInterval(fetchODLText, 5000);
+    return () => clearInterval(id);
+  }, [autoRefresh, fetchODLText, sessionId]);
 
   const handleRefresh = () => {
     fetchODLText();
