@@ -12,9 +12,9 @@ from pydantic import BaseModel, Field
 from backend.odl.schemas import ODLPatch, ODLNode
 from backend.tools.schemas import (
     GenerateWiringInput, GenerateMountsInput, AddMonitoringInput,
-    MakePlaceholdersInput,
+    MakePlaceholdersInput, DeleteNodesInput,
 )
-from backend.tools import wiring, structural, monitoring, placeholders
+from backend.tools import wiring, structural, monitoring, placeholders, deletion
 from backend.tools.replacement import apply_replacements, ReplaceInput, ReplacementItem
 
 
@@ -26,6 +26,7 @@ class ActArgs(BaseModel):
     device_type: str | None = None
     placeholder_type: str | None = None
     component_type: str | None = None
+    component_types: list[str] | None = None
     count: int | None = None
     attrs: dict[str, object] | None = None
     # Replacement-specific extras
@@ -87,6 +88,16 @@ def run_task(
             attrs=args.attrs or {"layer": args.layer},
         )
         return placeholders.make_placeholders(inp)
+
+    if task == "delete_nodes":
+        ctypes = args.component_types or []
+        inp = DeleteNodesInput(
+            session_id=session_id,
+            request_id=request_id,
+            view_nodes=layer_nodes,
+            component_types=ctypes,
+        )
+        return deletion.delete_nodes(inp)
 
     # Replacement patch is constructed by orchestrator (after choosing candidates)
     if task == "replace_placeholders":

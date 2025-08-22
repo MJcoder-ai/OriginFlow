@@ -98,6 +98,8 @@ export interface PlanTask {
   description?: string;
   /** Current execution status. */
   status: PlanTaskStatus;
+  /** Arguments required to execute this task. */
+  args?: Record<string, any>;
 }
 
 /**
@@ -177,6 +179,8 @@ interface AppState {
   updatePlanTaskStatus: (id: string, status: PlanTaskStatus) => void;
   /** Clear all plan tasks. */
   clearPlanTasks: () => void;
+  /** Execute the next pending plan task, if any. */
+  runNextPlanTask: () => Promise<void>;
 
   /** Unique design session identifier (default persists across reloads). */
   sessionId: string;
@@ -184,6 +188,8 @@ interface AppState {
 
   /** Monotonic graph version for optimistic concurrency. */
   graphVersion: number;
+  /** Latest structured ODL view for the active layer. */
+  graphView: any | null;
   setGraphVersion: (version: number) => void;
   /**
    * Synchronise the local graph version with the server.
@@ -192,6 +198,12 @@ interface AppState {
    * this after retrieving a plan to avoid initial 409 version conflicts.
    */
   syncGraphVersion: (sessionId: string) => Promise<void>;
+
+  /** Refresh the renderable graph view and update canvas components. */
+  refreshGraphView: (layer?: string) => Promise<void>;
+
+  /** Reset the current ODL session to an empty graph (dev helper). */
+  resetOdlSession: () => Promise<void>;
 
   /**
    * Execute a plan task via the backend.  Sends the task to the
@@ -410,6 +422,7 @@ export const useAppStore = create<AppState>((set, get) => ({
    * from the store rather than hard-coding 0.
    */
   graphVersion: 0,
+  graphView: null,
   setGraphVersion: (version: number) => set({ graphVersion: version }),
   /**
    * Synchronise the local graph version with the server.
@@ -426,8 +439,55 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (!sessionId) return;
       const { version } = await api.getOdlText(sessionId, get().currentLayer);
       if (typeof version === 'number') set({ graphVersion: version });
+      await (get() as any).refreshGraphView();
     } catch (e) {
       console.warn('Failed to sync graph version', e);
+    }
+  },
+
+  async refreshGraphView(layer?: string) {
+    try {
+      const sessionId = get().sessionId;
+      if (!sessionId) return;
+      const activeLayer = layer || get().currentLayer;
+      const view = await api.getGraphView(sessionId, activeLayer);
+      const components = (view?.nodes ?? []).map((n: any) => ({
+        id: n.id,
+        name: n.type || n.id,
+        type: n.type || 'generic',
+        x:
+          n.position?.x ??
+          n.pos?.x ??
+          Number(n.attrs?.x ?? 0),
+        y:
+          n.position?.y ??
+          n.pos?.y ??
+          Number(n.attrs?.y ?? 0),
+        layer: activeLayer,
+        ports: [
+          { id: 'input', type: 'in' },
+          { id: 'output', type: 'out' },
+        ],
+      }));
+      const links = (view?.edges ?? []).map((e: any, idx: number) => ({
+        id: `${e.source}_${e.target}_${idx}`,
+        source_id: e.source,
+        target_id: e.target,
+      }));
+      set({ graphView: view, canvasComponents: components, links });
+    } catch (e) {
+      console.warn('refreshGraphView failed', e);
+    }
+  },
+
+  async resetOdlSession() {
+    try {
+      const sessionId = get().sessionId;
+      if (!sessionId) return;
+      await api.resetSession(sessionId);
+      await (get() as any).syncGraphVersion(sessionId);
+    } catch (e) {
+      console.warn('resetOdlSession failed', e);
     }
   },
   // High‑level plan defaults to empty.  When the orchestrator
@@ -441,6 +501,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       ),
     })),
   clearPlanTasks: () => set({ planTasks: [] }),
+
+  async runNextPlanTask() {
+    const next = get().planTasks.find((t) => t.status === 'pending');
+    if (next) {
+      await get().performPlanTask(next);
+    }
+  },
 
   async performPlanTask(task) {
     const sessionId = (get() as any).sessionId || 'global';
@@ -515,10 +582,10 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     const execute = async (retry = false): Promise<PlanTaskStatus> => {
       try {
-        const { patch, card, status, version } = await api.act(
+        const { patch, card, status, version, updated_tasks } = await api.act(
           sessionId,
           task.id,
-          undefined,
+          task.args,
           get().graphVersion
         );
         if (typeof version === 'number') set({ graphVersion: version });
@@ -541,27 +608,18 @@ export const useAppStore = create<AppState>((set, get) => ({
         const newStatus = (status as PlanTaskStatus) || 'complete';
         get().updatePlanTaskStatus(task.id, newStatus);
 
-        // After completing a task, refresh the plan from the server to ensure the UI
-        // reflects the latest list of tasks.  This prevents stale or duplicate tasks
-        // from persisting in the timeline when the backend updates the plan.
-        try {
-          const refreshedPlan = await api.getPlanForSession(
-            sessionId,
-            get().lastPrompt || 'design',
-            get().currentLayer
-          );
-          if (
-            (refreshedPlan as any).tasks &&
-            Array.isArray((refreshedPlan as any).tasks)
-          ) {
-            set({ planTasks: (refreshedPlan as any).tasks as any });
-          }
-          // After refreshing the plan, synchronise the graph version so that
-          // subsequent act requests carry the correct version number.
-          await (get() as any).syncGraphVersion(sessionId);
-        } catch (e) {
-          console.warn('Failed to refresh plan after act', e);
+        if (Array.isArray(updated_tasks)) {
+          set({
+            planTasks: updated_tasks.map((t: any) => ({
+              id: t.id,
+              title: t.title,
+              description: t.reason || t.description,
+              status: t.status,
+              args: (t as any).args,
+            })),
+          });
         }
+        await (get() as any).refreshGraphView();
 
         return newStatus;
       } catch (err: any) {
@@ -580,10 +638,19 @@ export const useAppStore = create<AppState>((set, get) => ({
               get().currentLayer
             );
             if ((plan as any).tasks && Array.isArray((plan as any).tasks))
-              set({ planTasks: (plan as any).tasks as any });
+              set({
+                planTasks: (plan as any).tasks.map((t: any) => ({
+                  id: t.id,
+                  title: t.title,
+                  description: t.description,
+                  status: t.status ?? 'pending',
+                  args: (t as any).args,
+                })),
+              });
             // After refetching the plan, sync the graph version to avoid
             // another conflict when we retry the act call.
             await (get() as any).syncGraphVersion(sessionId);
+            await (get() as any).refreshGraphView();
           } catch (_) {}
           return await execute(true);
         }
@@ -621,6 +688,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
         // Synchronise graph version after fetching the plan so the next act call uses the correct version.
         await (get() as any).syncGraphVersion(sessionId);
+        await (get() as any).refreshGraphView();
       }
     } catch (e) {
       console.error('Failed to update requirements', e);
@@ -1028,6 +1096,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     addMessage({ id: crypto.randomUUID(), author: 'User', text: command });
     setIsAiProcessing(true);
     get().addStatusMessage('Processing command', 'info');
+    // Clear any existing plan so stale tasks aren't shown while fetching new ones
+    setPlanTasks([]);
 
     try {
       const sessionId = (get() as any).sessionId || 'global';
@@ -1047,18 +1117,17 @@ export const useAppStore = create<AppState>((set, get) => ({
       // Sync the graph version so the first act call uses the current version
       await (get() as any).syncGraphVersion(get().sessionId);
       if (plan.tasks && Array.isArray(plan.tasks)) {
-        // Merge new tasks with existing ones, preserving their statuses
-        const existingTasks = get().planTasks;
-        const merged: PlanTask[] = plan.tasks.map((t: any) => {
-          const existing = existingTasks.find((et) => et.id === t.id);
-          return {
-            id: t.id,
-            title: t.title,
-            description: t.description,
-            status: existing ? existing.status : ((t.status ?? 'pending') as any),
-          };
-        });
-        setPlanTasks(merged);
+        setPlanTasks(
+          plan.tasks.map(
+            (t: any) => ({
+              id: t.id,
+              title: t.title,
+              description: t.description,
+              status: (t.status ?? 'pending') as any,
+              args: (t as any).args,
+            })
+          )
+        );
       }
       if (plan.quick_actions && Array.isArray(plan.quick_actions)) {
         setQuickActions(
@@ -1068,18 +1137,6 @@ export const useAppStore = create<AppState>((set, get) => ({
             command: qa.command,
           }))
         );
-      }
-      // Execute each plan task automatically via act endpoint
-      if (plan.tasks && Array.isArray(plan.tasks)) {
-        for (const t of plan.tasks) {
-          const status = await get().performPlanTask({
-            id: t.id,
-            title: t.title,
-            description: t.description,
-            status: (t.status ?? 'pending') as any,
-          } as any);
-          if (status === 'blocked') break;
-        }
       }
     } catch (err) {
       console.error('Failed to process command', err);

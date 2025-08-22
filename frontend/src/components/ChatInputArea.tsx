@@ -11,6 +11,8 @@ const ChatInputArea = () => {
   const setInput = useAppStore((s) => s.setChatDraft);
   const analyzeAndExecute = useAppStore((s) => s.analyzeAndExecute);
   const clearChatDraft = useAppStore((s) => s.clearChatDraft);
+  const planTasks = useAppStore((s) => s.planTasks);
+  const runNextPlanTask = useAppStore((s) => s.runNextPlanTask);
   const voiceMode = useAppStore((s) => s.voiceMode);
   const startListening = useAppStore((s) => s.startListening);
   const stopListening = useAppStore((s) => s.stopListening);
@@ -20,13 +22,19 @@ const ChatInputArea = () => {
   const setActiveDatasheet = useAppStore((s) => s.setActiveDatasheet);
   const addStatusMessage = useAppStore((s) => s.addStatusMessage);
   const setDatasheetDirty = useAppStore((s) => s.setDatasheetDirty);
+  const resetOdlSession = useAppStore((s) => s.resetOdlSession);
 
   const isListening = voiceMode === 'listening';
   const isSpeaking = voiceMode === 'speaking';
 
   const handleSend = async () => {
     const trimmed = input.trim();
-    if (!trimmed) return;
+    if (!trimmed) {
+      const pending = planTasks.find((t) => t.status === 'pending');
+      if (pending) await runNextPlanTask();
+      clearChatDraft();
+      return;
+    }
     const normalized = trimmed.toLowerCase();
     if (
       activeDatasheet &&
@@ -110,6 +118,15 @@ const ChatInputArea = () => {
           >
             <Send className="h-5 w-5" />
           </button>
+          {import.meta.env.DEV && (
+            <button
+              onClick={() => void resetOdlSession()}
+              className="p-2 bg-gray-100 rounded-md"
+              title="Reset session"
+            >
+              Reset
+            </button>
+          )}
         </div>
       </div>
     </div>

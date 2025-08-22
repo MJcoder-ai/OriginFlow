@@ -11,6 +11,7 @@ from natural language (e.g., "design a 5kW ...") and emits typed tasks.
 """
 from fastapi import APIRouter, Query, Path, Depends
 from typing import Dict, List, Optional
+import re
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -38,13 +39,62 @@ async def get_plan_for_session(
     - This endpoint is safe to call even if the session is empty; tools will
       validate preconditions when executed.
     """
-    plan = parse_design_command(command)
-    # Allow client to override the target layer to match the active canvas tab
-    if layer in {"single-line", "electrical"}:
-        plan.layer = layer
+    lower = command.lower()
+    chosen_layer = layer if layer in {"single-line", "electrical"} else None
 
-    # Enforce consistent args for vNext tools.
-    # Emit two placeholder tasks (inverter, panels) followed by wiring.
+    delete_re = re.compile(r"\b(delete|remove|clear|erase|wipe|reset)\b")
+    panel_re = re.compile(r"\b(solar\s+)?panels?\b")
+    all_re = re.compile(r"\ball\b|everything|canvas|diagram")
+
+    if delete_re.search(lower) and panel_re.search(lower):
+        layer_name = chosen_layer or "single-line"
+        tasks = [
+            AiPlanTask(
+                id="delete_nodes",
+                title="Delete all panels",
+                description=f"Remove all panel placeholders on the {layer_name} layer",
+                status="pending",
+                args={
+                    "component_types": ["panel", "pv_module", "solar_panel", "generic_panel"],
+                    "layer": layer_name,
+                },
+            )
+        ]
+        return AiPlan(
+            tasks=tasks,
+            metadata={
+                "session_id": session_id,
+                "parsed": {"layer": layer_name},
+                "intent": "delete_panels",
+                "raw": command,
+            },
+        )
+
+    if delete_re.search(lower) and (all_re.search(lower) or lower.strip() in {"delete", "reset", "clear"}):
+        layer_name = chosen_layer or "single-line"
+        tasks = [
+            AiPlanTask(
+                id="delete_nodes",
+                title="Clear canvas",
+                description=f"Remove all nodes on the {layer_name} layer",
+                status="pending",
+                args={"component_types": ["*"], "layer": layer_name},
+            )
+        ]
+        return AiPlan(
+            tasks=tasks,
+            metadata={
+                "session_id": session_id,
+                "parsed": {"layer": layer_name},
+                "intent": "clear_canvas",
+                "raw": command,
+            },
+        )
+
+    plan = parse_design_command(command)
+    if chosen_layer:
+        plan.layer = chosen_layer
+
     tasks: List[AiPlanTask] = [
         AiPlanTask(
             id="make_placeholders",

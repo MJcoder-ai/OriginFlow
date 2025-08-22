@@ -14,7 +14,7 @@ _BUILTIN = {
     "PV": {
         "tools_enabled": [
             "generate_wiring", "generate_mounts", "add_monitoring",
-            "make_placeholders", "replace_placeholders"
+            "make_placeholders", "delete_nodes", "replace_placeholders"
         ],
         "placeholder_mappings": {
             "generic_panel": ["panel", "pv_module", "solar_panel"],

@@ -38,7 +38,7 @@ const ChatSidebar: React.FC = () => {
         const current = planTasks.find((t) => t.status === 'pending');
         if (!current) return;
         addStatusMessage(`Running ${current.title}…`, 'info');
-        const res = await api.act(sessionId, current.id, undefined, graphVersion);
+        const res = await api.act(sessionId, current.id, (current as any).args, graphVersion);
         if (cancelled) return;
         if (typeof res.version === 'number') setGraphVersion(res.version);
         if (res.card) {
@@ -52,17 +52,29 @@ const ChatSidebar: React.FC = () => {
         }
         // Update tasks if provided by backend
         if (Array.isArray(res.updated_tasks)) {
-          setPlanTasks(res.updated_tasks.map((t: any) => ({
-            id: t.id,
-            title: t.title,
-            description: t.reason || t.description,
-            status: t.status,
-          })));
+          setPlanTasks(
+            res.updated_tasks.map((t: any) => ({
+              id: t.id,
+              title: t.title,
+              description: t.reason || t.description,
+              status: t.status,
+              args: (t as any).args,
+            }))
+          );
         } else {
           // Fallback: refresh plan
           try {
             const plan = await api.getPlanForSession(sessionId, 'design system', currentLayer);
-            if (Array.isArray(plan.tasks)) setPlanTasks(plan.tasks as any);
+            if (Array.isArray(plan.tasks))
+              setPlanTasks(
+                (plan.tasks as any).map((t: any) => ({
+                  id: t.id,
+                  title: t.title,
+                  description: t.description,
+                  status: t.status ?? 'pending',
+                  args: (t as any).args,
+                }))
+              );
           } catch {}
         }
         // Continue only if not blocked and next task meets confidence

@@ -17,9 +17,11 @@ from fastapi import APIRouter, Depends, HTTPException, Header, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 import logging
+import uuid
+from typing import Any, Mapping
 
 from backend.database.session import get_session
-from backend.odl.schemas import ODLGraph, ODLPatch
+from backend.odl.schemas import ODLGraph, ODLPatch, PatchOp
 from backend.odl.store import ODLStore
 from backend.odl.views import layer_view
 from backend.odl.serializer import view_to_odl
@@ -31,9 +33,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/odl", tags=["ODL"])
 
 
-def _synthesize_text_from_view(view: dict) -> str:
+def _fallback_text(view: dict) -> str:
     """Lossy but robust fallback text used when serializer fails."""
-    lines = ["# ODL (view fallback)"]
+    lines = ["# ODL (fallback)"]
     for n in (view.get("nodes") or []):
         nid = n.get("id", "")
         ntype = n.get("type") or "generic"
@@ -43,6 +45,37 @@ def _synthesize_text_from_view(view: dict) -> str:
         tgt = e.get("target", "")
         lines.append(f"link {src} -> {tgt}")
     return "\n".join(lines) + "\n"
+
+
+def _view_to_dict(view: Any) -> dict:
+    """Return a plain dict from a LayerView or dict-like object."""
+    if view is None:
+        return {}
+    if hasattr(view, "model_dump"):
+        return view.model_dump()
+    if isinstance(view, Mapping):
+        return dict(view)
+    return {}
+
+
+def _synthesize_text_from_view(view: Any) -> str:
+    """Render ODL text from a view, falling back to a minimal placeholder."""
+    view_dict = _view_to_dict(view)
+    try:
+        return view_to_odl(view_dict)
+    except Exception as ser_ex:
+        logger.warning("ODL serializer failed; using fallback. err=%s", ser_ex)
+        return _fallback_text(view_dict)
+
+
+def _default_empty_view(session_id: str, layer: str) -> dict:
+    return {
+        "session_id": session_id,
+        "base_version": 0,
+        "layer": layer,
+        "nodes": [],
+        "edges": [],
+    }
 
 
 async def _store_from_session(db: AsyncSession) -> ODLStore:
@@ -58,6 +91,18 @@ async def create_session(session_id: str, db: AsyncSession = Depends(get_session
     if existing:
         return existing
     return await store.create_graph(db, session_id)
+
+
+@router.post("/sessions/{session_id}/reset")
+async def reset_session(session_id: str, db: AsyncSession = Depends(get_session)):
+    store = await _store_from_session(db)
+    g = await store.get_graph(db, session_id)
+    if not g:
+        raise HTTPException(404, "Session not found")
+    ops = [PatchOp(op_id=f"reset:{nid}", op="remove_node", value={"id": nid}) for nid in list(g.nodes.keys())]
+    patch = ODLPatch(patch_id=f"reset:{uuid.uuid4()}", operations=ops)
+    new_graph, new_version = await store.apply_patch_cas(db, session_id, expected_version=g.version, patch=patch)
+    return {"session_id": session_id, "version": new_version}
 
 
 @router.get("/{session_id}", response_model=ODLGraph)
@@ -100,27 +145,37 @@ async def get_view(
     layer: str = Query("single-line"),
     db: AsyncSession = Depends(get_session),
 ):
+    """Return the current ODL view for a layer.
+
+    Always injects positions and falls back to an empty view on any error so the
+    canvas can render without hitting a 500.
     """
-    Proxy to the ODL store's view, but guarantee positions so the canvas can render.
-    """
-    store = await _store_from_session(db)
-    g = await store.get_graph(db, session_id)
-    if not g:
-        raise HTTPException(404, "Session not found")
     layer_name = (layer or "single-line").strip().lower()
-    view = layer_view(g, layer_name)
-    view = ensure_positions(view)
-    # Breadcrumbs: helps validate layer/type quickly
-    logger.info(
-        "ODL /view sid=%s layer=%s nodes=%d edges=%d",
-        session_id, layer_name, len(view.get("nodes") or []), len(view.get("edges") or []),
-    )
-    # Rendering hint: map unknown types to a generic visual shape without mutating stored types
-    for n in (view.get("nodes") or []):
-        n.setdefault("_render", {})
-        if n.get("type") == "generic_panel":
-            n["_render"].setdefault("shape", "panel")  # used only by the client renderer if supported
-    return view
+    try:
+        store = await _store_from_session(db)
+        g = await store.get_graph(db, session_id)
+        if not g:
+            logger.warning("ODL /view session not found sid=%s layer=%s", session_id, layer_name)
+            return _default_empty_view(session_id, layer_name)
+        view = _view_to_dict(layer_view(g, layer_name))
+        for n in (view.get("nodes") or []):
+            n.setdefault("_render", {})
+            n.setdefault("attrs", {})
+            n["attrs"].setdefault("layer", layer_name)
+        view = ensure_positions(view)
+        for n in (view.get("nodes") or []):
+            if "position" not in n and "pos" in n:
+                n["position"] = n["pos"]
+            if "pos" not in n and "position" in n:
+                n["pos"] = n["position"]
+        logger.info(
+            "ODL /view sid=%s layer=%s nodes=%d edges=%d",
+            session_id, layer_name, len(view.get("nodes") or []), len(view.get("edges") or []),
+        )
+        return view
+    except Exception as ex:
+        logger.exception("ODL /view failed sid=%s layer=%s: %s", session_id, layer_name, ex)
+        return _default_empty_view(session_id, layer_name)
 
 
 @router.get("/sessions/{session_id}/text")
@@ -140,31 +195,27 @@ async def get_odl_text(
         if not g:
             logger.warning("ODL /text session not found sid=%s layer=%s", session_id, layer_name)
             raise HTTPException(status_code=404, detail="Session not found")
-        view = layer_view(g, layer_name)
+        view = _view_to_dict(layer_view(g, layer_name))
         # version may appear as base_version or version depending on store impl
         version = int(view.get("base_version") or view.get("version") or g.version)
         nodes = len(view.get("nodes") or [])
         edges = len(view.get("edges") or [])
-        logger.info("Serialize ODL text sid=%s layer=%s v=%s nodes=%d edges=%d",
-                    session_id, layer_name, version, nodes, edges)
-        # Try canonical serializer first
+        logger.info(
+            "Serialize ODL text sid=%s layer=%s v=%s nodes=%d edges=%d",
+            session_id, layer_name, version, nodes, edges,
+        )
         try:
             text = view_to_odl(view)
         except Exception as ser_ex:
-            # Fallback to robust synthesized text (prevents 500s breaking CORS)
             logger.warning("ODL serializer failed; using fallback. err=%s", ser_ex)
-            text = _synthesize_text_from_view(view)
+            text = _fallback_text(view)
         return {"session_id": session_id, "version": version, "text": text}
     except KeyError:
         logger.warning("ODL /text session not found sid=%s layer=%s", session_id, layer_name)
         raise HTTPException(status_code=404, detail="Session not found")
     except Exception as ex:
-        # Never let exceptions escape – Uvicorn would emit a 500 without CORS headers.
         logger.exception("ODL /text failed sid=%s layer=%s: %s", session_id, layer_name, ex)
-        return JSONResponse(status_code=500, content={
-            "error_code": "ODL_TEXT_FAILED",
-            "message": "Failed to render ODL text",
-        })
+        return {"session_id": session_id, "version": 0, "text": "# ODL (empty)\n"}
 
 
 @router.get("/{session_id}/head")
@@ -199,7 +250,7 @@ async def get_odl_components(
             return []
 
         layer_name = (layer or "single-line").strip().lower()
-        view = layer_view(g, layer_name)
+        view = _view_to_dict(layer_view(g, layer_name))
         view = ensure_positions(view)
 
         # Convert ODL nodes to component format
@@ -253,7 +304,7 @@ async def get_odl_links(
             return []
 
         layer_name = (layer or "single-line").strip().lower()
-        view = layer_view(g, layer_name)
+        view = _view_to_dict(layer_view(g, layer_name))
 
         # Convert ODL edges to link format
         links = []
@@ -306,7 +357,7 @@ async def debug_odl_session(
             }
 
         layer_name = (layer or "single-line").strip().lower()
-        view = layer_view(g, layer_name)
+        view = _view_to_dict(layer_view(g, layer_name))
         view_with_layout = ensure_positions(view)
 
         debug_info = {
@@ -382,7 +433,7 @@ async def get_view_delta(
         raise HTTPException(404, "Session not found")
     if g.version <= since:
         return {"changed": False, "version": g.version}
-    view = layer_view(g, layer)
+    view = _view_to_dict(layer_view(g, layer))
     return {"changed": True, "version": g.version, "view": view}
 
 # IMPORTANT: Register this router in your API aggregator or FastAPI app:
