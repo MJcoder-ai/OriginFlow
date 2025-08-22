@@ -481,9 +481,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         ],
       }));
       const links = (view?.edges ?? []).map((e: any, idx: number) => ({
-        id: `${e.source}_${e.target}_${idx}`,
-        source_id: e.source,
-        target_id: e.target,
+        id: `${e.source_id}_${e.target_id}_${idx}`,
+        source_id: e.source_id,
+        target_id: e.target_id,
       }));
       set({ graphView: view, canvasComponents: components, links });
     } catch (e) {
