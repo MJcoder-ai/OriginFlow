@@ -177,6 +177,8 @@ interface AppState {
   updatePlanTaskStatus: (id: string, status: PlanTaskStatus) => void;
   /** Clear all plan tasks. */
   clearPlanTasks: () => void;
+  /** Execute the next pending plan task, if any. */
+  runNextPlanTask: () => Promise<void>;
 
   /** Unique design session identifier (default persists across reloads). */
   sessionId: string;
@@ -497,6 +499,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       ),
     })),
   clearPlanTasks: () => set({ planTasks: [] }),
+
+  async runNextPlanTask() {
+    const next = get().planTasks.find((t) => t.status === 'pending');
+    if (next) {
+      await get().performPlanTask(next);
+    }
+  },
 
   async performPlanTask(task) {
     const sessionId = (get() as any).sessionId || 'global';
@@ -1127,18 +1136,6 @@ export const useAppStore = create<AppState>((set, get) => ({
             command: qa.command,
           }))
         );
-      }
-      // Execute each plan task automatically via act endpoint
-      if (plan.tasks && Array.isArray(plan.tasks)) {
-        for (const t of plan.tasks) {
-          const status = await get().performPlanTask({
-            id: t.id,
-            title: t.title,
-            description: t.description,
-            status: (t.status ?? 'pending') as any,
-          } as any);
-          if (status === 'blocked') break;
-        }
       }
     } catch (err) {
       console.error('Failed to process command', err);

@@ -11,6 +11,7 @@ from natural language (e.g., "design a 5kW ...") and emits typed tasks.
 """
 from fastapi import APIRouter, Query, Path, Depends
 from typing import Dict, List, Optional
+import re
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -40,7 +41,12 @@ async def get_plan_for_session(
     """
     lower = command.lower()
     chosen_layer = layer if layer in {"single-line", "electrical"} else None
-    if any(w in lower for w in ["delete", "remove", "clear"]) and "panel" in lower:
+
+    delete_re = re.compile(r"\b(delete|remove|clear|erase|wipe|reset)\b")
+    panel_re = re.compile(r"\b(solar\s+)?panels?\b")
+    all_re = re.compile(r"\ball\b|everything|canvas|diagram")
+
+    if delete_re.search(lower) and panel_re.search(lower):
         layer_name = chosen_layer or "single-line"
         tasks = [
             AiPlanTask(
@@ -60,6 +66,27 @@ async def get_plan_for_session(
                 "session_id": session_id,
                 "parsed": {"layer": layer_name},
                 "intent": "delete_panels",
+                "raw": command,
+            },
+        )
+
+    if delete_re.search(lower) and (all_re.search(lower) or lower.strip() in {"delete", "reset", "clear"}):
+        layer_name = chosen_layer or "single-line"
+        tasks = [
+            AiPlanTask(
+                id="delete_nodes",
+                title="Clear canvas",
+                description=f"Remove all nodes on the {layer_name} layer",
+                status="pending",
+                args={"component_types": ["*"], "layer": layer_name},
+            )
+        ]
+        return AiPlan(
+            tasks=tasks,
+            metadata={
+                "session_id": session_id,
+                "parsed": {"layer": layer_name},
+                "intent": "clear_canvas",
                 "raw": command,
             },
         )
