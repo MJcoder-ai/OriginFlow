@@ -150,6 +150,11 @@ async def get_view(
             n.setdefault("attrs", {})
             n["attrs"].setdefault("layer", layer_name)
         view = ensure_positions(view)
+        for n in (view.get("nodes") or []):
+            if "position" not in n and "pos" in n:
+                n["position"] = n["pos"]
+            if "pos" not in n and "position" in n:
+                n["pos"] = n["position"]
         logger.info(
             "ODL /view sid=%s layer=%s nodes=%d edges=%d",
             session_id, layer_name, len(view.get("nodes") or []), len(view.get("edges") or []),

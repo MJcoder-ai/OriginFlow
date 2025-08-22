@@ -169,17 +169,18 @@ const Workspace: React.FC = () => {
     addComponent,
     updateComponentPosition,
     addLink,
-    fetchProject,
+    refreshGraphView,
     selectedComponentId,
     deleteComponent,
     currentLayer,
     sessionId, // Use the main sessionId for ODL view
+    graphVersion,
     canvasComponents,
     links,
   } = useAppStore();
   useEffect(() => {
-    fetchProject();
-  }, [fetchProject]);
+    refreshGraphView();
+  }, [refreshGraphView, sessionId, currentLayer, graphVersion]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

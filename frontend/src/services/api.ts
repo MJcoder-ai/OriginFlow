@@ -558,7 +558,7 @@ export const api = {
   },
 
   /** Get ODL text representation, with /view fallback */
-    async getOdlText(
+  async getOdlText(
       sessionId: string,
       layer: string = 'single-line',
     ): Promise<{
@@ -614,6 +614,16 @@ export const api = {
         return { version: 0 };
       }
     },
+
+  // Fetch the structured graph view used for rendering the canvas
+  async getGraphView(sessionId: string, layer: string = 'single-line') {
+    layer = canonicalLayer(layer);
+    const res = await fetch(
+      `${API_BASE_URL}/odl/${encodeURIComponent(sessionId)}/view?layer=${encodeURIComponent(layer)}`
+    );
+    if (!res.ok) throw new Error(`getGraphView failed: ${res.status}`);
+    return res.json();
+  },
 
   /** Get debug information for an ODL session */
   async debugOdlSession(sessionId: string, layer: string = 'single-line') {

@@ -184,6 +184,8 @@ interface AppState {
 
   /** Monotonic graph version for optimistic concurrency. */
   graphVersion: number;
+  /** Latest structured ODL view for the active layer. */
+  graphView: any | null;
   setGraphVersion: (version: number) => void;
   /**
    * Synchronise the local graph version with the server.
@@ -192,6 +194,9 @@ interface AppState {
    * this after retrieving a plan to avoid initial 409 version conflicts.
    */
   syncGraphVersion: (sessionId: string) => Promise<void>;
+
+  /** Refresh the renderable graph view and update canvas components. */
+  refreshGraphView: (layer?: string) => Promise<void>;
 
   /**
    * Execute a plan task via the backend.  Sends the task to the
@@ -410,6 +415,7 @@ export const useAppStore = create<AppState>((set, get) => ({
    * from the store rather than hard-coding 0.
    */
   graphVersion: 0,
+  graphView: null,
   setGraphVersion: (version: number) => set({ graphVersion: version }),
   /**
    * Synchronise the local graph version with the server.
@@ -426,8 +432,44 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (!sessionId) return;
       const { version } = await api.getOdlText(sessionId, get().currentLayer);
       if (typeof version === 'number') set({ graphVersion: version });
+      await (get() as any).refreshGraphView();
     } catch (e) {
       console.warn('Failed to sync graph version', e);
+    }
+  },
+
+  async refreshGraphView(layer?: string) {
+    try {
+      const sessionId = get().sessionId;
+      if (!sessionId) return;
+      const activeLayer = layer || get().currentLayer;
+      const view = await api.getGraphView(sessionId, activeLayer);
+      const components = (view?.nodes ?? []).map((n: any) => ({
+        id: n.id,
+        name: n.type || n.id,
+        type: n.type || 'generic',
+        x:
+          n.position?.x ??
+          n.pos?.x ??
+          Number(n.attrs?.x ?? 0),
+        y:
+          n.position?.y ??
+          n.pos?.y ??
+          Number(n.attrs?.y ?? 0),
+        layer: activeLayer,
+        ports: [
+          { id: 'input', type: 'in' },
+          { id: 'output', type: 'out' },
+        ],
+      }));
+      const links = (view?.edges ?? []).map((e: any, idx: number) => ({
+        id: `${e.source}_${e.target}_${idx}`,
+        source_id: e.source,
+        target_id: e.target,
+      }));
+      set({ graphView: view, canvasComponents: components, links });
+    } catch (e) {
+      console.warn('refreshGraphView failed', e);
     }
   },
   // High‑level plan defaults to empty.  When the orchestrator
@@ -559,6 +601,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           // After refreshing the plan, synchronise the graph version so that
           // subsequent act requests carry the correct version number.
           await (get() as any).syncGraphVersion(sessionId);
+          await (get() as any).refreshGraphView();
         } catch (e) {
           console.warn('Failed to refresh plan after act', e);
         }
@@ -584,6 +627,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             // After refetching the plan, sync the graph version to avoid
             // another conflict when we retry the act call.
             await (get() as any).syncGraphVersion(sessionId);
+            await (get() as any).refreshGraphView();
           } catch (_) {}
           return await execute(true);
         }
@@ -621,6 +665,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
         // Synchronise graph version after fetching the plan so the next act call uses the correct version.
         await (get() as any).syncGraphVersion(sessionId);
+        await (get() as any).refreshGraphView();
       }
     } catch (e) {
       console.error('Failed to update requirements', e);
