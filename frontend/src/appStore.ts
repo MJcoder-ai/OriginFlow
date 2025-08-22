@@ -20,6 +20,7 @@ export interface UploadEntry {
   parsing_status: 'pending' | 'processing' | 'success' | 'failed' | null;
   parsing_error: string | null;
   is_human_verified: boolean;
+  parsed_payload?: any; // Parsed content from datasheet processing
 }
 
 export type Route = 'projects' | 'components' | 'settings' | 'agents' | 'approvals' | 'policy';
@@ -144,6 +145,8 @@ export interface Link {
   source_id: string;
   /** Target component identifier. */
   target_id: string;
+  /** Layer-specific lock status for links. */
+  locked_in_layers?: Record<string, boolean>;
 }
 
 /**
@@ -535,15 +538,15 @@ export const useAppStore = create<AppState>((set, get) => ({
         set((s) => ({
           canvasComponents: [
             ...s.canvasComponents,
-            ...patch.add_nodes.map((n: any) => ({
+            ...patch.add_nodes!.map((n: any): CanvasComponent => ({
               id: n.id,
               name: n.data?.label ?? n.type,
               type: n.type,
               x: Math.random() * 500,
               y: Math.random() * 300,
               ports: [
-                { id: 'input', type: 'in' },
-                { id: 'output', type: 'out' },
+                { id: 'input' as const, type: 'in' as const },
+                { id: 'output' as const, type: 'out' as const },
               ],
             })),
           ],
@@ -553,7 +556,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         set((s) => ({
           links: [
             ...s.links,
-            ...patch.add_edges.map((e: any) => ({
+            ...patch.add_edges!.map((e: any) => ({
               id: `${e.source}_${e.target}_${crypto.randomUUID()}`,
               source_id: e.source,
               target_id: e.target,
@@ -561,7 +564,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           ],
         }));
       }
-      const removeNodes = patch.remove_nodes ?? patch.removed_nodes;
+      const removeNodes = patch.remove_nodes ?? (patch as any).removed_nodes;
       if (removeNodes && removeNodes.length) {
         set((s) => ({
           canvasComponents: s.canvasComponents.filter((c) => !removeNodes.includes(c.id)),
@@ -570,7 +573,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           ),
         }));
       }
-      const removeEdges = patch.remove_edges ?? patch.removed_edges;
+      const removeEdges = patch.remove_edges ?? (patch as any).removed_edges;
       if (removeEdges && removeEdges.length) {
         set((s) => ({
           links: s.links.filter(
@@ -589,7 +592,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           get().graphVersion
         );
         if (typeof version === 'number') set({ graphVersion: version });
-        applyPatch(patch);
+        if (patch) applyPatch(patch);
         if (card) {
           get().addMessage({
             id: crypto.randomUUID(),
@@ -597,7 +600,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             text: card.title,
             card: {
               title: card.title,
-              description: card.description,
+              description: card.body,
               imageUrl: (card as any).image_url,
               specs: card.specs?.map((s: any) => ({ label: s.label, value: s.value })),
               actions: card.actions?.map((a: any) => ({ label: a.label, command: a.command })),
@@ -845,13 +848,13 @@ export const useAppStore = create<AppState>((set, get) => ({
           api.getComponents(), // Try legacy first
           api.getLinks(),      // Try legacy first
         ]);
-        const enrichedComponents = components.map((c) => ({
+        const enrichedComponents: CanvasComponent[] = components.map((c) => ({
           ...c,
           // Preserve existing layer if defined, otherwise default to the first layer
           layer: (c as any).layer ?? 'Single-Line Diagram',
           ports: [
-            { id: 'input', type: 'in' },
-            { id: 'output', type: 'out' },
+            { id: 'input' as const, type: 'in' as const },
+            { id: 'output' as const, type: 'out' as const },
           ],
         }));
         set({ canvasComponents: enrichedComponents, links: linksFromApi, status: 'ready' });
@@ -869,13 +872,13 @@ export const useAppStore = create<AppState>((set, get) => ({
             api.getComponents(sessionId), // Try ODL
             api.getLinks(sessionId),      // Try ODL
           ]);
-          const enrichedComponents = components.map((c) => ({
+          const enrichedComponents: CanvasComponent[] = components.map((c) => ({
             ...c,
             // Preserve existing layer if defined, otherwise default to the first layer
             layer: (c as any).layer ?? 'Single-Line Diagram',
             ports: [
-              { id: 'input', type: 'in' },
-              { id: 'output', type: 'out' },
+              { id: 'input' as const, type: 'in' as const },
+              { id: 'output' as const, type: 'out' as const },
             ],
           }));
           set({ canvasComponents: enrichedComponents, links: linksFromApi, status: 'ready' });
@@ -902,13 +905,18 @@ export const useAppStore = create<AppState>((set, get) => ({
     get().addStatusMessage(`Adding ${payload.type}...`, 'info');
     try {
       // Ensure the backend receives the layer information so it can be persisted.
-      const payloadWithLayer = { ...payload, layer: get().currentLayer };
+      const payloadWithLayer = { 
+        ...payload, 
+        layer: get().currentLayer,
+        x: payload.x ?? 0,
+        y: payload.y ?? 0,
+      };
       const saved = await api.createComponent(payloadWithLayer);
       const component: CanvasComponent = {
         ...saved,
         ports: [
-          { id: 'input', type: 'in' },
-          { id: 'output', type: 'out' },
+          { id: 'input' as const, type: 'in' as const },
+          { id: 'output' as const, type: 'out' as const },
         ],
         layer: get().currentLayer,
       };
@@ -1064,10 +1072,10 @@ export const useAppStore = create<AppState>((set, get) => ({
               await get().addLink({ source_id: srcComp.id, target_id: tgtComp.id });
             } catch (e) {
               console.error('Failed to create link from suggestion', e);
-              set((s) => ({ ghostLinks: [...s.ghostLinks, act.payload] }));
+              set((s) => ({ ghostLinks: [...(s.ghostLinks || []), act.payload] }));
             }
           } else {
-            set((s) => ({ ghostLinks: [...s.ghostLinks, act.payload] }));
+            set((s) => ({ ghostLinks: [...(s.ghostLinks || []), act.payload] }));
           }
           break;
         }

@@ -270,7 +270,7 @@ export const EnhancedPlanTimeline: React.FC<EnhancedPlanTimelineProps> = ({
                     )}
 
                     {/* Missing requirements/components indicators */}
-                    {task.missing_requirements?.length > 0 && (
+                    {task.missing_requirements && task.missing_requirements.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1">
                         {task.missing_requirements.map(req => (
                           <span key={req} className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded">
@@ -280,7 +280,7 @@ export const EnhancedPlanTimeline: React.FC<EnhancedPlanTimelineProps> = ({
                       </div>
                     )}
 
-                    {task.missing_components?.length > 0 && (
+                    {task.missing_components && task.missing_components.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1">
                         {task.missing_components.map(comp => (
                           <span key={comp} className="px-2 py-1 bg-orange-100 text-orange-700 text-xs rounded">

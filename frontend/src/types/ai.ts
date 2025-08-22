@@ -6,7 +6,8 @@ export interface AiAction {
     | 'removeLink'
     | 'updatePosition'
     | 'suggestLink'
-    | 'report';
+    | 'report'
+    | 'validation';
   payload: any; // narrow later per schema
   version: number;
   confidence?: number; // Confidence score from learning agent

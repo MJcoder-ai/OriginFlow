@@ -5,7 +5,7 @@
  */
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App.tsx';
+import App from './App';
 import './index.css';
 import { pdfjs } from 'react-pdf';
 
@@ -14,11 +14,8 @@ import { pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
-// Import the PDF.js worker via Vite’s ?url mechanism.  This tells Vite to
-// bundle the worker from node_modules and return its URL, ensuring it loads
-// correctly in both dev and production.
-import pdfWorkerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url';
-pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+// Configure PDF.js worker using a CDN URL for compatibility
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 const rootEl = document.getElementById('root');
 const root = rootEl ? ReactDOM.createRoot(rootEl) : null;

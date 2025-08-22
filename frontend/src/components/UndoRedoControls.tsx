@@ -414,7 +414,9 @@ export const UndoRedoControls: React.FC<UndoRedoControlsProps> = ({
                     )}
                   </div>
                   {!version.canRevert && (
-                    <AlertCircle className="w-4 h-4 text-gray-400" title="Cannot revert to this version" />
+                    <div title="Cannot revert to this version">
+                      <AlertCircle className="w-4 h-4 text-gray-400" />
+                    </div>
                   )}
                 </div>
                 

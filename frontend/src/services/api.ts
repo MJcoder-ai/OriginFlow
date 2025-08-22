@@ -12,6 +12,7 @@
  */
 import { CanvasComponent, Link, PlanTask } from '../appStore';
 import { API_BASE_URL } from '../config';
+import { AiAction } from '../types/ai';
 
 export type AiPlan = {
   tasks: {
@@ -66,6 +67,12 @@ export interface GraphPatch {
   }>;
   remove_nodes?: string[];
   remove_edges?: Array<{
+    source: string;
+    target: string;
+  }>;
+  // Legacy property names for backward compatibility
+  removed_nodes?: string[];
+  removed_edges?: Array<{
     source: string;
     target: string;
   }>;

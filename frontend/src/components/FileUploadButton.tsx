@@ -44,13 +44,13 @@ export const FileUploadButton = () => {
         parsing_error: null,
       });
       // Capitalised author to conform to Message type
-      addMessage({ author: 'User', text: `Uploaded ${file.name}` });
+      addMessage({ id: crypto.randomUUID(), author: 'User', text: `Uploaded ${file.name}` });
       addStatusMessage('Upload complete', 'success');
     } catch (error: any) {
       console.error('Upload failed', error);
       updateUpload(tempId, { progress: -1 });
       // Use capitalised author to match the Message type
-      addMessage({ author: 'User', text: `❌ Upload failed for ${file.name}` });
+      addMessage({ id: crypto.randomUUID(), author: 'User', text: `❌ Upload failed for ${file.name}` });
       if (error?.status === 401) {
         addStatusMessage('Unauthorized. Please log in to upload files.', 'error');
       } else {

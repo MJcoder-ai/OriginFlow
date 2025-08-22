@@ -155,7 +155,11 @@ const PlanTimeline: React.FC = () => {
       {tasks.some((t) => t.id === 'gather_requirements' && t.status === 'blocked') && (
         <div className="mt-4 space-y-3">
           <div className="text-xs font-semibold uppercase text-gray-600">Unblock Gather Requirements</div>
-          <RequirementsForm />
+          <RequirementsForm 
+            sessionId={sessionId || 'default'}
+            onSubmit={() => {}}
+            onCancel={() => {}}
+          />
           <div className="border rounded-lg bg-white p-3">
             <div className="text-sm font-medium text-gray-900 mb-2">Missing components?</div>
             <p className="text-xs text-gray-600 mb-2">Upload panel/inverter datasheets. We will parse and ingest them automatically, then refresh the plan.</p>

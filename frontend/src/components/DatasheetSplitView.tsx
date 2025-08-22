@@ -199,7 +199,7 @@ const DatasheetSplitView: React.FC<DatasheetSplitViewProps> = ({
                           } catch {
                             /* keep as string */
                           }
-                          setParsedData((prev) => {
+                          setParsedData((prev: any) => {
                             const updated = { ...prev, [key]: newValue };
                             setDatasheetDirty(true);
                             debouncedSave(updated);
@@ -215,7 +215,7 @@ const DatasheetSplitView: React.FC<DatasheetSplitViewProps> = ({
                         value={String(value ?? '')}
                         onChange={(e) => {
                           const newValue: any = e.target.value;
-                          setParsedData((prev) => {
+                          setParsedData((prev: any) => {
                             const updated = { ...prev, [key]: newValue };
                             setDatasheetDirty(true);
                             debouncedSave(updated);
