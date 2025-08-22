@@ -316,6 +316,15 @@ export const api = {
     }
   },
 
+  async resetSession(sessionId: string): Promise<{ session_id: string; version: number }> {
+    const res = await fetch(
+      `${API_BASE_URL}/odl/sessions/${encodeURIComponent(sessionId)}/reset`,
+      { method: 'POST' },
+    );
+    if (!res.ok) throw new Error(`Reset session failed: ${res.status}`);
+    return res.json();
+  },
+
   /** POST a natural-language command and receive deterministic actions. */
   async sendCommandToAI(command: string): Promise<AiAction[]> {
     const res = await fetch(`${API_BASE_URL}/ai/command`, {

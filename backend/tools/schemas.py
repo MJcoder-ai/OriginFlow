@@ -93,6 +93,14 @@ class MakePlaceholdersInput(ToolBase):
     attrs: Dict[str, object] = Field(default_factory=dict)
 
 
+# ---------- Deletion ----------
+
+
+class DeleteNodesInput(ToolBase):
+    view_nodes: List[ODLNode] = Field(default_factory=list)
+    component_types: List[str] = Field(default_factory=list, description="Types to delete")
+
+
 # ---------- Consensus ----------
 
 
