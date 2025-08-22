@@ -63,18 +63,17 @@ async def test_odl_endpoints():
 
         # Test the view with layout
         view = layer_view(graph, "single-line")
-        print("Original view:", view)
+        logger.info("Original view: %s", view)
 
         # Test layout positioning
         view_with_positions = ensure_positions(view)
-        print("View with positions:", view_with_positions)
+        logger.info("View with positions: %s", view_with_positions)
 
         # Test text synthesis
         text = _synthesize_text_from_view(view)
-        print("Synthesized text:")
-        print(text)
+        logger.info("Synthesized text: %s", text)
 
-        print("\n✅ ODL endpoints test completed successfully!")
+        logger.info("✅ ODL endpoints test completed successfully!")
 
 if __name__ == "__main__":
     asyncio.run(test_odl_endpoints())

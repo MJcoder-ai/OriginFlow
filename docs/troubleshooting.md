@@ -1,67 +1,41 @@
-# Troubleshooting Database Errors
+# OriginFlow Troubleshooting: Canvas empty / ODL 500 / CORS
 
-## Missing Column Errors
+**Symptoms**
+- Browser console shows 500 on `/api/v1/odl/.../text` or `/view`.
+- “No 'Access-Control-Allow-Origin' header” appears (this is secondary to 500s).
+- ODL panel blank and canvas empty.
 
-If you see an error like:
+**Checklist**
+1. Backend with permissive CORS (dev only):
+   ```bash
+   export ORIGINFLOW_CORS_ORIGINS="*"
+   poetry run uvicorn backend.main:app --reload --host 0.0.0.0
+   ```
+2. Create a session:
+   ```bash
+   curl -s -X POST 'http://localhost:8000/api/v1/odl/sessions?session_id=demo'
+   ```
+3. Apply a simple action (If-Match must be current version):
+   ```bash
+   curl -s -X POST 'http://localhost:8000/api/v1/ai/act' \
+     -H 'Content-Type: application/json' -H 'If-Match: 1' \
+     -d '{"session_id":"demo","task":"make_placeholders","request_id":"r1",\
+          "args":{"component_type":"panel","count":12,"layer":"single-line"}}'
+   ```
+4. Verify `/view` has nodes and positions:
+   ```bash
+   curl -s 'http://localhost:8000/api/v1/odl/demo/view?layer=single-line' | jq '.nodes[0]'
+   ```
+5. Verify `/text` never 500s (canonical or fallback text is fine):
+   ```bash
+   curl -s -i 'http://localhost:8000/api/v1/odl/sessions/demo/text?layer=single-line'
+   ```
 
+If you still get an empty canvas but `/view` returns nodes, check layer labels:
 ```
-sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such column: schematic_components.layer
+curl -s 'http://localhost:8000/api/v1/odl/demo/view?layer=single-line' \
+| jq '.nodes[].attrs.layer' | sort | uniq -c
 ```
-
-this means the database schema is out of sync with the SQLAlchemy models. To resolve:
-
-1. Generate a migration:
-
-```bash
-alembic revision --autogenerate -m "add missing columns"
-```
-
-2. Apply migrations:
-
-```bash
-alembic upgrade head
-```
-
-Always run these commands whenever you change fields in `backend/models/`.
-
-## Missing Table Errors
-
-If you see an error like:
-
-```
-sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such table: memory
-```
-
-this indicates that a new table has been added to the ORM models without
-a corresponding Alembic migration.  For example, the `Memory` model in
-`backend/models/memory.py` defines a `memory` table for storing
-conversation logs, design snapshots and other persisted state:contentReference[oaicite:6]{index=6}.
-To resolve missing table errors:
-
-1. Create a migration script that creates the missing table.  See
-   `alembic/versions/9123abcd4567_create_memory_table.py` for an example.
-2. Apply migrations:
-
-```bash
-alembic upgrade head
-```
-
-Keeping migrations in sync with your models prevents these errors and
-ensures the database structure evolves alongside your code.
-
-## Validation Error: source_id required
-
-If the API returns an error like:
-
-```
-pydantic_core._pydantic_core.ValidationError: 2 validation errors for LinkCreate
-source_id
-  Field required
-target_id
-  Field required
-```
-
-ensure that agents generate link actions using `source_id` and `target_id`.
-Components can provide an optional `id` when created so subsequent links may
-reference them before they are persisted.
-
+If everything is `"electrical"`, either switch the UI layer or update the planner to
+write to `"single-line"`. This repo defaults the `attrs.layer` to the requested layer
+when missing, purely for rendering.

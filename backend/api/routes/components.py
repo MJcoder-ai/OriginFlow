@@ -67,8 +67,11 @@ async def create_component(
                 import logging
                 logger = logging.getLogger("backend.ai.firewall")
                 logger.warning("Intent mismatch: requested=%s, created=%s id=%s", req_cls, obj.type, obj.id)
-        except Exception:
-            pass
+        except (ImportError, AttributeError, KeyError) as e:
+            # Ontology resolution failed - log for debugging but don't fail the component creation
+            import logging
+            logger = logging.getLogger("backend.ai.firewall")
+            logger.debug("Failed to resolve canonical class for command %s: %s", x_user_command, e)
     
     return ComponentSchema.model_validate(obj)
 

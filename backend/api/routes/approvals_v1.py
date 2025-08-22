@@ -157,8 +157,11 @@ async def approve_one(
             ApprovalsEventBus.publish_applied(tenant_id, row.to_dict())
         else:
             ApprovalsEventBus.publish_approved(tenant_id, row.to_dict())
-    except Exception:
-        pass
+    except (ConnectionError, AttributeError, KeyError) as e:
+        # Event bus publishing failed - log but don't fail the approval
+        import logging
+        logger = logging.getLogger("backend.api.approvals")
+        logger.warning("Failed to publish approval event: %s", e)
     return {
         "approved": row.to_dict(),
         "apply_client_side": not body.approve_and_apply,
@@ -188,8 +191,11 @@ async def reject_one(
     await session.commit()
     try:
         ApprovalsEventBus.publish_rejected(tenant_id, row.to_dict())
-    except Exception:
-        pass
+    except (ConnectionError, AttributeError, KeyError) as e:
+        # Event bus publishing failed - log but don't fail the rejection
+        import logging
+        logger = logging.getLogger("backend.api.approvals")
+        logger.warning("Failed to publish rejection event: %s", e)
     return {"rejected": row.to_dict()}
 
 
@@ -256,7 +262,10 @@ async def batch_decide(
                 ApprovalsEventBus.publish_approved(tenant_id, row.to_dict())
             elif row.status == "rejected":
                 ApprovalsEventBus.publish_rejected(tenant_id, row.to_dict())
-    except Exception:
-        pass
+    except (ConnectionError, AttributeError, KeyError) as e:
+        # Event bus publishing failed - log but don't fail the batch operation
+        import logging
+        logger = logging.getLogger("backend.api.approvals")
+        logger.warning("Failed to publish batch approval events: %s", e)
     return {"results": results}
 
