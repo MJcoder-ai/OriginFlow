@@ -1,5 +1,5 @@
 """
-Production-grade solar component library with comprehensive device support.
+Solar component library with comprehensive device support.
 Handles protection devices, different wiring topologies, and electrical specifications.
 """
 from enum import Enum
@@ -108,7 +108,7 @@ class ComponentDefinition:
 
 
 class ComponentLibrary:
-    """Production component library with real-world solar components"""
+    """Solar component library with real-world solar components"""
     
     def __init__(self):
         self.components: Dict[str, ComponentDefinition] = {}
@@ -355,4 +355,4 @@ class ComponentLibrary:
 
 
 # Global component library instance
-component_library = ComponentLibrary()
+components = ComponentLibrary()

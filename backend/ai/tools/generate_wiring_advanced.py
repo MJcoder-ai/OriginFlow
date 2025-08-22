@@ -1,19 +1,19 @@
 """
-Enhanced wiring generation tool with production-grade capabilities.
-Integrates component library, topology engine, and intelligent routing.
+Advanced wiring generation tool for solar systems.
+Integrates component library, topology engine, and auto-routing.
 """
 import logging
 from typing import Dict, List, Any, Optional
 from dataclasses import asdict
 
-from backend.solar.component_library import component_library, ComponentCategory
-from backend.solar.wiring_topologies import create_topology_engine, SystemDesignParameters, SystemTopology, ProtectionLevel
-from backend.solar.intelligent_routing import IntelligentRouter
+from backend.solar.components import components, ComponentCategory
+from backend.solar.topologies import create_topology_engine, SystemDesignParameters, SystemTopology, ProtectionLevel
+from backend.solar.routing import Router
 from backend.odl.schemas import ODLGraph, ODLNode, ODLEdge
 
 logger = logging.getLogger(__name__)
 
-async def generate_wiring_enhanced(
+async def generate_wiring_advanced(
     graph: ODLGraph,
     session_id: str,
     layer: str = "single-line",
@@ -22,7 +22,7 @@ async def generate_wiring_enhanced(
     **kwargs
 ) -> Dict[str, Any]:
     """
-    Enhanced wiring generation with production-grade capabilities.
+    Advanced wiring generation for solar systems.
     
     Args:
         graph: Current ODL graph
@@ -66,7 +66,7 @@ async def generate_wiring_enhanced(
         component_positions = _extract_component_positions(graph, layer)
         
         # Generate intelligent routing
-        router = IntelligentRouter(component_library, topology_engine)
+        router = Router(components, topology_engine)
         routing = router.generate_complete_system_routing(system_design, component_positions)
         
         # Apply wiring to the graph
@@ -262,7 +262,7 @@ def _apply_wiring_to_graph(graph: ODLGraph, system_design: Dict[str, Any],
     protection_devices = system_design.get("protection_devices", {})
     for device_id, device_info in protection_devices.items():
         if "component_id" in device_info:
-            device_component = component_library.get_component(device_info["component_id"])
+            device_component = components.get_component(device_info["component_id"])
             if device_component:
                 # Find a good position (simplified - could use intelligent placement)
                 device_x = 400 + results["nodes_added"] * 50
@@ -299,8 +299,9 @@ def _apply_wiring_to_graph(graph: ODLGraph, system_design: Dict[str, Any],
         # Create ODL edge
         edge = ODLEdge(
             id=edge_id,
-            source=route.source_component,
-            target=route.target_component,
+            source_id=route.source_component,
+            target_id=route.target_component,
+            kind="electrical",
             attrs={
                 "layer": layer,
                 "route_type": route.route_type.value,
@@ -318,7 +319,7 @@ def _apply_wiring_to_graph(graph: ODLGraph, system_design: Dict[str, Any],
             }
         )
         
-        graph.edges[edge_id] = edge
+        graph.edges.append(edge)
         results["edges_added"] += 1
     
     logger.info(f"Applied wiring to graph: {results}")
@@ -381,7 +382,7 @@ def _generate_bill_of_materials(system_design: Dict[str, Any]) -> List[Dict[str,
     # Add main components
     for component_type, component_info in system_design.get("components", {}).items():
         if "component_id" in component_info:
-            component = component_library.get_component(component_info["component_id"])
+            component = components.get_component(component_info["component_id"])
             if component:
                 bom.append({
                     "category": component.category.value,
@@ -396,7 +397,7 @@ def _generate_bill_of_materials(system_design: Dict[str, Any]) -> List[Dict[str,
     # Add protection devices
     for device_id, device_info in system_design.get("protection_devices", {}).items():
         if "component_id" in device_info:
-            component = component_library.get_component(device_info["component_id"])
+            component = components.get_component(device_info["component_id"])
             if component:
                 bom.append({
                     "category": component.category.value,

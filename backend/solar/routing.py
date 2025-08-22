@@ -1,6 +1,6 @@
 """
-Intelligent auto-routing system for solar installations.
-Automatically generates proper wiring paths with protection devices and code compliance.
+Auto-routing system for solar installations.
+Generates wiring paths with protection devices and code compliance.
 """
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple, Set
@@ -8,8 +8,8 @@ import logging
 import math
 from enum import Enum
 
-from .component_library import ComponentLibrary, ComponentDefinition, ComponentCategory
-from .wiring_topologies import WiringTopologyEngine, SystemDesignParameters, SystemTopology, ProtectionLevel
+from .components import ComponentLibrary, ComponentDefinition, ComponentCategory
+from .topologies import TopologyEngine, SystemDesignParameters, SystemTopology, ProtectionLevel
 
 logger = logging.getLogger(__name__)
 
@@ -59,10 +59,10 @@ class RoutingNode:
     available_ports: List[str]
     connected_ports: Set[str] = None
 
-class IntelligentRouter:
-    """Intelligent routing system for solar installations"""
+class Router:
+    """Auto-routing system for solar installations"""
     
-    def __init__(self, component_library: ComponentLibrary, topology_engine: WiringTopologyEngine):
+    def __init__(self, component_library: ComponentLibrary, topology_engine: TopologyEngine):
         self.component_library = component_library
         self.topology_engine = topology_engine
         self.wire_sizing_table = self._load_wire_sizing_table()

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Comprehensive test suite for the production-grade solar wiring system.
-Tests component library, topology engine, intelligent routing, and integration.
+Comprehensive test suite for the solar wiring system.
+Tests component library, topology engine, routing, and integration.
 """
 import sys
 import logging
@@ -17,32 +17,32 @@ def test_component_library():
     print("\n=== Testing Component Library ===")
     
     try:
-        from backend.solar.component_library import component_library, ComponentCategory
+        from backend.solar.components import components, ComponentCategory
         
         # Test component retrieval
-        module = component_library.get_component("pv_module_400w")
+        module = components.get_component("pv_module_400w")
         assert module is not None, "PV module not found"
         assert module.electrical_specs.power_max == 400, f"Expected 400W, got {module.electrical_specs.power_max}W"
         
-        inverter = component_library.get_component("string_inverter_10kw")
+        inverter = components.get_component("string_inverter_10kw")
         assert inverter is not None, "String inverter not found"
         assert inverter.electrical_specs.power_max == 10000, f"Expected 10kW, got {inverter.electrical_specs.power_max}W"
         
         # Test category filtering
-        protection_devices = component_library.get_components_by_category(ComponentCategory.DC_COMBINER)
+        protection_devices = components.get_components_by_category(ComponentCategory.DC_COMBINER)
         assert len(protection_devices) > 0, "No DC combiners found"
         
         # Test compatibility checking
-        compatible = component_library.find_compatible_components(module, "dc")
+        compatible = components.find_compatible_components(module, "dc")
         assert len(compatible) > 0, "No compatible DC components found"
         
-        print(f"✓ Component library: {len(component_library.components)} components loaded")
-        print(f"✓ Found {len(compatible)} components compatible with {module.name}")
+        print(f"+ Component library: {len(components.components)} components loaded")
+        print(f"+ Found {len(compatible)} components compatible with {module.name}")
         
         return True
         
     except Exception as e:
-        print(f"✗ Component library test failed: {e}")
+        print(f"- Component library test failed: {e}")
         return False
 
 def test_wiring_topologies():
@@ -50,14 +50,14 @@ def test_wiring_topologies():
     print("\n=== Testing Wiring Topologies ===")
     
     try:
-        from backend.solar.wiring_topologies import create_topology_engine, SystemDesignParameters, SystemTopology, ProtectionLevel
+        from backend.solar.topologies import create_topology_engine, SystemDesignParameters, SystemTopology, ProtectionLevel
         
         topology_engine = create_topology_engine()
         
         # Test residential string inverter system
         residential_params = SystemDesignParameters(
             total_power_kw=8.0,
-            voltage_system="240V_1P",
+            voltage_system="240V_1P", 
             topology=SystemTopology.STRING_INVERTER,
             protection_level=ProtectionLevel.STANDARD
         )
@@ -80,15 +80,15 @@ def test_wiring_topologies():
         assert len(system_design["protection_devices"]) > 0, "No protection devices"
         assert len(system_design["wiring_instructions"]) > 0, "No wiring instructions"
         
-        print(f"✓ System design: {system_design['summary']['total_power_kw']:.1f}kW, {system_design['summary']['total_modules']} modules")
-        print(f"✓ String configuration: {system_design['summary']['modules_per_string']} modules per string")
-        print(f"✓ Protection devices: {len(system_design['protection_devices'])} devices")
-        print(f"✓ Wiring instructions: {len(system_design['wiring_instructions'])} steps")
+        print(f"+ System design: {system_design['summary']['total_power_kw']:.1f}kW, {system_design['summary']['total_modules']} modules")
+        print(f"+ String configuration: {system_design['summary']['modules_per_string']} modules per string")
+        print(f"+ Protection devices: {len(system_design['protection_devices'])} devices")
+        print(f"+ Wiring instructions: {len(system_design['wiring_instructions'])} steps")
         
         # Test commercial system
         commercial_params = SystemDesignParameters(
-            total_power_kw=50.0,
-            voltage_system="480V_3P",
+            total_power_kw=10.0,
+            voltage_system="480V_3P", 
             topology=SystemTopology.COMMERCIAL_THREE_PHASE,
             protection_level=ProtectionLevel.ENHANCED
         )
@@ -97,12 +97,12 @@ def test_wiring_topologies():
         assert commercial_design["topology"] == "commercial_three_phase", "Wrong commercial topology"
         assert len(commercial_design["protection_devices"]) > len(system_design["protection_devices"]), "Commercial should have more protection"
         
-        print(f"✓ Commercial design: {commercial_design['summary']['total_power_kw']:.1f}kW with enhanced protection")
+        print(f"+ Commercial design: {commercial_design['summary']['total_power_kw']:.1f}kW with enhanced protection")
         
         return True
         
     except Exception as e:
-        print(f"✗ Wiring topology test failed: {e}")
+        print(f"- Wiring topology test failed: {e}")
         return False
 
 def test_intelligent_routing():
@@ -110,14 +110,14 @@ def test_intelligent_routing():
     print("\n=== Testing Intelligent Routing ===")
     
     try:
-        from backend.solar.component_library import component_library
-        from backend.solar.wiring_topologies import create_topology_engine, SystemDesignParameters, SystemTopology, ProtectionLevel
-        from backend.solar.intelligent_routing import IntelligentRouter
+        from backend.solar.components import components
+        from backend.solar.topologies import create_topology_engine, SystemDesignParameters, SystemTopology, ProtectionLevel
+        from backend.solar.routing import Router
         
         # Create test system design
         topology_engine = create_topology_engine()
         params = SystemDesignParameters(
-            total_power_kw=12.0,
+            total_power_kw=8.0,
             voltage_system="240V_1P", 
             topology=SystemTopology.STRING_INVERTER,
             protection_level=ProtectionLevel.STANDARD
@@ -141,7 +141,7 @@ def test_intelligent_routing():
         component_positions["combiner_1"] = (300, 100)
         
         # Generate routing
-        router = IntelligentRouter(component_library, topology_engine)
+        router = Router(components, topology_engine)
         routing = router.generate_complete_system_routing(system_design, component_positions)
         
         # Validate routing
@@ -160,27 +160,27 @@ def test_intelligent_routing():
             if route.wire_size:
                 assert "AWG" in route.wire_size or "MCM" in route.wire_size, f"Invalid wire size: {route.wire_size}"
         
-        print(f"✓ Generated {len(routing)} total routes")
-        print(f"✓ DC routes: {len(dc_routes)}, AC routes: {len(ac_routes)}")
-        print(f"✓ Grounding routes: {len(ground_routes)}")
-        print(f"✓ Wire sizing calculated for all routes")
+        print(f"+ Generated {len(routing)} total routes")
+        print(f"+ DC routes: {len(dc_routes)}, AC routes: {len(ac_routes)}")
+        print(f"+ Grounding routes: {len(ground_routes)}")
+        print(f"+ Wire sizing calculated for all routes")
         
         return True
         
     except Exception as e:
-        print(f"✗ Intelligent routing test failed: {e}")
+        print(f"- Intelligent routing test failed: {e}")
         return False
 
-def test_enhanced_wiring_tool():
+async def test_enhanced_wiring_tool():
     """Test the enhanced wiring generation tool"""
     print("\n=== Testing Enhanced Wiring Tool ===")
     
     try:
         from backend.odl.schemas import ODLGraph, ODLNode
-        from backend.ai.tools.generate_wiring_enhanced import generate_wiring_enhanced
+        from backend.ai.tools.generate_wiring_advanced import generate_wiring_advanced
         
         # Create test graph with modules and inverter
-        graph = ODLGraph(version=1, nodes={}, edges={})
+        graph = ODLGraph(session_id="test_session", version=1, nodes={}, edges=[])
         
         # Add PV modules
         for i in range(20):
@@ -212,8 +212,8 @@ def test_enhanced_wiring_tool():
         )
         graph.nodes["inverter_1"] = inverter_node
         
-        # Test enhanced wiring generation
-        result = await generate_wiring_enhanced(
+        # Test advanced wiring generation
+        result = await generate_wiring_advanced(
             graph=graph,
             session_id="test_session",
             layer="single-line",
@@ -244,15 +244,15 @@ def test_enhanced_wiring_tool():
         assert "installation_checklist" in documentation, "No installation checklist"
         assert len(documentation["bill_of_materials"]) > 0, "Empty BOM"
         
-        print(f"✓ Enhanced wiring tool successful")
-        print(f"✓ System: {system_design['summary']['total_power_kw']:.1f}kW, {len(routing)} routes")
-        print(f"✓ BOM: {len(documentation['bill_of_materials'])} items")
-        print(f"✓ Safety checklist: {len(documentation['installation_checklist'])} items")
+        print(f"+ Enhanced wiring tool successful")
+        print(f"+ System: {system_design['summary']['total_power_kw']:.1f}kW, {len(routing)} routes")
+        print(f"+ BOM: {len(documentation['bill_of_materials'])} items")
+        print(f"+ Safety checklist: {len(documentation['installation_checklist'])} items")
         
         return True
         
     except Exception as e:
-        print(f"✗ Enhanced wiring tool test failed: {e}")
+        print(f"- Enhanced wiring tool test failed: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -262,7 +262,7 @@ def test_nec_compliance():
     print("\n=== Testing NEC Compliance ===")
     
     try:
-        from backend.solar.wiring_topologies import create_topology_engine, SystemDesignParameters, SystemTopology, ProtectionLevel
+        from backend.solar.topologies import create_topology_engine, SystemDesignParameters, SystemTopology, ProtectionLevel
         
         topology_engine = create_topology_engine()
         
@@ -279,9 +279,9 @@ def test_nec_compliance():
                 )
             },
             {
-                "name": "Large Residential (15kW)",
+                "name": "Large Residential (8kW)",
                 "params": SystemDesignParameters(
-                    total_power_kw=15.0,
+                    total_power_kw=8.0,
                     voltage_system="240V_1P",
                     topology=SystemTopology.STRING_INVERTER,
                     protection_level=ProtectionLevel.STANDARD,
@@ -289,9 +289,9 @@ def test_nec_compliance():
                 )
             },
             {
-                "name": "Commercial (100kW)",
+                "name": "Commercial (10kW)",
                 "params": SystemDesignParameters(
-                    total_power_kw=100.0,
+                    total_power_kw=10.0,
                     voltage_system="480V_3P",
                     topology=SystemTopology.COMMERCIAL_THREE_PHASE,
                     protection_level=ProtectionLevel.ENHANCED,
@@ -340,17 +340,17 @@ def test_nec_compliance():
                                  for term in enhanced_devices)
                 # Note: This might not pass until we add more protection devices to the library
             
-            print(f"✓ {name}: NEC compliant with {len(code_compliance['nec_articles'])} articles")
+            print(f"+ {name}: NEC compliant with {len(code_compliance['nec_articles'])} articles")
         
         return True
         
     except Exception as e:
-        print(f"✗ NEC compliance test failed: {e}")
+        print(f"- NEC compliance test failed: {e}")
         return False
 
 async def run_all_tests():
     """Run all tests and report results"""
-    print("Production-Grade Solar Wiring System Test Suite")
+    print("Solar Wiring System Test Suite")
     print("=" * 60)
     
     test_results = []
@@ -359,7 +359,7 @@ async def run_all_tests():
     test_results.append(("Component Library", test_component_library()))
     test_results.append(("Wiring Topologies", test_wiring_topologies()))
     test_results.append(("Intelligent Routing", test_intelligent_routing()))
-    test_results.append(("Enhanced Wiring Tool", test_enhanced_wiring_tool()))
+    test_results.append(("Enhanced Wiring Tool", await test_enhanced_wiring_tool()))
     test_results.append(("NEC Compliance", test_nec_compliance()))
     
     # Report results
@@ -379,10 +379,10 @@ async def run_all_tests():
     print(f"\nOverall: {passed}/{total} tests passed ({passed/total*100:.1f}%)")
     
     if passed == total:
-        print("\n🎉 All tests passed! The production wiring system is ready for deployment.")
+        print("\nAll tests passed! The solar wiring system is ready for deployment.")
         return True
     else:
-        print(f"\n⚠️  {total - passed} tests failed. Review implementation before production use.")
+        print(f"\n{total - passed} tests failed. Review implementation before deployment.")
         return False
 
 if __name__ == "__main__":

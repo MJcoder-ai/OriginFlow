@@ -1,6 +1,6 @@
 """
-Production-grade wiring topology system for solar installations.
-Handles different system architectures and protection device requirements.
+Solar system topology engine for different installation architectures.
+Handles string inverter, microinverter, and commercial system topologies.
 """
 from enum import Enum
 from dataclasses import dataclass
@@ -8,7 +8,7 @@ from typing import Dict, List, Optional, Tuple, Any
 import logging
 import math
 
-from .component_library import ComponentLibrary, ComponentCategory, ComponentDefinition
+from .components import ComponentLibrary, ComponentCategory, ComponentDefinition
 
 logger = logging.getLogger(__name__)
 
@@ -57,8 +57,8 @@ class SystemDesignParameters:
     combiner_preference: bool = True  # Use combiner boxes
     monitoring_level: str = "system"  # "system", "string", "module"
 
-class WiringTopologyEngine:
-    """Engine for generating production-grade wiring topologies"""
+class TopologyEngine:
+    """Engine for generating solar system wiring topologies"""
     
     def __init__(self, component_library: ComponentLibrary):
         self.component_library = component_library
@@ -118,7 +118,7 @@ class WiringTopologyEngine:
             
             # Check if inverter can handle the system power
             inv_power = inv.electrical_specs.power_max or 0
-            if inv_power >= parameters.total_power_kw * 800:  # Allow some undersizing
+            if inv_power >= parameters.total_power_kw * 1000 * 0.8:  # Allow some undersizing
                 suitable_inverters.append(inv)
         
         # Sort by power rating
@@ -466,7 +466,7 @@ class WiringTopologyEngine:
         }
 
 # Factory function to create topology engine
-def create_topology_engine() -> WiringTopologyEngine:
-    """Create a wiring topology engine with standard component library"""
-    from .component_library import component_library
-    return WiringTopologyEngine(component_library)
+def create_topology_engine() -> TopologyEngine:
+    """Create a topology engine with standard component library"""
+    from .components import components
+    return TopologyEngine(components)
