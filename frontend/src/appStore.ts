@@ -198,6 +198,9 @@ interface AppState {
   /** Refresh the renderable graph view and update canvas components. */
   refreshGraphView: (layer?: string) => Promise<void>;
 
+  /** Reset the current ODL session to an empty graph (dev helper). */
+  resetOdlSession: () => Promise<void>;
+
   /**
    * Execute a plan task via the backend.  Sends the task to the
    * ``/odl/{session_id}/act`` endpoint, applies the returned patch,
@@ -470,6 +473,17 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ graphView: view, canvasComponents: components, links });
     } catch (e) {
       console.warn('refreshGraphView failed', e);
+    }
+  },
+
+  async resetOdlSession() {
+    try {
+      const sessionId = get().sessionId;
+      if (!sessionId) return;
+      await api.resetSession(sessionId);
+      await (get() as any).syncGraphVersion(sessionId);
+    } catch (e) {
+      console.warn('resetOdlSession failed', e);
     }
   },
   // High‑level plan defaults to empty.  When the orchestrator

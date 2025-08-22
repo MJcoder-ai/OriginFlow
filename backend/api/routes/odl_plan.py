@@ -38,13 +38,36 @@ async def get_plan_for_session(
     - This endpoint is safe to call even if the session is empty; tools will
       validate preconditions when executed.
     """
-    plan = parse_design_command(command)
-    # Allow client to override the target layer to match the active canvas tab
-    if layer in {"single-line", "electrical"}:
-        plan.layer = layer
+    lower = command.lower()
+    chosen_layer = layer if layer in {"single-line", "electrical"} else None
+    if any(w in lower for w in ["delete", "remove", "clear"]) and "panel" in lower:
+        layer_name = chosen_layer or "single-line"
+        tasks = [
+            AiPlanTask(
+                id="delete_nodes",
+                title="Delete all panels",
+                description=f"Remove all panel placeholders on the {layer_name} layer",
+                status="pending",
+                args={
+                    "component_types": ["panel", "pv_module", "solar_panel", "generic_panel"],
+                    "layer": layer_name,
+                },
+            )
+        ]
+        return AiPlan(
+            tasks=tasks,
+            metadata={
+                "session_id": session_id,
+                "parsed": {"layer": layer_name},
+                "intent": "delete_panels",
+                "raw": command,
+            },
+        )
 
-    # Enforce consistent args for vNext tools.
-    # Emit two placeholder tasks (inverter, panels) followed by wiring.
+    plan = parse_design_command(command)
+    if chosen_layer:
+        plan.layer = chosen_layer
+
     tasks: List[AiPlanTask] = [
         AiPlanTask(
             id="make_placeholders",

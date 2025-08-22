@@ -20,6 +20,7 @@ const ChatInputArea = () => {
   const setActiveDatasheet = useAppStore((s) => s.setActiveDatasheet);
   const addStatusMessage = useAppStore((s) => s.addStatusMessage);
   const setDatasheetDirty = useAppStore((s) => s.setDatasheetDirty);
+  const resetOdlSession = useAppStore((s) => s.resetOdlSession);
 
   const isListening = voiceMode === 'listening';
   const isSpeaking = voiceMode === 'speaking';
@@ -110,6 +111,15 @@ const ChatInputArea = () => {
           >
             <Send className="h-5 w-5" />
           </button>
+          {import.meta.env.DEV && (
+            <button
+              onClick={() => void resetOdlSession()}
+              className="p-2 bg-gray-100 rounded-md"
+              title="Reset session"
+            >
+              Reset
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -124,6 +124,22 @@ Removed endpoints (not provided):
 
 See [docs/API_ENDPOINTS.md](docs/API_ENDPOINTS.md) and [docs/ODL_SPEC.md](docs/ODL_SPEC.md) for more details.
 
+## Troubleshooting: Canvas shows nothing / wrong task runs
+
+1. **Send button semantics**
+   - Sending a non-empty message requests a **fresh plan** for that text.
+   - Sending with an empty input runs the **current plan step** if one exists.
+
+2. **Reset the session**
+   - For a blank canvas, create a new session id or call:
+     ```
+     POST /api/v1/odl/sessions/{session_id}/reset
+     ```
+
+3. **Deleting panels**
+   - Supported via natural language commands such as “delete all solar panels”.
+   - The planner returns a `delete_nodes` task to remove panel placeholders.
+
 ### Ops & Health
 - `GET /api/v1/system/healthz` – liveness
 - `GET /api/v1/system/readyz` – readiness (DB + AI)

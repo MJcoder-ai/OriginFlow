@@ -17,10 +17,11 @@ from fastapi import APIRouter, Depends, HTTPException, Header, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 import logging
+import uuid
 from typing import Any, Mapping
 
 from backend.database.session import get_session
-from backend.odl.schemas import ODLGraph, ODLPatch
+from backend.odl.schemas import ODLGraph, ODLPatch, PatchOp
 from backend.odl.store import ODLStore
 from backend.odl.views import layer_view
 from backend.odl.serializer import view_to_odl
@@ -90,6 +91,18 @@ async def create_session(session_id: str, db: AsyncSession = Depends(get_session
     if existing:
         return existing
     return await store.create_graph(db, session_id)
+
+
+@router.post("/sessions/{session_id}/reset")
+async def reset_session(session_id: str, db: AsyncSession = Depends(get_session)):
+    store = await _store_from_session(db)
+    g = await store.get_graph(db, session_id)
+    if not g:
+        raise HTTPException(404, "Session not found")
+    ops = [PatchOp(op_id=f"reset:{nid}", op="remove_node", value={"id": nid}) for nid in list(g.nodes.keys())]
+    patch = ODLPatch(patch_id=f"reset:{uuid.uuid4()}", operations=ops)
+    new_graph, new_version = await store.apply_patch_cas(db, session_id, expected_version=g.version, patch=patch)
+    return {"session_id": session_id, "version": new_version}
 
 
 @router.get("/{session_id}", response_model=ODLGraph)
