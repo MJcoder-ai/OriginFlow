@@ -15,7 +15,84 @@ from backend.tools.schemas import (
     MakePlaceholdersInput, DeleteNodesInput,
 )
 from backend.tools import wiring, structural, monitoring, placeholders, deletion
+from backend.ai.tools.generate_wiring_advanced import generate_wiring_advanced
+from backend.odl.schemas import ODLGraph, ODLEdge, PatchOp
+import asyncio
+import logging
 from backend.tools.replacement import apply_replacements, ReplaceInput, ReplacementItem
+
+
+def _bridge_advanced_wiring(inp: GenerateWiringInput) -> Optional[ODLPatch]:
+    """Bridge function to call async advanced wiring and return ODLPatch"""
+    try:
+        # Create ODLGraph from the input
+        nodes = {node.id: node for node in inp.view_nodes}
+        graph = ODLGraph(
+            session_id=inp.session_id,
+            version=1,  # Version doesn't matter for this operation
+            nodes=nodes,
+            edges=[]
+        )
+        
+        # Call the advanced wiring system
+        async def _run_advanced_wiring():
+            return await generate_wiring_advanced(
+                graph=graph,
+                session_id=inp.session_id,
+                layer="single-line",
+                system_type="string_inverter",
+                protection_level="standard"
+            )
+        
+        # Run the async function
+        result = asyncio.run(_run_advanced_wiring())
+        
+        if not result.get("success"):
+            # Fall back to simple wiring if advanced fails
+            return wiring.generate_wiring(inp)
+        
+        # Convert the edges from the graph to patch operations
+        ops = []
+        for i, edge in enumerate(graph.edges):
+            op_id = f"{inp.request_id}:advanced_edge:{i+1}"
+            ops.append(PatchOp(
+                op_id=op_id,
+                op="add_edge",
+                value={
+                    "id": edge.id,
+                    "source_id": edge.source_id,
+                    "target_id": edge.target_id,
+                    "kind": edge.kind,
+                    "attrs": edge.attrs or {}
+                }
+            ))
+        
+        # Also add any protection device nodes that were created
+        wiring_applied = result.get("wiring_applied", {})
+        if wiring_applied.get("nodes_added", 0) > 0:
+            for node_id, node in graph.nodes.items():
+                # Check if this is a newly added node (not in original view)
+                if not any(n.id == node_id for n in inp.view_nodes):
+                    op_id = f"{inp.request_id}:advanced_node:{node_id}"
+                    ops.append(PatchOp(
+                        op_id=op_id,
+                        op="add_node",
+                        value={
+                            "id": node.id,
+                            "type": node.type,
+                            "component_master_id": node.component_master_id,
+                            "attrs": node.attrs or {}
+                        }
+                    ))
+        
+        from backend.tools.schemas import make_patch
+        return make_patch(inp.request_id, ops=ops)
+        
+    except Exception as e:
+        # Fall back to simple wiring on any error
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Advanced wiring failed, falling back to simple wiring: {e}")
+        return wiring.generate_wiring(inp)
 
 
 class ActArgs(BaseModel):
@@ -52,7 +129,7 @@ def run_task(
             view_nodes=layer_nodes,
             edge_kind=args.edge_kind or "electrical",
         )
-        return wiring.generate_wiring(inp)
+        return _bridge_advanced_wiring(inp)
 
     if task == "generate_mounts":
         inp = GenerateMountsInput(
