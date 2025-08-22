@@ -48,11 +48,11 @@ def _iter_edges(edges: Iterable[Any] | None) -> Iterator[Dict[str, Any]]:
 def view_to_odl(view: Dict[str, Any]) -> str:
     nodes: Iterable[Dict[str, Any]] = sorted(
         _iter_nodes(view.get("nodes")),
-        key=lambda n: (n.get("type") or "", n.get("id") or ""),
+        key=lambda n: (str(n.get("type") or ""), str(n.get("id") or "")),
     )
     edges: Iterable[Dict[str, Any]] = sorted(
         _iter_edges(view.get("edges")),
-        key=lambda e: (e.get("source") or "", e.get("target") or ""),
+        key=lambda e: (str(e.get("source") or ""), str(e.get("target") or "")),
     )
     lines = ["# ODL (canonical text)"]
     for n in nodes:

@@ -157,9 +157,16 @@ if _use_regex:
         CORSMiddleware,
         allow_origins=[],
         allow_origin_regex=".*",
-        allow_credentials=True,
+        allow_credentials=False,
         allow_methods=["*"],
-        allow_headers=["*", "If-Match", "X-Request-ID", "Content-Type"],
+        allow_headers=[
+            "Content-Type",
+            "Authorization",
+            "If-Match",
+            "X-Request-ID",
+            "Accept",
+        ],
+        expose_headers=["ETag", "X-Request-ID"],
     )
 else:
     app.add_middleware(
@@ -167,7 +174,14 @@ else:
         allow_origins=_origins,
         allow_credentials=True,
         allow_methods=["*"],
-        allow_headers=["*", "If-Match", "X-Request-ID", "Content-Type"],
+        allow_headers=[
+            "Content-Type",
+            "Authorization",
+            "If-Match",
+            "X-Request-ID",
+            "Accept",
+        ],
+        expose_headers=["ETag", "X-Request-ID"],
     )
 
 # (RequestIDMiddleware installed above)
