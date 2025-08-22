@@ -771,23 +771,58 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ status: 'loading' });
     get().addStatusMessage('Loading project...', 'info');
     try {
-      // Use ODL bridge endpoints if sessionId is available
-      const [components, linksFromApi] = await Promise.all([
-        api.getComponents(sessionId),
-        api.getLinks(sessionId),
-      ]);
-      const enrichedComponents = components.map((c) => ({
-        ...c,
-        // Preserve existing layer if defined, otherwise default to the first layer
-        layer: (c as any).layer ?? 'Single-Line Diagram',
-        ports: [
-          { id: 'input', type: 'in' },
-          { id: 'output', type: 'out' },
-        ],
-      }));
-      set({ canvasComponents: enrichedComponents, links: linksFromApi, status: 'ready' });
-      get().addStatusMessage(`Project loaded with ${components.length} components`, 'success');
-      console.log(`Loaded ${components.length} components and ${linksFromApi.length} links from ODL`);
+      // First, try to load from legacy endpoints (safer for existing data)
+      try {
+        const [components, linksFromApi] = await Promise.all([
+          api.getComponents(), // Try legacy first
+          api.getLinks(),      // Try legacy first
+        ]);
+        const enrichedComponents = components.map((c) => ({
+          ...c,
+          // Preserve existing layer if defined, otherwise default to the first layer
+          layer: (c as any).layer ?? 'Single-Line Diagram',
+          ports: [
+            { id: 'input', type: 'in' },
+            { id: 'output', type: 'out' },
+          ],
+        }));
+        set({ canvasComponents: enrichedComponents, links: linksFromApi, status: 'ready' });
+        get().addStatusMessage(`Project loaded with ${components.length} components`, 'success');
+        console.log(`Loaded ${components.length} components and ${linksFromApi.length} links from legacy endpoints`);
+        return; // Success with legacy endpoints
+      } catch (legacyError) {
+        console.warn('Legacy endpoints failed, trying ODL endpoints:', legacyError);
+      }
+
+      // If legacy fails and we have a sessionId, try ODL endpoints
+      if (sessionId) {
+        try {
+          const [components, linksFromApi] = await Promise.all([
+            api.getComponents(sessionId), // Try ODL
+            api.getLinks(sessionId),      // Try ODL
+          ]);
+          const enrichedComponents = components.map((c) => ({
+            ...c,
+            // Preserve existing layer if defined, otherwise default to the first layer
+            layer: (c as any).layer ?? 'Single-Line Diagram',
+            ports: [
+              { id: 'input', type: 'in' },
+              { id: 'output', type: 'out' },
+            ],
+          }));
+          set({ canvasComponents: enrichedComponents, links: linksFromApi, status: 'ready' });
+          get().addStatusMessage(`Project loaded with ${components.length} components from ODL`, 'success');
+          console.log(`Loaded ${components.length} components and ${linksFromApi.length} links from ODL`);
+          return; // Success with ODL endpoints
+        } catch (odlError) {
+          console.warn('ODL endpoints also failed:', odlError);
+        }
+      }
+
+      // If both fail, set empty state
+      set({ canvasComponents: [], links: [], status: 'ready' });
+      get().addStatusMessage('No project data found', 'info');
+      console.log('No project data found, initialized empty');
     } catch (error) {
       console.error('Failed to load project:', error);
       set({ status: 'Error: Could not load project' });
