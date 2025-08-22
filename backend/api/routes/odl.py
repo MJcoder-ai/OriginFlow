@@ -31,9 +31,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/odl", tags=["ODL"])
 
 
-def _synthesize_text_from_view(view: dict) -> str:
+def _fallback_text(view: dict) -> str:
     """Lossy but robust fallback text used when serializer fails."""
-    lines = ["# ODL (view fallback)"]
+    lines = ["# ODL (fallback)"]
     for n in (view.get("nodes") or []):
         nid = n.get("id", "")
         ntype = n.get("type") or "generic"
@@ -43,6 +43,16 @@ def _synthesize_text_from_view(view: dict) -> str:
         tgt = e.get("target", "")
         lines.append(f"link {src} -> {tgt}")
     return "\n".join(lines) + "\n"
+
+
+def _default_empty_view(session_id: str, layer: str) -> dict:
+    return {
+        "session_id": session_id,
+        "base_version": 0,
+        "layer": layer,
+        "nodes": [],
+        "edges": [],
+    }
 
 
 async def _store_from_session(db: AsyncSession) -> ODLStore:
@@ -100,27 +110,32 @@ async def get_view(
     layer: str = Query("single-line"),
     db: AsyncSession = Depends(get_session),
 ):
+    """Return the current ODL view for a layer.
+
+    Always injects positions and falls back to an empty view on any error so the
+    canvas can render without hitting a 500.
     """
-    Proxy to the ODL store's view, but guarantee positions so the canvas can render.
-    """
-    store = await _store_from_session(db)
-    g = await store.get_graph(db, session_id)
-    if not g:
-        raise HTTPException(404, "Session not found")
     layer_name = (layer or "single-line").strip().lower()
-    view = layer_view(g, layer_name)
-    view = ensure_positions(view)
-    # Breadcrumbs: helps validate layer/type quickly
-    logger.info(
-        "ODL /view sid=%s layer=%s nodes=%d edges=%d",
-        session_id, layer_name, len(view.get("nodes") or []), len(view.get("edges") or []),
-    )
-    # Rendering hint: map unknown types to a generic visual shape without mutating stored types
-    for n in (view.get("nodes") or []):
-        n.setdefault("_render", {})
-        if n.get("type") == "generic_panel":
-            n["_render"].setdefault("shape", "panel")  # used only by the client renderer if supported
-    return view
+    try:
+        store = await _store_from_session(db)
+        g = await store.get_graph(db, session_id)
+        if not g:
+            logger.warning("ODL /view session not found sid=%s layer=%s", session_id, layer_name)
+            return _default_empty_view(session_id, layer_name)
+        view = layer_view(g, layer_name)
+        for n in (view.get("nodes") or []):
+            n.setdefault("_render", {})
+            n.setdefault("attrs", {})
+            n["attrs"].setdefault("layer", layer_name)
+        view = ensure_positions(view)
+        logger.info(
+            "ODL /view sid=%s layer=%s nodes=%d edges=%d",
+            session_id, layer_name, len(view.get("nodes") or []), len(view.get("edges") or []),
+        )
+        return view
+    except Exception as ex:
+        logger.exception("ODL /view failed sid=%s layer=%s: %s", session_id, layer_name, ex)
+        return _default_empty_view(session_id, layer_name)
 
 
 @router.get("/sessions/{session_id}/text")
@@ -145,26 +160,22 @@ async def get_odl_text(
         version = int(view.get("base_version") or view.get("version") or g.version)
         nodes = len(view.get("nodes") or [])
         edges = len(view.get("edges") or [])
-        logger.info("Serialize ODL text sid=%s layer=%s v=%s nodes=%d edges=%d",
-                    session_id, layer_name, version, nodes, edges)
-        # Try canonical serializer first
+        logger.info(
+            "Serialize ODL text sid=%s layer=%s v=%s nodes=%d edges=%d",
+            session_id, layer_name, version, nodes, edges,
+        )
         try:
             text = view_to_odl(view)
         except Exception as ser_ex:
-            # Fallback to robust synthesized text (prevents 500s breaking CORS)
             logger.warning("ODL serializer failed; using fallback. err=%s", ser_ex)
-            text = _synthesize_text_from_view(view)
+            text = _fallback_text(view)
         return {"session_id": session_id, "version": version, "text": text}
     except KeyError:
         logger.warning("ODL /text session not found sid=%s layer=%s", session_id, layer_name)
         raise HTTPException(status_code=404, detail="Session not found")
     except Exception as ex:
-        # Never let exceptions escape – Uvicorn would emit a 500 without CORS headers.
         logger.exception("ODL /text failed sid=%s layer=%s: %s", session_id, layer_name, ex)
-        return JSONResponse(status_code=500, content={
-            "error_code": "ODL_TEXT_FAILED",
-            "message": "Failed to render ODL text",
-        })
+        return {"session_id": session_id, "version": 0, "text": "# ODL (empty)\n"}
 
 
 @router.get("/{session_id}/head")
