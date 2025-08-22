@@ -52,7 +52,7 @@ def view_to_odl(view: Dict[str, Any]) -> str:
     )
     edges: Iterable[Dict[str, Any]] = sorted(
         _iter_edges(view.get("edges")),
-        key=lambda e: (str(e.get("source") or ""), str(e.get("target") or "")),
+        key=lambda e: (str(e.get("source_id") or ""), str(e.get("target_id") or "")),
     )
     lines = ["# ODL (canonical text)"]
     for n in nodes:
@@ -61,8 +61,8 @@ def view_to_odl(view: Dict[str, Any]) -> str:
         attrs = n.get("attrs") if isinstance(n.get("attrs"), dict) else {}
         lines.append(f"node {nid} : {ntype}{_fmt_attrs(attrs)}")
     for e in edges:
-        src = e.get("source", "")
-        tgt = e.get("target", "")
+        src = e.get("source_id", "")
+        tgt = e.get("target_id", "")
         attrs = e.get("attrs") if isinstance(e.get("attrs"), dict) else {}
         lines.append(f"link {src} -> {tgt}{_fmt_attrs(attrs)}")
     return "\n".join(lines) + "\n"

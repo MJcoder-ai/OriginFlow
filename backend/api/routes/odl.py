@@ -41,8 +41,8 @@ def _fallback_text(view: dict) -> str:
         ntype = n.get("type") or "generic"
         lines.append(f"node {nid} : {ntype}")
     for e in (view.get("edges") or []):
-        src = e.get("source", "")
-        tgt = e.get("target", "")
+        src = e.get("source_id", "")
+        tgt = e.get("target_id", "")
         lines.append(f"link {src} -> {tgt}")
     return "\n".join(lines) + "\n"
 
@@ -326,10 +326,13 @@ async def get_odl_links(
         # Convert ODL edges to link format
         links = []
         for i, edge in enumerate(view.get("edges") or []):
+            src = edge.get("source_id", "")
+            tgt = edge.get("target_id", "")
+            
             link = {
-                "id": f"{edge.get('source', '')}_{edge.get('target', '')}_{i}",
-                "source_id": edge.get("source", ""),
-                "target_id": edge.get("target", ""),
+                "id": f"{src}_{tgt}_{i}",
+                "source_id": src,
+                "target_id": tgt,
                 "kind": edge.get("kind", "electrical"),
                 "locked_in_layers": {},
                 "path_by_layer": {},
