@@ -27,7 +27,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
 
     async def on_after_register(self, user: User, request: Optional[Request] = None):
         """Called after successful user registration."""
-        print(f"User {user.id} has registered.")
+        # User registration logged via structured logging elsewhere
         
         # Set default permissions for new users
         if not user.permissions:
@@ -40,7 +40,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         request: Optional[Request] = None,
     ):
         """Called after successful login."""
-        print(f"User {user.id} logged in.")
+        # User login logged via structured logging elsewhere
         
         # Reset failed login attempts on successful login
         user_db = get_user_db()
@@ -53,7 +53,8 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         request: Optional[Request] = None,
     ):
         """Called after verification request."""
-        print(f"Verification requested for user {user.id}. Token: {token}")
+        # Verification request logged via structured logging elsewhere
+        # NOTE: Never log tokens in production
 
     async def authenticate(
         self,
@@ -72,7 +73,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         if user.is_locked:
             if user.failed_login_attempts >= auth_config.MAX_LOGIN_ATTEMPTS:
                 # In production, check if lockout period has expired
-                print(f"Account {user.email} is locked due to too many failed attempts")
+                # Account lockout logged via structured logging elsewhere
                 return None
         
         # Verify password
@@ -83,7 +84,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             # Lock account if too many failed attempts
             if user.failed_login_attempts + 1 >= auth_config.MAX_LOGIN_ATTEMPTS:
                 await user_db.lock_user(user.id)
-                print(f"Account {user.email} locked due to {auth_config.MAX_LOGIN_ATTEMPTS} failed login attempts")
+                # Account lockout logged via structured logging elsewhere
             
             return None
         

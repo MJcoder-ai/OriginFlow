@@ -1,10 +1,15 @@
+import logging
 from sentence_transformers import SentenceTransformer
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 model_name = "sentence-transformers/all-MiniLM-L6-v2"
 
-print(f"Downloading and caching model: {model_name}")
+logger.info(f"Downloading and caching model: {model_name}")
 try:
     SentenceTransformer(model_name)
-    print("Model downloaded successfully.")
+    logger.info("Model downloaded successfully.")
 except Exception as e:
-    print(f"An error occurred during model download: {e}")
+    logger.error(f"An error occurred during model download: {e}")

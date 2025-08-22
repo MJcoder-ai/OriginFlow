@@ -71,7 +71,7 @@ class Settings(BaseSettings):
     use_ocr_fallback: bool = False
     
     # Authentication settings
-    secret_key: str = "your-super-secret-key-change-in-production"
+    secret_key: str = "CHANGE_THIS_SECRET_KEY_IN_PRODUCTION"
     enable_auth: bool = True
 
     model_config = SettingsConfigDict(
