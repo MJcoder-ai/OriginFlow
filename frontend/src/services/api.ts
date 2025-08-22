@@ -14,7 +14,13 @@ import { CanvasComponent, Link, PlanTask } from '../appStore';
 import { API_BASE_URL } from '../config';
 
 export type AiPlan = {
-  tasks: { id: string; title: string; description?: string; status: 'pending' | 'in_progress' | 'complete' | 'blocked' }[];
+  tasks: {
+    id: string;
+    title: string;
+    description?: string;
+    status: 'pending' | 'in_progress' | 'complete' | 'blocked';
+    args?: any;
+  }[];
   metadata?: Record<string, any>;
 };
 
@@ -139,21 +145,21 @@ function fallbackPlanFromPrompt(command: string, layer: string = 'single-line'):
         description: `Add one inverter on the ${layer} layer`,
         status: 'pending',
         args: { component_type: 'inverter', count: 1, layer },
-      } as any,
+      },
       {
         id: 'make_placeholders',
         title: `Create ${count} panels`,
         description: `Add ${count} x ~${panelW}W panels on the ${layer} layer`,
         status: 'pending',
         args: { component_type: 'panel', count, layer },
-      } as any,
+      },
       {
         id: 'generate_wiring',
         title: 'Generate wiring',
         description: `Auto-connect inverter and panels on ${layer} layer`,
         status: 'pending',
         args: { layer },
-      } as any,
+      },
     ],
     metadata: { fallback: true, targetKW, panelW, count, layer },
   };
