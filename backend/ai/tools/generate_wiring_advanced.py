@@ -63,7 +63,7 @@ async def generate_wiring_advanced(
         )
         
         # Extract component positions from graph
-        component_positions = _extract_component_positions(graph, layer)
+        component_positions, component_mapping = _extract_component_positions(graph, layer)
         
         # Generate intelligent routing
         router = Router(components, topology_engine)
@@ -71,7 +71,7 @@ async def generate_wiring_advanced(
         
         # Apply wiring to the graph
         wiring_results = _apply_wiring_to_graph(
-            graph, system_design, routing, layer, session_id
+            graph, system_design, routing, layer, session_id, component_mapping
         )
         
         # Generate comprehensive documentation
@@ -213,10 +213,11 @@ def _get_available_component_ids(component_analysis: Dict[str, Any]) -> List[str
     
     return available
 
-def _extract_component_positions(graph: ODLGraph, layer: str) -> Dict[str, tuple]:
-    """Extract component positions from the graph"""
+def _extract_component_positions(graph: ODLGraph, layer: str) -> tuple[Dict[str, tuple], Dict[str, str]]:
+    """Extract component positions from the graph and return mapping"""
     
     positions = {}
+    component_mapping = {}  # maps routing_id -> odl_node_id
     
     for node_id, node in graph.nodes.items():
         node_layer = node.attrs.get("layer") if node.attrs else None
@@ -244,11 +245,13 @@ def _extract_component_positions(graph: ODLGraph, layer: str) -> Dict[str, tuple
             component_key = node_type
         
         positions[component_key] = (x, y)
+        component_mapping[component_key] = node_id
     
-    return positions
+    return positions, component_mapping
 
 def _apply_wiring_to_graph(graph: ODLGraph, system_design: Dict[str, Any],
-                         routing: List, layer: str, session_id: str) -> Dict[str, Any]:
+                         routing: List, layer: str, session_id: str, 
+                         component_mapping: Dict[str, str]) -> Dict[str, Any]:
     """Apply generated wiring to the ODL graph"""
     
     results = {
@@ -288,19 +291,27 @@ def _apply_wiring_to_graph(graph: ODLGraph, system_design: Dict[str, Any],
     
     # Add wiring connections as edges
     for route in routing:
-        # Skip if source or target components don't exist in graph
-        if route.source_component not in graph.nodes or route.target_component not in graph.nodes:
+        # Map routing component IDs to actual ODL node IDs
+        source_node_id = component_mapping.get(route.source_component)
+        target_node_id = component_mapping.get(route.target_component)
+        
+        # Skip if source or target components don't exist in mapping or graph
+        if not source_node_id or not target_node_id:
+            results["warnings"].append(f"Skipping route {route.route_id}: component not in mapping")
+            continue
+            
+        if source_node_id not in graph.nodes or target_node_id not in graph.nodes:
             results["warnings"].append(f"Skipping route {route.route_id}: missing components")
             continue
         
         # Create edge ID
-        edge_id = f"{route.source_component}_{route.target_component}_{route.route_id}"
+        edge_id = f"{source_node_id}_{target_node_id}_{route.route_id}"
         
         # Create ODL edge
         edge = ODLEdge(
             id=edge_id,
-            source_id=route.source_component,
-            target_id=route.target_component,
+            source_id=source_node_id,
+            target_id=target_node_id,
             kind="electrical",
             attrs={
                 "layer": layer,
