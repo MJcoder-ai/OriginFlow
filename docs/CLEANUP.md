@@ -15,7 +15,7 @@ This phase removes brittle legacy references and unifies imports to reduce surpr
 
 3. **Legacy 410 router**
    - The compatibility router has been **removed**. Unknown legacy paths now return 404.
-   - Keep clients on the vNext surface documented in `docs/API_ENDPOINTS.md`.
+   - Keep clients on the OriginFlow API surface documented in `docs/API_ENDPOINTS.md`.
 
 4. **Health checks**
    - `/api/v1/system/readyz` imports the async engine from the canonical module.
