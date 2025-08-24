@@ -19,7 +19,7 @@ from backend.tools.schemas import (
     AddProtectiveDeviceInput,
 )
 from backend.tools import wiring, structural, monitoring, placeholders, deletion
-from backend.tools import protective_devices, electrical, electrical_v2
+from backend.tools import protective_devices, electrical
 from backend.tools import design_state, standards_check_v2
 from backend.tools import schedules as schedules_tool
 from backend.tools import explain_design_v2
@@ -39,10 +39,10 @@ def get_tool(task_id: str):
         "select_ocp_ac": electrical.select_ocp_ac,
         "select_conductors": electrical.select_conductors,
         "expand_connections": electrical.expand_connections,
-        # v2 tools
-        "select_ocp_ac_v2": electrical_v2.select_ocp_ac_v2,
-        "select_conductors_v2": electrical_v2.select_conductors_v2,
-        "expand_connections_v2": electrical_v2.expand_connections_v2,
+        # v2 tools (fallback to v1 until v2 is implemented)
+        "select_ocp_ac_v2": electrical.select_ocp_ac,
+        "select_conductors_v2": electrical.select_conductors,
+        "expand_connections_v2": electrical.expand_connections,
         # state & compliance
         "compute_design_state": design_state.compute_design_state,
         "check_compliance_v2": standards_check_v2.check_compliance_v2,
