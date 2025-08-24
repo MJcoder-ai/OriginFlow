@@ -1,6 +1,6 @@
-# Architecture Overview (vNext)
+# Architecture Overview (OriginFlow)
 
-This document summarizes the **clean, modern agentic architecture** shipped in Phases 1–9. The codebase favors **one LLM-backed orchestrator**, a **typed tool catalog**, and a **state-aware ODL model** as the single source of truth.
+This document summarizes the **clean, modern agentic architecture** of OriginFlow shipped in Phases 1–9. The codebase favors **one LLM-backed orchestrator**, a **typed tool catalog**, and a **state-aware ODL model** as the single source of truth.
 
 ## Big picture
 ```text
