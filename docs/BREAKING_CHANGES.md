@@ -1,6 +1,6 @@
-# BREAKING CHANGES (vNext)
+# BREAKING CHANGES (OriginFlow)
 
-This release intentionally **removes backward compatibility** to achieve a
+This OriginFlow release intentionally **removes backward compatibility** to achieve a
 cleaner, simpler, and more robust agentic architecture.
 
 ## Summary

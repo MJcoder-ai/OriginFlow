@@ -1,6 +1,6 @@
-# API Contracts (vNext)
+# API Contracts (OriginFlow)
 
-This document captures the **current** API surface. Backward compatibility with legacy envelopes/endpoints is intentionally **not** maintained.
+This document captures the **current** OriginFlow API surface. Backward compatibility with legacy envelopes/endpoints is intentionally **not** maintained.
 
 ## Response envelope (ADPF)
 ```json
