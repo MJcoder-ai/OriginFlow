@@ -6,7 +6,7 @@ from minimal context and returns the resulting ODLPatch (or None).
 """
 from __future__ import annotations
 
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 from pydantic import BaseModel, Field
 
 from backend.odl.schemas import ODLPatch, ODLNode
@@ -20,11 +20,15 @@ from backend.tools.schemas import (
 )
 from backend.tools import wiring, structural, monitoring, placeholders, deletion
 from backend.tools import protective_devices, electrical
+from backend.tools import electrical_v2  # new v2 tools
 from backend.tools import design_state, standards_check_v2
 from backend.tools import schedules as schedules_tool
 from backend.tools import explain_design_v2
 from backend.tools import routing, mechanical
 from backend.tools import labels as labels_tool
+from backend.tools import select_equipment, stringing, ocp_dc, materialize, bom as bom_tool
+from backend.orchestrator.plan_spec import PlanSpec
+from backend.orchestrator.auto_designer import run_auto_design
 from backend.tools.standards_profiles import load_profile
 from backend.ai.tools.generate_wiring_advanced import generate_wiring_advanced
 from backend.odl.schemas import ODLGraph, ODLEdge, PatchOp
@@ -34,6 +38,20 @@ from backend.tools.replacement import apply_replacements, ReplaceInput, Replacem
 
 TOOL_COUNTERS: Dict[str, int] = {}
 
+# Phase gating: what categories are allowed in each workflow phase
+PHASE_ALLOW = {
+    "setup": {"compute_design_state", "select_equipment", "select_dc_stringing", "check_compliance_v2", "explain_design_v2"},
+    "proposal": {"select_equipment", "select_dc_stringing", "check_compliance_v2", "select_ocp_dc", "select_ocp_ac_v2", "select_conductors_v2"},
+    "materialize": "ANY",
+}
+
+
+def enforce_phase(phase: str, task_id: str) -> bool:
+    allow = PHASE_ALLOW.get(phase, "ANY")
+    if allow == "ANY":
+        return True
+    return task_id in allow
+
 
 def get_tool(task_id: str):
     mapping = {
@@ -41,10 +59,10 @@ def get_tool(task_id: str):
         "select_ocp_ac": electrical.select_ocp_ac,
         "select_conductors": electrical.select_conductors,
         "expand_connections": electrical.expand_connections,
-        # v2 tools (fallback to v1 until v2 is implemented)
-        "select_ocp_ac_v2": electrical.select_ocp_ac,
-        "select_conductors_v2": electrical.select_conductors,
-        "expand_connections_v2": electrical.expand_connections,
+        # v2 tools
+        "select_ocp_ac_v2": electrical_v2.select_ocp_ac_v2,
+        "select_conductors_v2": electrical_v2.select_conductors_v2,
+        "expand_connections_v2": electrical_v2.expand_connections_v2,
         # state & compliance
         "compute_design_state": design_state.compute_design_state,
         "check_compliance_v2": standards_check_v2.check_compliance_v2,
@@ -55,6 +73,12 @@ def get_tool(task_id: str):
         "layout_racking": mechanical.layout_racking,
         "attachment_spacing": mechanical.attachment_spacing,
         "generate_labels": labels_tool.generate_labels,
+        "select_equipment": select_equipment.select_equipment,
+        "select_dc_stringing": stringing.select_dc_stringing,
+        "select_ocp_dc": ocp_dc.select_ocp_dc,
+        "materialize_design": materialize.materialize_design,
+        "generate_bom": bom_tool.generate_bom,
+        "auto_design": run_auto_design,  # takes PlanSpec
     }
     return mapping.get(task_id)
 
