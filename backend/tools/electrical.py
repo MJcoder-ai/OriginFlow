@@ -6,7 +6,6 @@ ODLPatch with annotation edges describing the decision for auditability.
 """
 from __future__ import annotations
 
-from math import log10
 from typing import List
 
 from backend.odl.schemas import PatchOp
@@ -28,23 +27,6 @@ def _worst_case_voc(module, env, ref_C: float = 25.0) -> float:
     dv_pct = module.beta_voc_pct_per_C * (env.ambient_min_C - ref_C)
     return module.voc_stc * (1.0 + dv_pct / 100.0)
 
-
-def _loglog_interp(points, x: float) -> float:
-    pts = sorted(points, key=lambda p: p[0])
-    if x <= pts[0][0]:
-        return pts[0][1]
-    if x >= pts[-1][0]:
-        return pts[-1][1]
-    for (x1, y1), (x2, y2) in zip(pts, pts[1:]):
-        if x1 <= x <= x2:
-            from math import log10
-
-            lx1, lx2 = log10(x1), log10(x2)
-            ly1, ly2 = log10(y1), log10(y2)
-            t = (log10(x) - lx1) / (lx2 - lx1)
-            ly = ly1 + t * (ly2 - ly1)
-            return 10 ** ly
-    return pts[-1][1]
 
 
 def _vdrop_dc(I: float, ohm_km: float, L_m: float) -> float:
@@ -218,8 +200,6 @@ def select_ocp_ac(inp: SelectOcpAcInput):
 def select_conductors(inp: SelectConductorsInput):
     I = inp.current_A
     L = inp.env.length_m
-    target_v = inp.system_v * inp.env.max_vdrop_pct / 100.0
-
     def vdrop_for(size_label: str) -> float:
         ohm_km_map = {
             "14AWG": 8.286,
@@ -286,6 +266,10 @@ def expand_connections(inp: ExpandConnectionsInput):
         funcs = ["L", "N"]
         if inp.add_ground:
             funcs.append("PE")
+    elif inp.connection_type == "rs485":
+        funcs = ["D+", "D-"]
+        if inp.add_ground:
+            funcs.append("SG")
     else:
         funcs = ["A", "B"]
     ops: List[PatchOp] = []
