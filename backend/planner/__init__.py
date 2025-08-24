@@ -14,3 +14,4 @@ from .schemas import AiPlan, AiPlanTask, ParsedPlan  # noqa: F401
 
 # Optional higher-level planners
 from .pv_planner import plan_pv_single_line  # noqa: F401
+from .long_planner import LongPlanner  # noqa: F401

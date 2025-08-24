@@ -43,3 +43,12 @@ patch = generate_wiring(GenerateWiringInput(
 - Tools target **simplicity and determinism**. Advanced logic belongs in the
   orchestrator (Phase 4) and policy layers (risk/approvals).
 - Use Pydantic v2 models for all tool inputs/outputs to catch errors early.
+
+## Electrical/PV
+- select_equipment: choose inverter/module placeholders or real parts from requirements
+- select_dc_stringing: compute series/parallel grouping across MPPTs
+- select_ocp_dc: size DC-side protection (fuses/breakers)
+- select_conductors_v2: determine conductor sizes with derates
+- generate_wiring: auto–link placeholders and sized conductors
+- check_compliance_v2: run rule set and emit warnings
+- generate_bom: derive BOM items and quantities

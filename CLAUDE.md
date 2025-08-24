@@ -184,7 +184,10 @@ Several services contain TODO stubs ready for development:
 ## Troubleshooting
 
 ### Blank Canvas Issues
-1. Check send button semantics: empty input runs current plan step, non-empty requests fresh plan
+1. **Command UI semantics**
+   - Typing in the Command bar requests a fresh **LongPlan** for that text.
+   - “Run” on a task calls `POST /ai/act` with the task’s tool id + args.
+   - “Run All” executes tasks in the returned order, respecting dependencies client-side.
 2. Reset session: `POST /api/v1/odl/sessions/{session_id}/reset`
 3. Verify session creation and ODL view endpoints
 

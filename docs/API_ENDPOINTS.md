@@ -25,12 +25,20 @@ GET /api/v1/odl/{session_id}/view?layer={name}
 ```
 GET /api/v1/odl/sessions/{session_id}/plan?command={text}[&layer=single-line|electrical]
 ```
-Parses the natural-language command (e.g., “design a 5 kW solar PV system”)
-and returns a deterministic plan of tasks that clients can execute via `/odl/{sid}/act`.
-For MVP the planner is rule-based (no model calls) and emits:
-- `make_placeholders` (inverter)
-- `make_placeholders` (N panels calculated from target kW and panel wattage)
+Returns a **LongPlan** – a typed, multi-step plan tailored to the current
+session. The planner deterministically converts natural language (for example,
+"design a 5 kW PV system") into a sequence of tool invocations with
+dependencies. Clients then execute each step via `POST /ai/act`.
+
+The default PV workflow includes tasks such as:
+
+- `select_equipment`
+- `select_dc_stringing`
+- `select_ocp_dc`
+- `select_conductors_v2`
 - `generate_wiring`
+- `check_compliance_v2`
+- `generate_bom`
 
 ### Get canonical ODL text (for the active layer)
 ```
