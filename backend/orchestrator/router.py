@@ -6,21 +6,54 @@ from minimal context and returns the resulting ODLPatch (or None).
 """
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Dict
 from pydantic import BaseModel, Field
 
 from backend.odl.schemas import ODLPatch, ODLNode
 from backend.tools.schemas import (
-    GenerateWiringInput, GenerateMountsInput, AddMonitoringInput,
-    MakePlaceholdersInput, DeleteNodesInput, AddProtectiveDeviceInput,
+    GenerateWiringInput,
+    GenerateMountsInput,
+    AddMonitoringInput,
+    MakePlaceholdersInput,
+    DeleteNodesInput,
+    AddProtectiveDeviceInput,
 )
 from backend.tools import wiring, structural, monitoring, placeholders, deletion
-from backend.tools import protective_devices
+from backend.tools import protective_devices, electrical, electrical_v2
+from backend.tools import design_state, standards_check_v2
+from backend.tools import schedules as schedules_tool
+from backend.tools import explain_design_v2
+from backend.tools.standards_profiles import load_profile
 from backend.ai.tools.generate_wiring_advanced import generate_wiring_advanced
 from backend.odl.schemas import ODLGraph, ODLEdge, PatchOp
 import asyncio
 import logging
 from backend.tools.replacement import apply_replacements, ReplaceInput, ReplacementItem
+
+TOOL_COUNTERS: Dict[str, int] = {}
+
+
+def get_tool(task_id: str):
+    mapping = {
+        # existing tools
+        "select_ocp_ac": electrical.select_ocp_ac,
+        "select_conductors": electrical.select_conductors,
+        "expand_connections": electrical.expand_connections,
+        # v2 tools
+        "select_ocp_ac_v2": electrical_v2.select_ocp_ac_v2,
+        "select_conductors_v2": electrical_v2.select_conductors_v2,
+        "expand_connections_v2": electrical_v2.expand_connections_v2,
+        # state & compliance
+        "compute_design_state": design_state.compute_design_state,
+        "check_compliance_v2": standards_check_v2.check_compliance_v2,
+        "generate_schedules": schedules_tool.generate_schedules,
+        "explain_design_v2": explain_design_v2.explain_design_v2,
+    }
+    return mapping.get(task_id)
+
+
+def get_standards_profile(profile_id: str = "NEC_2023"):
+    return load_profile(profile_id).id
 
 
 def _bridge_advanced_wiring(inp: GenerateWiringInput) -> Optional[ODLPatch]:
