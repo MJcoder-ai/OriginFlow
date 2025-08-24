@@ -1,0 +1,36 @@
+{
+  "$schema": "https://originflow.dev/schemas/standards_profile.json",
+  "id": "NEC_2023",
+  "title": "NEC 2023 Representative Factors",
+  "ampacity_temperature_correction_90C": [
+    { "ambient_C_max": 30, "factor": 1.00 },
+    { "ambient_C_max": 35, "factor": 0.96 },
+    { "ambient_C_max": 40, "factor": 0.91 },
+    { "ambient_C_max": 45, "factor": 0.87 },
+    { "ambient_C_max": 50, "factor": 0.82 },
+    { "ambient_C_max": 55, "factor": 0.76 },
+    { "ambient_C_max": 60, "factor": 0.71 }
+  ],
+  "grouping_adjustment": [
+    { "cc_conductors_max": 3, "factor": 1.00 },
+    { "cc_conductors_max": 6, "factor": 0.80 },
+    { "cc_conductors_max": 9, "factor": 0.70 },
+    { "cc_conductors_max": 20, "factor": 0.50 },
+    { "cc_conductors_max": 1000, "factor": 0.45 }
+  ],
+  "defaults": {
+    "voltage_drop_pct": {
+      "dc_string": 2.0,
+      "ac_branch": 3.0,
+      "ac_feeder": 3.0,
+      "ctl": 2.0,
+      "comm": 2.0
+    }
+  },
+  "resistivity_ohm_per_km": {
+    "Cu": 0.018,
+    "Al": 0.029
+  },
+  "mppt_window_margin_pct": 0.0
+}
+

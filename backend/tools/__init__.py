@@ -22,6 +22,11 @@ from . import (
     components,
     datasheets,
     comm,
+    design_state,
+    standards_profiles,
+    standards_check_v2,
+    schedules,
+    explain_design_v2,
 )
 
 __all__ = [
@@ -40,4 +45,9 @@ __all__ = [
     "components",
     "datasheets",
     "comm",
+    "design_state",
+    "standards_profiles",
+    "standards_check_v2",
+    "schedules",
+    "explain_design_v2",
 ]
