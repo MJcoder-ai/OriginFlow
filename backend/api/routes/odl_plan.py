@@ -17,7 +17,7 @@ import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.session import get_session
-from backend.planner.parser import parse_design_command
+from backend.planner.pv_planner import plan_pv_single_line
 from backend.planner.schemas import AiPlan, AiPlanTask
 from backend.odl.store import ODLStore
 from backend.odl.views import layer_view
@@ -499,33 +499,36 @@ async def get_plan_for_session(
             },
         )
 
-    # Fallback to design command parsing (creates full PV system)
-    logger.info("Falling back to design command parsing: session=%s", session_id)
-    plan = parse_design_command(command)
-    if chosen_layer:
-        plan.layer = chosen_layer
+    # Fallback to PV planner if no specific intent matched
+    logger.info("Falling back to PV planner: session=%s", session_id)
+    pv_plan = plan_pv_single_line(command)
+    layer_name = chosen_layer or "single-line"
+    inv_task = next(t for t in pv_plan["tasks"] if t["args"].get("component_type") == "inverter")
+    pan_task = next(t for t in pv_plan["tasks"] if t["args"].get("component_type") == "panel")
+    inv_count = inv_task["args"]["count"]
+    pan_count = pan_task["args"]["count"]
 
     tasks: List[AiPlanTask] = [
         AiPlanTask(
             id="make_placeholders",
-            title="Create inverter",
-            description=f"Add one inverter placeholder on the {plan.layer} layer",
+            title="Create inverter" if inv_count == 1 else f"Create {inv_count} inverters",
+            description=f"Add {inv_count} inverter placeholder{'s' if inv_count != 1 else ''} on the {layer_name} layer",
             status="pending",
-            args={"component_type": "inverter", "count": 1, "layer": plan.layer},
+            args={"component_type": "inverter", "count": inv_count, "layer": layer_name},
         ),
         AiPlanTask(
             id="make_placeholders",
-            title=f"Create {plan.panel_count} panels",
-            description=f"Add {plan.panel_count} panel placeholders (≈{plan.panel_watts} W per panel) on the {plan.layer} layer",
+            title=f"Create {pan_count} panels",
+            description=f"Add {pan_count} panel placeholders on the {layer_name} layer",
             status="pending",
-            args={"component_type": "panel", "count": plan.panel_count, "layer": plan.layer},
+            args={"component_type": "panel", "count": pan_count, "layer": layer_name},
         ),
         AiPlanTask(
             id="generate_wiring",
             title="Generate wiring",
-            description=f"Auto-generate connections on {plan.layer}",
+            description=f"Auto-generate connections on {layer_name}",
             status="pending",
-            args={"layer": plan.layer},
+            args={"layer": layer_name},
         ),
     ]
 
@@ -533,11 +536,7 @@ async def get_plan_for_session(
         tasks=tasks,
         metadata={
             "session_id": session_id,
-            "parsed": {
-                "target_kw": plan.target_kw,
-                "panel_watts": plan.panel_watts,
-                "layer": plan.layer,
-            },
-            "assumptions": plan.assumptions,
+            "layer": layer_name,
+            "warnings": pv_plan.get("warnings", []),
         },
     )
