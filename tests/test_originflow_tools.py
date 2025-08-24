@@ -1,4 +1,3 @@
-import math
 import pathlib
 import importlib.util
 import sys
@@ -102,6 +101,14 @@ def test_breaker_curve():
     assert 1 < val < 20
 
 
+def test_breaker_curve_clamp():
+    curve = BreakerCurve(points=[(3, 100), (5, 10), (10, 0.5)])
+    lo = analysis.apply_breaker_curve(ApplyBreakerCurveInput(session_id=SESSION, request_id="r4a", breaker_curve=curve, current_multiple=1))
+    hi = analysis.apply_breaker_curve(ApplyBreakerCurveInput(session_id=SESSION, request_id="r4b", breaker_curve=curve, current_multiple=20))
+    assert lo.operations[0].value["attrs"]["result"]["t_trip_s"] == 100
+    assert hi.operations[0].value["attrs"]["result"]["t_trip_s"] == 0.5
+
+
 def test_conductor_selection_and_vdrop():
     env = ConductorEnv(length_m=30, max_vdrop_pct=3)
     inp = SelectConductorsInput(session_id=SESSION, request_id="r5", current_A=20, system_v=480, env=env)
@@ -135,6 +142,12 @@ def test_expand_and_compliance():
         )
     )
     assert cpatch.operations[0].value["attrs"]["result"]["findings"]
+
+
+def test_expand_rs485_labels():
+    epatch = electrical.expand_connections(ExpandConnectionsInput(session_id=SESSION, request_id="r8b", source_id="dev", target_id="rtr", connection_type="rs485"))
+    labels = [op.value["attrs"].get("function") for op in epatch.operations if op.value.get("kind") == "electrical"]
+    assert "D+" in labels and "D-" in labels
 
 
 def test_components_datasheets_comm():

@@ -8,10 +8,11 @@ from .schemas import (
     CalcIfaultInput,
     make_patch,
 )
+from ._mathutils import loglog_interp
 
 
 def apply_breaker_curve(inp: ApplyBreakerCurveInput):
-    t = _loglog_interp(inp.breaker_curve.points, inp.current_multiple)
+    t = loglog_interp(inp.breaker_curve.points, inp.current_multiple)
     ops = [
         PatchOp(
             op_id=f"{inp.request_id}:ann:curve",
@@ -28,24 +29,6 @@ def apply_breaker_curve(inp: ApplyBreakerCurveInput):
     return make_patch(inp.request_id, ops)
 
 
-def _loglog_interp(points, x: float) -> float:
-    pts = sorted(points, key=lambda p: p[0])
-    if x <= pts[0][0]:
-        return pts[0][1]
-    if x >= pts[-1][0]:
-        return pts[-1][1]
-    from math import log10
-
-    for (x1, y1), (x2, y2) in zip(pts, pts[1:]):
-        if x1 <= x <= x2:
-            lx1, lx2 = log10(x1), log10(x2)
-            ly1, ly2 = log10(y1), log10(y2)
-            t = (log10(x) - lx1) / (lx2 - lx1)
-            ly = ly1 + t * (ly2 - ly1)
-            return 10 ** ly
-    return pts[-1][1]
-
-
 def calculate_voltage_drop(inp: CalcVdropInput):
     if inp.phase == "dc":
         vd = inp.current_A * inp.R_ohm_per_km * (2 * inp.length_m / 1000)
@@ -55,7 +38,9 @@ def calculate_voltage_drop(inp: CalcVdropInput):
         from math import sqrt
 
         vd = sqrt(3) * inp.current_A * inp.R_ohm_per_km * (inp.length_m / 1000)
-    pct = vd / inp.system_v * 100.0
+    # Guard against divide-by-zero if misconfigured input slips through
+    den = inp.system_v if inp.system_v else 1e-9
+    pct = vd / den * 100.0
     ops = [
         PatchOp(
             op_id=f"{inp.request_id}:ann:vdrop",
