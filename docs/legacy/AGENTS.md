@@ -1,6 +1,6 @@
 # Legacy Agents Developer Guide
 
-This document described the pre-vNext multi-agent architecture. It is retained for historical reference.
+This document described the pre-OriginFlow multi-agent architecture. It is retained for historical reference.
 For the current single-orchestrator and typed-tool design, see:
 
 - [docs/ARCHITECTURE_OVERVIEW.md](../ARCHITECTURE_OVERVIEW.md)
