@@ -17,6 +17,7 @@ from . import (
     replacement,
     deletion,
     electrical,
+    electrical_v2,
     analysis,
     standards,
     components,
@@ -30,6 +31,12 @@ from . import (
     routing,
     mechanical,
     labels,
+    select_equipment,
+    stringing,
+    ocp_dc,
+    materialize,
+    bom,
+    catalog,
 )
 
 __all__ = [
@@ -43,6 +50,7 @@ __all__ = [
     "replacement",
     "deletion",
     "electrical",
+    "electrical_v2",
     "analysis",
     "standards",
     "components",
@@ -56,4 +64,10 @@ __all__ = [
     "routing",
     "mechanical",
     "labels",
+    "select_equipment",
+    "stringing",
+    "ocp_dc",
+    "materialize",
+    "bom",
+    "catalog",
 ]

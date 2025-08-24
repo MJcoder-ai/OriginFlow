@@ -1,0 +1,22 @@
+[
+  {
+    "id": "MOD_400W",
+    "title": "Mono 400 W",
+    "p_W": 400,
+    "voc": 49.5,
+    "vmp": 41.5,
+    "isc": 11.2,
+    "imp": 10.7,
+    "beta_voc_pct_per_C": -0.28
+  },
+  {
+    "id": "MOD_450W",
+    "title": "Mono 450 W",
+    "p_W": 450,
+    "voc": 51.0,
+    "vmp": 42.5,
+    "isc": 11.5,
+    "imp": 10.9,
+    "beta_voc_pct_per_C": -0.28
+  }
+]

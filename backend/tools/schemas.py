@@ -22,6 +22,9 @@ class ToolBase(BaseModel):
 
     session_id: str = Field(..., description="Design session id")
     request_id: str = Field(..., description="Idempotency scope for op_ids")
+    # Soft default: tools may run in simulate mode (compute & annotate only).
+    # Creation tools MUST honor this (no graph mutations when simulate=True).
+    simulate: bool = False
     model_config = ConfigDict(extra="forbid")
 
 

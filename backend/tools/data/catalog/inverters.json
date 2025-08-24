@@ -1,0 +1,29 @@
+[
+  {
+    "id": "INV_5K_2MPPT_600V",
+    "title": "String inverter 5 kW 240V, 2 MPPT, 600Vdc",
+    "ac_kW": 5.0,
+    "ac_V": "240",
+    "phases": "1ph",
+    "max_system_vdc": 600,
+    "mppt_windows": [{"v_min": 200, "v_max": 550, "count": 2}]
+  },
+  {
+    "id": "INV_3_8K_2MPPT_600V",
+    "title": "String inverter 3.8 kW 240V, 2 MPPT, 600Vdc",
+    "ac_kW": 3.8,
+    "ac_V": "240",
+    "phases": "1ph",
+    "max_system_vdc": 600,
+    "mppt_windows": [{"v_min": 200, "v_max": 500, "count": 2}]
+  },
+  {
+    "id": "INV_7_6K_2MPPT_600V",
+    "title": "String inverter 7.6 kW 240V, 2 MPPT, 600Vdc",
+    "ac_kW": 7.6,
+    "ac_V": "240",
+    "phases": "1ph",
+    "max_system_vdc": 600,
+    "mppt_windows": [{"v_min": 200, "v_max": 550, "count": 2}]
+  }
+]
