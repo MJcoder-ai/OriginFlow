@@ -12,9 +12,10 @@ from pydantic import BaseModel, Field
 from backend.odl.schemas import ODLPatch, ODLNode
 from backend.tools.schemas import (
     GenerateWiringInput, GenerateMountsInput, AddMonitoringInput,
-    MakePlaceholdersInput, DeleteNodesInput,
+    MakePlaceholdersInput, DeleteNodesInput, AddProtectiveDeviceInput,
 )
 from backend.tools import wiring, structural, monitoring, placeholders, deletion
+from backend.tools import protective_devices
 from backend.ai.tools.generate_wiring_advanced import generate_wiring_advanced
 from backend.odl.schemas import ODLGraph, ODLEdge, PatchOp
 import asyncio
@@ -111,6 +112,11 @@ class ActArgs(BaseModel):
     categories: list[str] | None = None
     # Optional explicit candidate pool (bypass DB)
     pool: list[dict] | None = None
+    # Protective device-specific
+    connection_mode: str | None = None
+    existing_components: list[str] | None = None
+    rating_A: float | None = None
+    voltage_rating_V: float | None = None
 
 
 def run_task(
@@ -175,6 +181,20 @@ def run_task(
             component_types=ctypes,
         )
         return deletion.delete_nodes(inp)
+
+    if task == "add_protective_device":
+        inp = AddProtectiveDeviceInput(
+            session_id=session_id,
+            request_id=request_id,
+            view_nodes=layer_nodes,
+            device_type=args.device_type or "dc_switch",
+            layer=args.layer or "single-line",
+            connection_mode=args.connection_mode or "series_insertion",
+            existing_components=args.existing_components or [],
+            rating_A=args.rating_A,
+            voltage_rating_V=args.voltage_rating_V,
+        )
+        return protective_devices.add_protective_device(inp)
 
     # Replacement patch is constructed by orchestrator (after choosing candidates)
     if task == "replace_placeholders":

@@ -298,6 +298,18 @@ class EnrichComponentMetadataInput(ToolBase):
     provenance: Dict[str, str] = Field(default_factory=dict)
 
 
+class AddProtectiveDeviceInput(ToolBase):
+    view_nodes: List[ODLNode] = Field(default_factory=list)
+    device_type: str = Field(..., description="Type of protective device (dc_switch, dc_disconnect, dc_breaker, fuse)")
+    layer: str = Field(default="single-line", description="Target layer")
+    connection_mode: Literal["series_insertion", "standalone"] = Field(default="series_insertion")
+    source_component_type: Optional[str] = Field(None, description="Source component type to connect from")
+    target_component_type: Optional[str] = Field(None, description="Target component type to connect to")
+    existing_components: List[str] = Field(default_factory=list, description="List of existing component types")
+    rating_A: Optional[float] = Field(None, description="Current rating for the protective device")
+    voltage_rating_V: Optional[float] = Field(None, description="Voltage rating for the protective device")
+
+
 class IngestComponentJsonInput(ToolBase):
     raw: Dict[str, object]
     mapping: Dict[str, str] = Field(default_factory=dict)
