@@ -28,7 +28,7 @@ from backend.tools import routing, mechanical
 from backend.tools import labels as labels_tool
 from backend.tools import select_equipment, stringing, ocp_dc, materialize, bom as bom_tool
 from backend.orchestrator.plan_spec import PlanSpec
-from backend.orchestrator.auto_designer import run_auto_design
+from backend.orchestrator.auto_designer import run_auto_design, auto_design_from_nl
 from backend.tools.standards_profiles import load_profile
 from backend.ai.tools.generate_wiring_advanced import generate_wiring_advanced
 from backend.odl.schemas import ODLGraph, ODLEdge, PatchOp
@@ -79,6 +79,8 @@ def get_tool(task_id: str):
         "materialize_design": materialize.materialize_design,
         "generate_bom": bom_tool.generate_bom,
         "auto_design": run_auto_design,  # takes PlanSpec
+        # chat convenience: NL -> PlanSpec -> auto design (simulate-first)
+        "auto_design_from_nl": auto_design_from_nl,
     }
     return mapping.get(task_id)
 

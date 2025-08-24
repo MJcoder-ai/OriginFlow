@@ -6,6 +6,7 @@ from backend.orchestrator.plan_spec import PlanSpec
 from backend.tools import design_state, standards_check_v2, electrical_v2
 from backend.tools import select_equipment, stringing, ocp_dc, materialize, schedules as schedules_tool
 from backend.tools import routing, mechanical, labels as labels_tool, bom as bom_tool, explain_design_v2
+from backend.tools.nl.parse_plan_spec import parse_plan_spec, NLToPlanSpecInput
 
 
 def _collect_ops(*patches: ODLPatch | Dict[str, Any]) -> List[PatchOp]:
@@ -327,5 +328,36 @@ def run_auto_design(spec: PlanSpec, session_id: str, request_id: str, simulate: 
     return make_patch(request_id, ops)
 
 
-__all__ = ["run_auto_design"]
+def auto_design_from_nl(
+    utterance: str, session_id: str, request_id: str, simulate: bool = True
+) -> ODLPatch:
+    """Parse a natural-language request and run Auto-Designer.
+
+    This convenience wrapper first converts the ``utterance`` into a
+    :class:`PlanSpec` via :func:`parse_plan_spec`, then executes
+    :func:`run_auto_design`. Both patches are merged so callers can preview the
+    stored specification alongside the design outputs.
+    """
+
+    # 1) Parse NL -> PlanSpec and persist the spec via meta patch
+    parsed = parse_plan_spec(
+        NLToPlanSpecInput(
+            session_id=session_id,
+            request_id=f"{request_id}:nl",
+            utterance=utterance,
+        )
+    )
+    spec = PlanSpec(**parsed["spec"])
+
+    # 2) Run the auto designer (simulate by default for safety)
+    ad_patch = run_auto_design(
+        spec, session_id=session_id, request_id=f"{request_id}:ad", simulate=simulate
+    )
+
+    # 3) Merge ops so UI can preview both spec storage and design outputs
+    merged_ops = parsed["patch"].operations + ad_patch.operations
+    return make_patch(request_id, merged_ops)
+
+
+__all__ = ["run_auto_design", "auto_design_from_nl"]
 
