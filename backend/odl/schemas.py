@@ -70,3 +70,28 @@ class LayerView(BaseModel):
     nodes: List[ODLNode]
     edges: List[ODLEdge]
     model_config = ConfigDict(extra="forbid")
+
+
+# --- OriginFlow guidance enums (non-breaking; tools may adopt these) ---
+# These constants are advisory; existing graphs remain valid without them.
+PORT_TYPES = {
+    "dc+", "dc-", "ac_L1", "ac_L2", "ac_L3", "ac_N", "pe",
+    "ctl", "comm_rx", "comm_tx", "shield",
+}
+
+EDGE_KINDS = {
+    "dc_string", "dc_bus",
+    "ac_branch", "ac_feeder", "egc",
+    "comm",
+    "mechanical",          # mounted_on / attached_to relationships
+    "route",               # path segments / goes_through
+    "bundle",              # conductor set between devices for BOM/routing
+    "protection",
+    "annotation",
+}
+
+# Meta paths commonly used by tools:
+#   meta.design_state
+#   meta.physical.bundles / routes / schedules
+#   meta.mechanical.surfaces / loads
+# These are not enforced here to keep ODL generic; tools use them consistently.

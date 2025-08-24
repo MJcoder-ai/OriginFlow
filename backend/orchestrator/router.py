@@ -23,6 +23,8 @@ from backend.tools import protective_devices, electrical
 from backend.tools import design_state, standards_check_v2
 from backend.tools import schedules as schedules_tool
 from backend.tools import explain_design_v2
+from backend.tools import routing, mechanical
+from backend.tools import labels as labels_tool
 from backend.tools.standards_profiles import load_profile
 from backend.ai.tools.generate_wiring_advanced import generate_wiring_advanced
 from backend.odl.schemas import ODLGraph, ODLEdge, PatchOp
@@ -48,6 +50,11 @@ def get_tool(task_id: str):
         "check_compliance_v2": standards_check_v2.check_compliance_v2,
         "generate_schedules": schedules_tool.generate_schedules,
         "explain_design_v2": explain_design_v2.explain_design_v2,
+        # new tools
+        "plan_routes": routing.plan_routes,
+        "layout_racking": mechanical.layout_racking,
+        "attachment_spacing": mechanical.attachment_spacing,
+        "generate_labels": labels_tool.generate_labels,
     }
     return mapping.get(task_id)
 
