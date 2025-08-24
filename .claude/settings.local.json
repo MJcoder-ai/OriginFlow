@@ -8,7 +8,9 @@
       "Bash(npm run type-check:*)",
       "Bash(git add:*)",
       "Bash(git push:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(grep:*)",
+      "Bash(git fetch:*)"
     ],
     "deny": [],
     "ask": []
