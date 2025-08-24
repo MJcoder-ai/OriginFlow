@@ -5,7 +5,7 @@ Exposes:
   GET /api/v1/odl/sessions/{session_id}/plan?command=...
 
 Returns an AiPlan containing a small set of deterministic tasks that the
-frontend can execute via /odl/sessions/{sid}/act (vNext flow). The planner
+frontend can execute via /odl/sessions/{sid}/act (OriginFlow flow). The planner
 is intentionally rule-based for MVP reliability; it parses key quantities
 from natural language (e.g., "design a 5kW ...") and emits typed tasks.
 """
