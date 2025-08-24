@@ -27,6 +27,9 @@ from . import (
     standards_check_v2,
     schedules,
     explain_design_v2,
+    routing,
+    mechanical,
+    labels,
 )
 
 __all__ = [
@@ -50,4 +53,7 @@ __all__ = [
     "standards_check_v2",
     "schedules",
     "explain_design_v2",
+    "routing",
+    "mechanical",
+    "labels",
 ]
