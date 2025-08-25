@@ -18,16 +18,40 @@ from typing import Dict, Any, Iterable, Iterator
 def _fmt_attrs(attrs: Dict[str, Any] | None) -> str:
     if not attrs:
         return ""
-    # Render a subset of attrs (we keep small, portable keys).
-    # Ignore noisy fields (e.g., large blobs) if any are added in future.
+    # Render important component attributes that provide engineering value.
+    # Include component specifications, ratings, and identification.
+    component_attrs = {
+        # Component identification
+        "part_number", "name", "manufacturer", "model", "type",
+        # Electrical specifications
+        "power", "rating_A", "voltage_rating_V", "voc", "vmp", "imp", "isc", 
+        "ac_kw", "vdc_max", "mppt_vmin", "mppt_vmax", "mppts",
+        # Mechanical/physical
+        "layer", "application", "location",
+        # Layout (minimal for position tracking)
+        "x", "y", "placeholder"
+    }
+    
+    # Filter to important attributes only
     allowed = {
         k: attrs[k]
         for k in sorted(attrs.keys())
-        if k in {"layer", "placeholder", "x", "y"}
+        if k in component_attrs and attrs[k] is not None
     }
+    
     if not allowed:
         return ""
-    parts = [f"{k}={allowed[k]}" for k in allowed]
+    
+    # Format key-value pairs with proper handling of different types
+    parts = []
+    for k in allowed:
+        v = allowed[k]
+        if isinstance(v, str) and (" " in v or "-" in v):
+            # Quote strings with spaces or hyphens for readability
+            parts.append(f'{k}="{v}"')
+        else:
+            parts.append(f"{k}={v}")
+    
     return " [" + " ".join(parts) + "]"
 
 
