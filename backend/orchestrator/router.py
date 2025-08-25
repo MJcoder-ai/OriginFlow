@@ -81,6 +81,8 @@ def get_tool(task_id: str):
         "auto_design": run_auto_design,  # takes PlanSpec
         # chat convenience: NL -> PlanSpec -> auto design (simulate-first)
         "auto_design_from_nl": auto_design_from_nl,
+        # protective devices
+        "add_protective_device": protective_devices.add_protective_device,
     }
     return mapping.get(task_id)
 
