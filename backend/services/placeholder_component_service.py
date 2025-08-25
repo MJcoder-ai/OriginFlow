@@ -15,39 +15,54 @@ from backend.schemas.odl import PlaceholderComponent
 
 def _load_definitions(definitions_path: Optional[str] = None) -> Dict[str, PlaceholderComponent]:
     """
-    Load placeholder definitions from a JSON file.
+    Load placeholder definitions from a JSON file and merge port definitions.
 
-    The JSON file must map each component type to a specification with keys:
+    The definitions file maps each component type to a specification with keys:
     - default_attributes (dict)
     - replacement_categories (list)
     - sizing_rules (dict, optional)
     - validation_rules (dict, optional)
+    A secondary ports file maps types to a list of port templates. If present,
+    the ports are attached to the resulting PlaceholderComponent.
 
-    If loading fails, returns an empty dictionary.
+    If loading fails, an empty dictionary is returned.
     """
     definitions: Dict[str, PlaceholderComponent] = {}
     if definitions_path is None:
-        # Default to a resource file located in ../resources relative to this module
         definitions_path = os.path.join(
             os.path.dirname(__file__),
             "..",
             "resources",
             "placeholder_definitions.json",
         )
+    # Load raw definitions
     try:
         with open(os.path.abspath(definitions_path), "r", encoding="utf-8") as f:
             raw_defs: Dict[str, Any] = json.load(f)
-            for comp_type, spec in raw_defs.items():
-                definitions[comp_type] = PlaceholderComponent(
-                    type=comp_type,
-                    default_attributes=spec.get("default_attributes", {}),
-                    replacement_categories=spec.get("replacement_categories", []),
-                    sizing_rules=spec.get("sizing_rules"),
-                    validation_rules=spec.get("validation_rules"),
-                )
     except Exception:
-        # It is acceptable to swallow exceptions here because the caller can decide how to handle empty definitions.
-        definitions = {}
+        raw_defs = {}
+    # Load optional port definitions
+    ports_path = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "resources",
+        "placeholder_ports.json",
+    )
+    try:
+        with open(os.path.abspath(ports_path), "r", encoding="utf-8") as pf:
+            raw_ports: Dict[str, List[Dict[str, Any]]] = json.load(pf)
+    except Exception:
+        raw_ports = {}
+    # Construct PlaceholderComponent instances
+    for comp_type, spec in raw_defs.items():
+        definitions[comp_type] = PlaceholderComponent(
+            type=comp_type,
+            default_attributes=spec.get("default_attributes", {}),
+            replacement_categories=spec.get("replacement_categories", []),
+            sizing_rules=spec.get("sizing_rules"),
+            validation_rules=spec.get("validation_rules"),
+            ports=raw_ports.get(comp_type),
+        )
     return definitions
 
 
@@ -120,33 +135,43 @@ class CentralizedPlaceholderService:
 
     def create_placeholder_node(
         self,
+        node_id: str,
         component_type: str,
         custom_attributes: Optional[Dict[str, Any]] = None,
-        layer: str = "single-line"
+        layer: str = "single-line",
     ) -> Dict[str, Any]:
         """
-        Create a placeholder node with merged default and custom attributes.
-        Returns a dictionary representing an ODL node.
+        Construct a dictionary representing a placeholder node in the ODL graph.
+
+        Merges the component's default attributes with any custom attributes,
+        performs validation, and appends placeholder metadata with ports.
         """
         placeholder = self.get_placeholder_type(component_type)
         if not placeholder:
             raise ValueError(f"Unknown placeholder type: {component_type}")
-        
-        # Merge default and custom attributes
-        merged_attrs = placeholder.default_attributes.copy()
+
+        attributes = placeholder.default_attributes.copy()
         if custom_attributes:
-            merged_attrs.update(custom_attributes)
-        
+            attributes.update(custom_attributes)
+
+        validation_errors = self.validate_placeholder_attributes(component_type, attributes)
+        if validation_errors:
+            raise ValueError(f"Validation errors: {'; '.join(validation_errors)}")
+
+        # Build ports dict keyed by port ID if this component defines ports
+        ports: Optional[Dict[str, Dict[str, Any]]] = None
+        if placeholder.ports:
+            ports = {p["id"]: {k: v for k, v in p.items() if k != "id"} for p in placeholder.ports}
+
         return {
+            "id": node_id,
             "type": component_type,
-            "attrs": {
-                **merged_attrs,
-                "placeholder": True,
-                "candidate_components": [],
-                "confidence_score": 0.8,
-                "replacement_history": [],
+            "data": {
+                **attributes,
+                "layer": layer,
             },
             "layer": layer,
+            "ports": ports,
             "placeholder": True,
             "candidate_components": [],
             "confidence_score": 0.8,
@@ -227,16 +252,21 @@ class CentralizedPlaceholderService:
 
     def create_placeholder_examples(self) -> Dict[str, Dict[str, Any]]:
         """
-        Generate example nodes for all placeholder types.
-        Useful for documentation, UI previews, or testing.
+        Generate an example node for each defined placeholder type.
+
+        The returned dictionary maps component type to a representative ODL node
+        containing default attributes, placeholder metadata, and port definitions.
         """
-        examples = {}
-        for component_type in self.component_types:
+        examples: Dict[str, Dict[str, Any]] = {}
+        for comp_type in self.component_types:
             try:
-                example_node = self.create_placeholder_node(component_type)
-                examples[component_type] = example_node
+                examples[comp_type] = self.create_placeholder_node(
+                    node_id=f"example_{comp_type}",
+                    component_type=comp_type,
+                    custom_attributes=None,
+                    layer="single-line",
+                )
             except Exception:
-                # Skip failed examples
                 continue
         return examples
 

@@ -1,31 +1,64 @@
-"""Schemas for ODL graph operations."""
+"""Schemas for ODL graph operations.
+
+This module defines the core data models for the Open Design Language (ODL).
+The models here form the single source of truth for design sessions. They have
+been extended to support port-level connections so that tools can operate on
+individual terminals rather than whole devices.
+"""
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Literal
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class ODLNode(BaseModel):
+    """A node in the design graph.
+
+    Each node represents a physical component, placeholder or logical entity. In
+    addition to generic metadata, nodes can now carry a map of ports. Each
+    port entry describes a terminal available for wiring with keys like
+    `type` (e.g. "dc+", "ac_L1"), `direction` (input/output), and
+    `max_connections`. Tools should not remove or reorder ports once created
+    because edges refer to them by name.
+    """
+
     id: str
-    type: str
-    data: Dict[str, Any] = {}
+    type: str  # e.g., "panel", "inverter", "battery", "mount", "wire", etc.
+    data: Dict[str, Any] = Field(default_factory=dict)
     layer: Optional[str] = None
-    # NEW FIELDS for placeholder support
+    # Port dictionary keyed by a stable port identifier. Each value is a
+    # dictionary describing the port.
+    ports: Optional[Dict[str, Dict[str, Any]]] = None
+    # Placeholder support metadata
     placeholder: bool = False
-    candidate_components: List[str] = []
+    candidate_components: List[str] = Field(default_factory=list)
     confidence_score: Optional[float] = None
-    replacement_history: List[Dict[str, Any]] = []
+    replacement_history: List[Dict[str, Any]] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class ODLEdge(BaseModel):
+    """A typed connection between two nodes.
+
+    Edges now reference specific ports on the source and target nodes. If
+    unspecified, the connection is assumed to be at the device level (for
+    backwards compatibility). The ``connection_type`` can be used to denote
+    whether this is a DC string, AC branch, data communication, etc.
+    """
+
+    id: str
     source: str
     target: str
-    data: Dict[str, Any] = {}
-    # NEW FIELDS for enhanced connections
+    source_port: Optional[str] = None  # stable port identifier on source node
+    target_port: Optional[str] = None  # stable port identifier on target node
+    data: Dict[str, Any] = Field(default_factory=dict)
     connection_type: Optional[str] = None
     provisional: bool = False
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class DesignRequirements(BaseModel):
@@ -64,12 +97,15 @@ class ComponentCandidate(BaseModel):
 
 
 class PlaceholderComponent(BaseModel):
-    """Placeholder component definition."""
+    """Placeholder component definition with port support."""
     type: str
     default_attributes: Dict[str, Any]
     replacement_categories: List[str]
     sizing_rules: Optional[Dict[str, Any]] = None
     validation_rules: Optional[Dict[str, Any]] = None
+    ports: Optional[List[Dict[str, Any]]] = None  # Port templates for this component type
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class GraphPatch(BaseModel):

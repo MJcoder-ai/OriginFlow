@@ -1,0 +1,77 @@
+{
+  "generic_panel": [
+    {"id": "dc_pos", "name": "DC+", "type": "dc+", "direction": "output", "max_connections": 1},
+    {"id": "dc_neg", "name": "DC-", "type": "dc-", "direction": "output", "max_connections": 1},
+    {"id": "ground", "name": "Equipment Ground", "type": "pe", "direction": "output", "max_connections": 1}
+  ],
+  "generic_inverter": [
+    {"id": "pv1_pos", "name": "PV1+", "type": "dc+", "direction": "input", "max_connections": 1},
+    {"id": "pv1_neg", "name": "PV1-", "type": "dc-", "direction": "input", "max_connections": 1},
+    {"id": "pv2_pos", "name": "PV2+", "type": "dc+", "direction": "input", "max_connections": 1},
+    {"id": "pv2_neg", "name": "PV2-", "type": "dc-", "direction": "input", "max_connections": 1},
+    {"id": "ac_L1", "name": "AC_L1", "type": "ac_L1", "direction": "output", "max_connections": 1},
+    {"id": "ac_L2", "name": "AC_L2", "type": "ac_L2", "direction": "output", "max_connections": 1},
+    {"id": "ac_N", "name": "AC_N", "type": "ac_N", "direction": "output", "max_connections": 1},
+    {"id": "pe", "name": "PE", "type": "pe", "direction": "output", "max_connections": 1}
+  ],
+  "generic_battery": [
+    {"id": "dc_pos", "name": "DC+", "type": "dc+", "direction": "bidirectional", "max_connections": 1},
+    {"id": "dc_neg", "name": "DC-", "type": "dc-", "direction": "bidirectional", "max_connections": 1},
+    {"id": "ground", "name": "Equipment Ground", "type": "pe", "direction": "output", "max_connections": 1}
+  ],
+  "generic_monitoring": [
+    {"id": "comm_tx", "name": "Comm TX", "type": "comm_tx", "direction": "output", "max_connections": 5},
+    {"id": "comm_rx", "name": "Comm RX", "type": "comm_rx", "direction": "input", "max_connections": 1},
+    {"id": "power_in", "name": "Power In", "type": "dc+", "direction": "input", "max_connections": 1}
+  ],
+  "generic_fuse": [
+    {"id": "input", "name": "Fuse In", "type": "dc+", "direction": "input", "max_connections": 1},
+    {"id": "output", "name": "Fuse Out", "type": "dc+", "direction": "output", "max_connections": 1}
+  ],
+  "generic_cable": [
+    {"id": "end1", "name": "End 1", "type": "universal", "direction": "bidirectional", "max_connections": 1},
+    {"id": "end2", "name": "End 2", "type": "universal", "direction": "bidirectional", "max_connections": 1}
+  ],
+  "generic_mount": [
+    {"id": "structure", "name": "Structure", "type": "mechanical", "direction": "input", "max_connections": 1},
+    {"id": "panel_1", "name": "Panel 1", "type": "mechanical", "direction": "output", "max_connections": 1},
+    {"id": "panel_2", "name": "Panel 2", "type": "mechanical", "direction": "output", "max_connections": 1}
+  ],
+  "generic_mcb": [
+    {"id": "input_L", "name": "Input L", "type": "ac_L1", "direction": "input", "max_connections": 1},
+    {"id": "input_N", "name": "Input N", "type": "ac_N", "direction": "input", "max_connections": 1},
+    {"id": "output_L", "name": "Output L", "type": "ac_L1", "direction": "output", "max_connections": 1},
+    {"id": "output_N", "name": "Output N", "type": "ac_N", "direction": "output", "max_connections": 1}
+  ],
+  "generic_rccb": [
+    {"id": "input_L", "name": "Input L", "type": "ac_L1", "direction": "input", "max_connections": 1},
+    {"id": "input_N", "name": "Input N", "type": "ac_N", "direction": "input", "max_connections": 1},
+    {"id": "output_L", "name": "Output L", "type": "ac_L1", "direction": "output", "max_connections": 1},
+    {"id": "output_N", "name": "Output N", "type": "ac_N", "direction": "output", "max_connections": 1}
+  ],
+  "generic_surge_protector": [
+    {"id": "input", "name": "Input", "type": "ac_L1", "direction": "input", "max_connections": 1},
+    {"id": "output", "name": "Output", "type": "ac_L1", "direction": "output", "max_connections": 1},
+    {"id": "ground", "name": "Ground", "type": "pe", "direction": "output", "max_connections": 1}
+  ],
+  "generic_ac_isolator": [
+    {"id": "input_L1", "name": "Input L1", "type": "ac_L1", "direction": "input", "max_connections": 1},
+    {"id": "input_L2", "name": "Input L2", "type": "ac_L2", "direction": "input", "max_connections": 1},
+    {"id": "input_N", "name": "Input N", "type": "ac_N", "direction": "input", "max_connections": 1},
+    {"id": "output_L1", "name": "Output L1", "type": "ac_L1", "direction": "output", "max_connections": 1},
+    {"id": "output_L2", "name": "Output L2", "type": "ac_L2", "direction": "output", "max_connections": 1},
+    {"id": "output_N", "name": "Output N", "type": "ac_N", "direction": "output", "max_connections": 1}
+  ],
+  "generic_dc_combiner": [
+    {"id": "input_1", "name": "Input 1", "type": "dc+", "direction": "input", "max_connections": 1},
+    {"id": "input_2", "name": "Input 2", "type": "dc+", "direction": "input", "max_connections": 1},
+    {"id": "input_3", "name": "Input 3", "type": "dc+", "direction": "input", "max_connections": 1},
+    {"id": "input_4", "name": "Input 4", "type": "dc+", "direction": "input", "max_connections": 1},
+    {"id": "output_pos", "name": "Output +", "type": "dc+", "direction": "output", "max_connections": 1},
+    {"id": "output_neg", "name": "Output -", "type": "dc-", "direction": "output", "max_connections": 1}
+  ],
+  "generic_structural": [
+    {"id": "foundation", "name": "Foundation", "type": "mechanical", "direction": "input", "max_connections": 1},
+    {"id": "load_point", "name": "Load Point", "type": "mechanical", "direction": "output", "max_connections": 10}
+  ]
+}
