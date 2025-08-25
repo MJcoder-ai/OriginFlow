@@ -13,6 +13,7 @@ except Exception:  # pragma: no cover
     class _Noop:
         def labels(self, *_, **__): return self
         def inc(self, *_ , **__): return None
+        def dec(self, *_ , **__): return None
         def observe(self, *_ , **__): return None
         def set(self, *_ , **__): return None
     Counter = Histogram = Gauge = lambda *_, **__: _Noop()  # type: ignore

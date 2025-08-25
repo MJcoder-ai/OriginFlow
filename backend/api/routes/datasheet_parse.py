@@ -5,7 +5,15 @@ import asyncio
 from uuid import uuid4
 
 from fastapi import APIRouter, UploadFile, File, Depends
-from openai import AsyncOpenAI
+
+# ``openai`` is optional; import lazily so test environments without the
+# dependency can still load this module. The actual endpoint will error at
+# runtime if the client is missing.
+try:  # pragma: no cover - import guard
+    from openai import AsyncOpenAI
+except Exception:  # pragma: no cover - fallback when library missing
+    class AsyncOpenAI:  # type: ignore
+        ...
 
 # ``pdfminer`` is an optional dependency.  Import lazily so test environments
 # without the package can still import this module.
