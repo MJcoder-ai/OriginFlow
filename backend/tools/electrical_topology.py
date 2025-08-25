@@ -18,6 +18,16 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Import AI wiring components for enhanced topology generation
+try:
+    from backend.ai.wiring_ai_pipeline import EnterpriseAIWiringPipeline, PipelineConfiguration
+    from backend.ai.panel_grouping import EnterpriseGroupingEngine, GroupingStrategy
+    AI_WIRING_AVAILABLE = True
+    logger.info("AI wiring pipeline available for enhanced topology generation")
+except ImportError:
+    logger.warning("AI wiring pipeline not available - falling back to basic topology")
+    AI_WIRING_AVAILABLE = False
+
 
 @dataclass
 class ComponentInterface:
@@ -370,9 +380,202 @@ class ElectricalTopologyEngine:
         
         logger.info(f"Generated {len(all_connections)} electrical connections total")
         return all_connections
+    
+    def generate_ai_enhanced_connections(
+        self,
+        components: Dict[str, Dict[str, Any]],
+        session_id: str,
+        enable_ai: bool = True
+    ) -> Tuple[List[ElectricalConnection], Dict[str, Any]]:
+        """
+        Generate electrical connections using AI-enhanced topology engine.
+        
+        This method combines traditional rule-based topology generation with
+        AI-powered wiring suggestions for optimal results.
+        
+        Args:
+            components: Dictionary of components with their data
+            session_id: Session identifier for AI pipeline tracking
+            enable_ai: Whether to use AI enhancement (fallback to basic if disabled)
+            
+        Returns:
+            Tuple of (connections, ai_metadata) where ai_metadata contains
+            AI insights, performance metrics, and suggestion details
+        """
+        if not enable_ai or not AI_WIRING_AVAILABLE:
+            logger.info("AI wiring disabled or unavailable - using basic topology")
+            connections = self.generate_system_connections(components)
+            return connections, {"ai_enhanced": False, "method": "basic_topology"}
+        
+        try:
+            # Create a simplified graph structure for AI pipeline
+            mock_graph = self._create_graph_from_components(components)
+            
+            # Configure AI pipeline for topology enhancement
+            config = PipelineConfiguration(
+                max_modules_per_string=12,
+                use_llm_suggestions=False,  # Keep conservative for now
+                use_vector_store=True,
+                enable_caching=True,
+                validation_strict=True,
+                enable_audit_trail=True
+            )
+            
+            # Execute AI wiring pipeline
+            ai_pipeline = EnterpriseAIWiringPipeline(config)
+            ai_result = ai_pipeline.generate_wiring(mock_graph, session_id)
+            
+            if ai_result.success and ai_result.edges:
+                # Convert AI edges back to ElectricalConnection format
+                ai_connections = self._convert_ai_edges_to_connections(ai_result.edges)
+                
+                # Merge with traditional topology connections for completeness
+                basic_connections = self.generate_system_connections(components)
+                
+                # Combine and deduplicate connections
+                combined_connections = self._merge_connection_sets(ai_connections, basic_connections)
+                
+                ai_metadata = {
+                    "ai_enhanced": True,
+                    "method": "ai_pipeline",
+                    "ai_connections": len(ai_connections),
+                    "basic_connections": len(basic_connections), 
+                    "total_connections": len(combined_connections),
+                    "performance_metrics": ai_result.metrics,
+                    "design_insights": ai_result.design_insights,
+                    "suggestions_used": len(ai_result.suggestions_used),
+                    "warnings": ai_result.warnings
+                }
+                
+                logger.info(f"AI-enhanced topology: {len(ai_connections)} AI + {len(basic_connections)} basic = {len(combined_connections)} total")
+                return combined_connections, ai_metadata
+            
+            else:
+                # AI pipeline failed, fallback to basic
+                logger.warning(f"AI pipeline failed: {ai_result.message}")
+                connections = self.generate_system_connections(components)
+                return connections, {
+                    "ai_enhanced": False,
+                    "method": "basic_fallback",
+                    "ai_error": ai_result.message,
+                    "warnings": ai_result.warnings
+                }
+                
+        except Exception as e:
+            logger.error(f"AI topology enhancement failed: {e}", exc_info=True)
+            # Graceful fallback to basic topology
+            connections = self.generate_system_connections(components)
+            return connections, {
+                "ai_enhanced": False,
+                "method": "exception_fallback",
+                "error": str(e)
+            }
+    
+    def _create_graph_from_components(self, components: Dict[str, Dict[str, Any]]) -> Any:
+        """Create a mock graph structure compatible with AI pipeline."""
+        class MockGraph:
+            def __init__(self):
+                self.nodes = {}
+                self.edges = []
+        
+        graph = MockGraph()
+        
+        # Convert components to graph nodes
+        for comp_id, comp_data in components.items():
+            comp_type = comp_data.get("type", "unknown")
+            comp_attrs = comp_data.get("attrs", {})
+            
+            # Try to get port information from placeholder service
+            ports = None
+            try:
+                from backend.services.placeholder_component_service import PlaceholderComponentService
+                placeholder_service = PlaceholderComponentService()
+                placeholder = placeholder_service.get_placeholder_type(comp_type)
+                if placeholder and placeholder.ports:
+                    ports = {p["id"]: {k: v for k, v in p.items() if k != "id"} for p in placeholder.ports}
+            except Exception:
+                pass  # Ports not available
+            
+            graph.nodes[comp_id] = {
+                "type": comp_type,
+                "attrs": comp_attrs,
+                "data": comp_attrs,  # Alias for compatibility
+                "ports": ports
+            }
+        
+        return graph
+    
+    def _convert_ai_edges_to_connections(self, ai_edges: List[Dict[str, Any]]) -> List[ElectricalConnection]:
+        """Convert AI pipeline edges to ElectricalConnection format."""
+        connections = []
+        
+        for edge in ai_edges:
+            attrs = edge.get("attrs", {})
+            
+            connection = ElectricalConnection(
+                source_component=edge.get("source_id", ""),
+                source_terminal=attrs.get("source_port", ""),
+                target_component=edge.get("target_id", ""),
+                target_terminal=attrs.get("target_port", ""),
+                connection_type=attrs.get("connection_type", "electrical"),
+                conductor_specs={
+                    "ai_generated": attrs.get("ai_generated", False),
+                    "confidence": attrs.get("confidence", 0.0),
+                    "reasoning": attrs.get("reasoning", ""),
+                    "compliance_notes": attrs.get("compliance_notes", [])
+                }
+            )
+            connections.append(connection)
+        
+        return connections
+    
+    def _merge_connection_sets(
+        self, 
+        ai_connections: List[ElectricalConnection], 
+        basic_connections: List[ElectricalConnection]
+    ) -> List[ElectricalConnection]:
+        """Merge AI and basic connections, removing duplicates and conflicts."""
+        merged = []
+        connection_signatures = set()
+        
+        # Add AI connections first (higher priority)
+        for conn in ai_connections:
+            signature = f"{conn.source_component}:{conn.source_terminal}->{conn.target_component}:{conn.target_terminal}"
+            if signature not in connection_signatures:
+                merged.append(conn)
+                connection_signatures.add(signature)
+        
+        # Add non-duplicate basic connections
+        for conn in basic_connections:
+            signature = f"{conn.source_component}:{conn.source_terminal}->{conn.target_component}:{conn.target_terminal}"
+            if signature not in connection_signatures:
+                merged.append(conn)
+                connection_signatures.add(signature)
+        
+        return merged
 
 
 def create_electrical_connections(components: Dict[str, Dict[str, Any]]) -> List[ElectricalConnection]:
     """Main entry point for generating electrical connections."""
     engine = ElectricalTopologyEngine()
     return engine.generate_system_connections(components)
+
+
+def create_ai_enhanced_electrical_connections(
+    components: Dict[str, Dict[str, Any]], 
+    session_id: str,
+    enable_ai: bool = True
+) -> Tuple[List[ElectricalConnection], Dict[str, Any]]:
+    """
+    Enhanced entry point for AI-powered electrical topology generation.
+    
+    Args:
+        components: Dictionary of components with their specifications
+        session_id: Session identifier for tracking and caching
+        enable_ai: Whether to enable AI enhancement
+        
+    Returns:
+        Tuple of (connections, metadata) with AI insights and metrics
+    """
+    engine = ElectricalTopologyEngine()
+    return engine.generate_ai_enhanced_connections(components, session_id, enable_ai)
