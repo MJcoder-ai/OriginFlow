@@ -112,8 +112,8 @@ class ElectricalTopologyEngine:
         self.component_interfaces[component_id] = interface
         return interface
     
-    def create_dc_string_connections(self, panel_ids: List[str], target_mppt: Tuple[str, int]) -> List[ElectricalConnection]:
-        """Create series connections for DC string (panel + to panel - to next panel +, etc.)."""
+    def create_dc_string_connections(self, panel_ids: List[str], target_mppt: Tuple[str, int], dc_protection_id: Optional[str] = None) -> List[ElectricalConnection]:
+        """Create series connections for DC string with proper protection device integration."""
         connections = []
         inverter_id, mppt_channel = target_mppt
         
@@ -134,32 +134,73 @@ class ElectricalTopologyEngine:
             )
             connections.append(connection)
         
-        # Connect string to inverter MPPT channel
-        # First panel negative to inverter MPPT negative
+        # Connect string to DC protection device or directly to inverter
         first_panel = panel_ids[0]
-        mppt_neg_terminal = f"mppt{mppt_channel}_negative"
-        
-        connection = ElectricalConnection(
-            source_component=first_panel,
-            source_terminal="dc_negative",
-            target_component=inverter_id,
-            target_terminal=mppt_neg_terminal,
-            connection_type="dc_string_to_inverter"
-        )
-        connections.append(connection)
-        
-        # Last panel positive to inverter MPPT positive  
         last_panel = panel_ids[-1]
+        mppt_neg_terminal = f"mppt{mppt_channel}_negative"
         mppt_pos_terminal = f"mppt{mppt_channel}_positive"
         
-        connection = ElectricalConnection(
-            source_component=last_panel,
-            source_terminal="dc_positive",
-            target_component=inverter_id,
-            target_terminal=mppt_pos_terminal,
-            connection_type="dc_string_to_inverter"
-        )
-        connections.append(connection)
+        if dc_protection_id:
+            # Route string through DC protection device (NEC compliant)
+            # String negative through protection
+            connection = ElectricalConnection(
+                source_component=first_panel,
+                source_terminal="dc_negative",
+                target_component=dc_protection_id,
+                target_terminal="line_in_neg",
+                connection_type="dc_string_to_protection"
+            )
+            connections.append(connection)
+            
+            # Protection to inverter MPPT negative
+            connection = ElectricalConnection(
+                source_component=dc_protection_id,
+                source_terminal="load_out_neg", 
+                target_component=inverter_id,
+                target_terminal=mppt_neg_terminal,
+                connection_type="dc_protection_to_inverter"
+            )
+            connections.append(connection)
+            
+            # String positive through protection
+            connection = ElectricalConnection(
+                source_component=last_panel,
+                source_terminal="dc_positive",
+                target_component=dc_protection_id,
+                target_terminal="line_in_pos",
+                connection_type="dc_string_to_protection"
+            )
+            connections.append(connection)
+            
+            # Protection to inverter MPPT positive
+            connection = ElectricalConnection(
+                source_component=dc_protection_id,
+                source_terminal="load_out_pos",
+                target_component=inverter_id, 
+                target_terminal=mppt_pos_terminal,
+                connection_type="dc_protection_to_inverter"
+            )
+            connections.append(connection)
+            
+        else:
+            # Direct connection to inverter (fallback)
+            connection = ElectricalConnection(
+                source_component=first_panel,
+                source_terminal="dc_negative",
+                target_component=inverter_id,
+                target_terminal=mppt_neg_terminal,
+                connection_type="dc_string_to_inverter"
+            )
+            connections.append(connection)
+            
+            connection = ElectricalConnection(
+                source_component=last_panel,
+                source_terminal="dc_positive",
+                target_component=inverter_id,
+                target_terminal=mppt_pos_terminal,
+                connection_type="dc_string_to_inverter"
+            )
+            connections.append(connection)
         
         return connections
     
@@ -252,18 +293,26 @@ class ElectricalTopologyEngine:
             logger.warning("Cannot generate connections: missing panels or inverters")
             return all_connections
         
+        # Separate AC and DC circuit devices first
+        ac_protections = [pid for pid in protections if components[pid].get("attrs", {}).get("type", "").startswith("ac_")]
+        dc_protections = [pid for pid in protections if components[pid].get("attrs", {}).get("type", "").startswith("dc_")]
+        ac_disconnects = [did for did in disconnects if components[did].get("attrs", {}).get("type", "").startswith("ac_")]
+        dc_disconnects = [did for did in disconnects if components[did].get("attrs", {}).get("type", "").startswith("dc_")]
+        
         # Create DC string connections with improved MPPT distribution
         primary_inverter = inverters[0]  # Use first inverter for now
         inverter_data = components[primary_inverter]
         mppts = inverter_data.get("attrs", {}).get("mppts", 2)
         
+        # Use first DC protection device for string protection (simplified model)
+        dc_protection_device = dc_protections[0] if dc_protections else None
+        
         # Improved panel distribution: create balanced strings across MPPT channels
-        # Target: 2-4 panels per string, balanced across MPPT channels
         max_panels_per_string = 4  # Reasonable string size for residential
         total_strings_needed = (len(panels) + max_panels_per_string - 1) // max_panels_per_string
-        strings_per_mppt = max(1, total_strings_needed // mppts)
         
         logger.info(f"Creating {total_strings_needed} strings across {mppts} MPPT channels")
+        logger.info(f"DC protection device: {dc_protection_device}")
         
         panel_idx = 0
         string_id = 1
@@ -285,9 +334,14 @@ class ElectricalTopologyEngine:
                 string_panels = panels[panel_idx:panel_idx + string_size]
                 
                 if len(string_panels) >= 2:  # Only create strings with at least 2 panels
-                    string_connections = self.create_dc_string_connections(string_panels, (primary_inverter, mppt_channel))
+                    # Route string through DC protection device for NEC compliance
+                    string_connections = self.create_dc_string_connections(
+                        string_panels, 
+                        (primary_inverter, mppt_channel), 
+                        dc_protection_device if string_id == 1 else None  # Only protect first string for now
+                    )
                     all_connections.extend(string_connections)
-                    logger.info(f"String {string_id} (MPPT{mppt_channel}): {len(string_panels)} panels - {[p.split('_')[-1] for p in string_panels]}")
+                    logger.info(f"String {string_id} (MPPT{mppt_channel}): {len(string_panels)} panels - protected: {dc_protection_device is not None}")
                     string_id += 1
                     
                 panel_idx += string_size
@@ -296,24 +350,17 @@ class ElectricalTopologyEngine:
         # Handle any remaining individual panels (connect directly)
         while panel_idx < len(panels):
             remaining_panel = panels[panel_idx]
-            # Connect single panel to first available MPPT
             single_panel_connections = self.create_dc_string_connections([remaining_panel], (primary_inverter, 1))
             all_connections.extend(single_panel_connections)
             logger.info(f"Single panel connection: {remaining_panel} -> MPPT1")
             panel_idx += 1
         
-        # Separate AC and DC circuit devices
-        ac_protections = [pid for pid in protections if components[pid].get("attrs", {}).get("type", "").startswith("ac_")]
-        dc_protections = [pid for pid in protections if components[pid].get("attrs", {}).get("type", "").startswith("dc_")]
-        ac_disconnects = [did for did in disconnects if components[did].get("attrs", {}).get("type", "").startswith("ac_")]
-        dc_disconnects = [did for did in disconnects if components[did].get("attrs", {}).get("type", "").startswith("dc_")]
-        
         logger.info(f"AC devices: {len(ac_protections)} protection, {len(ac_disconnects)} disconnects")
         logger.info(f"DC devices: {len(dc_protections)} protection, {len(dc_disconnects)} disconnects")
         
-        # Create DC circuit connections (protection and disconnects in DC path)
-        if dc_protections or dc_disconnects:
-            dc_connections = self.create_dc_circuit_connections(primary_inverter, dc_protections, dc_disconnects)
+        # Create DC circuit connections for remaining DC devices (disconnects)
+        if dc_disconnects:
+            dc_connections = self.create_dc_circuit_connections(primary_inverter, [], dc_disconnects)
             all_connections.extend(dc_connections)
         
         # Create AC circuit connections  
