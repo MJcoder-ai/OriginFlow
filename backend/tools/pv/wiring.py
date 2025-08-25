@@ -38,21 +38,28 @@ async def generate_wiring(*, store, session_id: str, args: Dict[str, Any]) -> Tu
         # Build patch with electrical connections
         patch = PatchBuilder(f"{session_id}:generate_wiring")
         
-        # 1) Create ODL edges for electrical connections
+        # Get existing connections to avoid duplicates
+        existing_connections = set()
+        for edge in graph.edges:
+            existing_connections.add((edge.source_id, edge.target_id))
+        
+        # 1) Create ODL edges for electrical connections (avoid duplicates)
         connection_count = 0
         for conn in electrical_connections:
-            edge_id = patch.add_edge(
-                source_id=conn.source_component,
-                target_id=conn.target_component, 
-                kind="electrical",
-                attrs={
-                    "connection_type": conn.connection_type,
-                    "source_terminal": conn.source_terminal,
-                    "target_terminal": conn.target_terminal,
-                    "layer": layer
-                }
-            )
-            connection_count += 1
+            # Skip if this connection already exists
+            if (conn.source_component, conn.target_component) not in existing_connections:
+                edge_id = patch.add_edge(
+                    source_id=conn.source_component,
+                    target_id=conn.target_component, 
+                    kind="electrical",
+                    attrs={
+                        "connection_type": conn.connection_type,
+                        "source_terminal": conn.source_terminal,
+                        "target_terminal": conn.target_terminal,
+                        "layer": layer
+                    }
+                )
+                connection_count += 1
         
         break  # Exit the async generator loop
     

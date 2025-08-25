@@ -187,6 +187,49 @@ class ElectricalTopologyEngine:
         
         return connections
     
+    def create_dc_circuit_connections(self, inverter_id: str, protection_ids: List[str], disconnect_ids: List[str]) -> List[ElectricalConnection]:
+        """Create DC circuit connections for protection devices and disconnects in the DC path."""
+        connections = []
+        
+        # DC circuit path: panels -> dc_disconnect -> dc_protection -> inverter
+        # Note: This is a simplified model. In reality, DC protection/disconnects can be 
+        # configured in different topologies depending on system design and code requirements.
+        
+        # For now, create connections that put DC protection/disconnect devices in the DC path
+        # This ensures they appear as part of the electrical circuit rather than orphaned components
+        
+        all_dc_devices = disconnect_ids + protection_ids
+        
+        if all_dc_devices:
+            # Connect DC devices in series in the DC path
+            # This is a logical connection to ensure they appear connected
+            # In detailed design, exact placement would depend on system architecture
+            
+            for i, dc_device in enumerate(all_dc_devices):
+                if i == 0:
+                    # First DC device connects to inverter DC input (conceptually)
+                    connection = ElectricalConnection(
+                        source_component=dc_device,
+                        source_terminal="load_out",
+                        target_component=inverter_id,
+                        target_terminal="dc_input",
+                        connection_type="dc_circuit"
+                    )
+                    connections.append(connection)
+                else:
+                    # Chain DC devices together
+                    prev_device = all_dc_devices[i-1]
+                    connection = ElectricalConnection(
+                        source_component=prev_device,
+                        source_terminal="load_out", 
+                        target_component=dc_device,
+                        target_terminal="line_in",
+                        connection_type="dc_circuit"
+                    )
+                    connections.append(connection)
+        
+        return connections
+    
     def generate_system_connections(self, components: Dict[str, Dict[str, Any]]) -> List[ElectricalConnection]:
         """Generate all electrical connections for a complete PV system."""
         all_connections = []
@@ -259,10 +302,21 @@ class ElectricalTopologyEngine:
             logger.info(f"Single panel connection: {remaining_panel} -> MPPT1")
             panel_idx += 1
         
-        # Create AC circuit connections (fixed to avoid duplicates)
+        # Separate AC and DC circuit devices
         ac_protections = [pid for pid in protections if components[pid].get("attrs", {}).get("type", "").startswith("ac_")]
+        dc_protections = [pid for pid in protections if components[pid].get("attrs", {}).get("type", "").startswith("dc_")]
         ac_disconnects = [did for did in disconnects if components[did].get("attrs", {}).get("type", "").startswith("ac_")]
+        dc_disconnects = [did for did in disconnects if components[did].get("attrs", {}).get("type", "").startswith("dc_")]
         
+        logger.info(f"AC devices: {len(ac_protections)} protection, {len(ac_disconnects)} disconnects")
+        logger.info(f"DC devices: {len(dc_protections)} protection, {len(dc_disconnects)} disconnects")
+        
+        # Create DC circuit connections (protection and disconnects in DC path)
+        if dc_protections or dc_disconnects:
+            dc_connections = self.create_dc_circuit_connections(primary_inverter, dc_protections, dc_disconnects)
+            all_connections.extend(dc_connections)
+        
+        # Create AC circuit connections  
         if inverters:
             ac_connections = self.create_ac_circuit_connections(primary_inverter, ac_protections, ac_disconnects)
             all_connections.extend(ac_connections)
