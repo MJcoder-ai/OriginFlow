@@ -88,5 +88,18 @@ def view_to_odl(view: Dict[str, Any]) -> str:
         src = e.get("source_id", "")
         tgt = e.get("target_id", "")
         attrs = e.get("attrs") if isinstance(e.get("attrs"), dict) else {}
-        lines.append(f"link {src} -> {tgt}{_fmt_attrs(attrs)}")
+        
+        # Create more descriptive connection info
+        connection_detail = ""
+        if attrs:
+            conn_type = attrs.get("connection_type", "")
+            source_term = attrs.get("source_terminal", "")
+            target_term = attrs.get("target_terminal", "")
+            
+            if source_term or target_term:
+                connection_detail = f" [{conn_type}: {source_term} -> {target_term}]"
+            elif conn_type:
+                connection_detail = f" [{conn_type}]"
+                
+        lines.append(f"link {src} -> {tgt}{connection_detail}{_fmt_attrs(attrs)}")
     return "\n".join(lines) + "\n"

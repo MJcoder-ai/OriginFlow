@@ -170,29 +170,20 @@ class ElectricalTopologyEngine:
         # Build AC circuit chain: inverter -> protection -> disconnect (stop at system boundary)
         ac_chain = [inverter_id] + protection_ids + disconnect_ids
         
+        # Create a single connection between each component (not per-phase to avoid duplication)
         for i in range(len(ac_chain) - 1):
             source_comp = ac_chain[i]
             target_comp = ac_chain[i + 1]
             
-            # Determine terminals based on component types
-            if source_comp == inverter_id:
-                source_terminals = ["ac_l1", "ac_l2", "ac_neutral"]
-                target_terminals = ["line_in", "line_in", "line_in"]  # Protection/disconnect line side
-            else:
-                source_terminals = ["load_out", "load_out", "load_out"]  # Load side
-                target_terminals = ["line_in", "line_in", "line_in"]     # Line side of next device
-            
-            # Create connections for each AC conductor (L1, L2, N)
-            for j, (source_term, target_term) in enumerate(zip(source_terminals, target_terminals)):
-                phase = ["L1", "L2", "N"][j]
-                connection = ElectricalConnection(
-                    source_component=source_comp,
-                    source_terminal=source_term,
-                    target_component=target_comp,  
-                    target_terminal=target_term,
-                    connection_type=f"ac_circuit_{phase.lower()}"
-                )
-                connections.append(connection)
+            # Create single logical connection representing the AC circuit
+            connection = ElectricalConnection(
+                source_component=source_comp,
+                source_terminal="ac_output" if source_comp == inverter_id else "load_out",
+                target_component=target_comp,  
+                target_terminal="line_in",
+                connection_type="ac_circuit"
+            )
+            connections.append(connection)
         
         return connections
     
@@ -206,8 +197,8 @@ class ElectricalTopologyEngine:
             comp_attrs = comp_data.get("attrs", {})
             self.register_component(comp_id, comp_type, comp_attrs)
         
-        # Separate components by type
-        panels = [cid for cid, cdata in components.items() if cdata.get("type") == "panel"]
+        # Separate components by type and sort for consistent ordering
+        panels = sorted([cid for cid, cdata in components.items() if cdata.get("type") == "panel"])
         inverters = [cid for cid, cdata in components.items() if cdata.get("type") == "inverter"]  
         protections = [cid for cid, cdata in components.items() if cdata.get("type") == "protection"]
         disconnects = [cid for cid, cdata in components.items() if cdata.get("type") == "disconnect"]
@@ -218,27 +209,57 @@ class ElectricalTopologyEngine:
             logger.warning("Cannot generate connections: missing panels or inverters")
             return all_connections
         
-        # Create DC string connections
+        # Create DC string connections with improved MPPT distribution
         primary_inverter = inverters[0]  # Use first inverter for now
         inverter_data = components[primary_inverter]
         mppts = inverter_data.get("attrs", {}).get("mppts", 2)
         
-        # Group panels into strings (simple: divide panels evenly across MPPT channels)  
-        panels_per_string = len(panels) // mppts
-        remainder = len(panels) % mppts
+        # Improved panel distribution: create balanced strings across MPPT channels
+        # Target: 2-4 panels per string, balanced across MPPT channels
+        max_panels_per_string = 4  # Reasonable string size for residential
+        total_strings_needed = (len(panels) + max_panels_per_string - 1) // max_panels_per_string
+        strings_per_mppt = max(1, total_strings_needed // mppts)
+        
+        logger.info(f"Creating {total_strings_needed} strings across {mppts} MPPT channels")
         
         panel_idx = 0
-        for mppt_channel in range(1, mppts + 1):
-            string_size = panels_per_string + (1 if mppt_channel <= remainder else 0)
-            string_panels = panels[panel_idx:panel_idx + string_size]
-            
-            if string_panels:
-                string_connections = self.create_dc_string_connections(string_panels, (primary_inverter, mppt_channel))
-                all_connections.extend(string_connections)
-                
-            panel_idx += string_size
+        string_id = 1
         
-        # Create AC circuit connections
+        for mppt_channel in range(1, mppts + 1):
+            # Determine how many strings this MPPT should handle
+            remaining_panels = len(panels) - panel_idx
+            remaining_mppts = mppts - mppt_channel + 1
+            
+            if remaining_panels <= 0:
+                break
+                
+            # Calculate panels for this MPPT channel
+            panels_for_this_mppt = remaining_panels // remaining_mppts
+            
+            # Create strings for this MPPT (usually 1-2 strings per MPPT)
+            while panels_for_this_mppt > 0 and panel_idx < len(panels):
+                string_size = min(max_panels_per_string, panels_for_this_mppt)
+                string_panels = panels[panel_idx:panel_idx + string_size]
+                
+                if len(string_panels) >= 2:  # Only create strings with at least 2 panels
+                    string_connections = self.create_dc_string_connections(string_panels, (primary_inverter, mppt_channel))
+                    all_connections.extend(string_connections)
+                    logger.info(f"String {string_id} (MPPT{mppt_channel}): {len(string_panels)} panels - {[p.split('_')[-1] for p in string_panels]}")
+                    string_id += 1
+                    
+                panel_idx += string_size
+                panels_for_this_mppt -= string_size
+        
+        # Handle any remaining individual panels (connect directly)
+        while panel_idx < len(panels):
+            remaining_panel = panels[panel_idx]
+            # Connect single panel to first available MPPT
+            single_panel_connections = self.create_dc_string_connections([remaining_panel], (primary_inverter, 1))
+            all_connections.extend(single_panel_connections)
+            logger.info(f"Single panel connection: {remaining_panel} -> MPPT1")
+            panel_idx += 1
+        
+        # Create AC circuit connections (fixed to avoid duplicates)
         ac_protections = [pid for pid in protections if components[pid].get("attrs", {}).get("type", "").startswith("ac_")]
         ac_disconnects = [did for did in disconnects if components[did].get("attrs", {}).get("type", "").startswith("ac_")]
         
@@ -246,7 +267,7 @@ class ElectricalTopologyEngine:
             ac_connections = self.create_ac_circuit_connections(primary_inverter, ac_protections, ac_disconnects)
             all_connections.extend(ac_connections)
         
-        logger.info(f"Generated {len(all_connections)} electrical connections")
+        logger.info(f"Generated {len(all_connections)} electrical connections total")
         return all_connections
 
 
