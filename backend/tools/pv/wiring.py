@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Any, Dict, Tuple
 from backend.utils.adpf import card_from_text
-from backend.odl.schemas import ODLPatch
+from backend.tools.patch_builder import PatchBuilder
 from math import ceil
 
 async def generate_wiring(*, store, session_id: str, args: Dict[str, Any]) -> Tuple[dict, dict, list[str]]:
@@ -13,7 +13,7 @@ async def generate_wiring(*, store, session_id: str, args: Dict[str, Any]) -> Tu
     strings = int(ds.get("design_state",{}).get("stringing",{}).get("strings",1))
     series = int(ds.get("design_state",{}).get("stringing",{}).get("series_per_string",8))
     mlpe = ds.get("design_state",{}).get("equip",{}).get("mlpe","none")
-    patch = ODLPatch()
+    patch = PatchBuilder(f"{session_id}:generate_wiring")
     # 1) Link graph (existing auto-link)
     patch.auto_link(layer=layer)
     # 2) Physical model: bundles and routes (very simple estimates; later swap with router)

@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Any, Dict, Tuple, List
-from backend.odl.schemas import ODLPatch
+from backend.tools.patch_builder import PatchBuilder
 from math import ceil
 from backend.utils.adpf import card_from_text
 
@@ -57,7 +57,7 @@ async def plan(*, store, session_id: str, args: Dict[str, Any]) -> Tuple[dict, d
         strings = max(strings, mppts)  # at least one per MPPT
         rationale = f"String inverter: MPPT window {mppt_vmin}-{mppt_vmax} V; choose {series} in series."
     # save proposal to meta
-    meta_patch = ODLPatch()
+    meta_patch = PatchBuilder(f"{session_id}:stringing_plan")
     meta_patch.set_meta(path="design_state.stringing", data={
         "series_per_string": series,
         "strings": strings,

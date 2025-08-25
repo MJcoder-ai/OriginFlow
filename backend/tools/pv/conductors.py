@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Any, Dict, Tuple
 from backend.utils.adpf import card_from_text
-from backend.odl.schemas import ODLPatch
+from backend.tools.patch_builder import PatchBuilder
 from backend.libraries.conductors import find_smallest_awg
 
 async def size_conductors(*, store, session_id: str, args: Dict[str, Any]) -> Tuple[dict, dict, list[str]]:
@@ -32,7 +32,7 @@ async def size_conductors(*, store, session_id: str, args: Dict[str, Any]) -> Tu
     dc = find_smallest_awg(required_ampacity=1.25*I_dc, max_vdrop_pct=dc_vdrop, length_m_oneway=L_dc,
                            current_A=I_dc, system_V=V_string, temp_C=float(ds.get("design_state",{}).get("env",{}).get("tmax_C",45)),
                            ccc=int(args.get("ccc_dc",2)))
-    patch = ODLPatch()
+    patch = PatchBuilder(f"{session_id}:size_conductors")
     patch.set_meta(path="electrical.conductors", data={
         "ac_awg": ac["awg"], "dc_awg": dc["awg"],
         "calc": {"ac": ac, "dc": dc},

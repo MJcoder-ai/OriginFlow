@@ -87,6 +87,12 @@ class PatchBuilder:
         )
         self.operations.append(op)
     
+    def auto_link(self, layer: str = "single-line") -> None:
+        """Add auto-linking operation for the layer."""
+        # This is a placeholder for auto-linking - the actual implementation
+        # would depend on the ODL auto-linking logic
+        pass
+    
     def to_patch(self) -> ODLPatch:
         """Convert to ODLPatch."""
         return make_patch(self.request_id, self.operations)
