@@ -76,6 +76,80 @@ async def create_component(
     return ComponentSchema.model_validate(obj)
 
 
+@router.get("/{component_id}", response_model=ComponentSchema)
+async def get_component(
+    component_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> ComponentSchema:
+    service = ComponentService(session)
+    obj = None
+    
+    # Try to get from component database first, but handle missing table gracefully
+    try:
+        obj = await service.get(component_id)
+    except Exception:
+        # If component database doesn't exist or has issues, skip to ODL fallback
+        pass
+    
+    if not obj:
+        # If not found in component DB, try to find in ODL graph
+        # This handles ODL-generated components like inv_FRONIUS_
+        try:
+            from backend.database.session import get_session as get_db_session
+            from backend.odl.store import ODLStore
+            import logging
+            logger = logging.getLogger(__name__)
+            
+            logger.info(f"Searching for ODL component: {component_id}")
+            
+            async for db in get_db_session():
+                odl_store = ODLStore()
+                
+                # Search across all sessions for this component
+                try:
+                    from sqlalchemy import text
+                    session_result = await db.execute(text("SELECT DISTINCT session_id FROM odl_graphs LIMIT 10"))
+                    session_ids = [row[0] for row in session_result.fetchall()]
+                    logger.info(f"Found {len(session_ids)} ODL sessions to search")
+                    
+                    for session_id in session_ids:
+                        logger.info(f"Checking session: {session_id}")
+                        try:
+                            graph = await odl_store.get_graph(db, session_id)
+                            if graph:
+                                logger.info(f"Session {session_id} has {len(graph.nodes)} nodes")
+                                if component_id in graph.nodes:
+                                    node = graph.nodes[component_id]
+                                    logger.info(f"Found component {component_id} in session {session_id}")
+                                    
+                                    # Convert ODL node to Component schema
+                                    component_data = {
+                                        "id": component_id,
+                                        "name": node.attrs.get("name", f"{node.type} {component_id}"),
+                                        "type": node.type,
+                                        "standard_code": node.attrs.get("part_number", f"ODL-{component_id}"),
+                                        "x": node.attrs.get("x", 100),
+                                        "y": node.attrs.get("y", 100),
+                                        "layer": node.attrs.get("layer", "single-line")
+                                    }
+                                    return ComponentSchema.model_validate(component_data)
+                        except Exception as e:
+                            logger.warning(f"Error checking session {session_id}: {e}")
+                            continue
+                except Exception as e:
+                    logger.error(f"Error searching ODL sessions: {e}")
+                break
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"ODL fallback failed for {component_id}: {e}")
+    
+    if not obj:
+        raise HTTPException(404, "Component not found")
+    
+    return ComponentSchema.model_validate(obj)
+
+
 @router.patch("/{component_id}", response_model=ComponentSchema)
 async def update_component(
     component_id: str,
