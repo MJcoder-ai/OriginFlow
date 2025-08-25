@@ -1,0 +1,265 @@
+{
+  "generic_panel": {
+    "default_attributes": {
+      "power": 400,
+      "voltage": 24,
+      "efficiency": 0.2,
+      "area": 2.0,
+      "weight": 20.0,
+      "temperature_coefficient": -0.004,
+      "max_system_voltage": 1000
+    },
+    "replacement_categories": ["panel", "pv_module", "solar_panel"],
+    "sizing_rules": {
+      "min_power": 100,
+      "max_power": 800,
+      "preferred_power_range": [300, 500],
+      "area_per_watt": 0.005
+    },
+    "validation_rules": {
+      "required_attributes": ["power", "voltage"],
+      "power_tolerance": 0.1,
+      "voltage_compatibility": [12, 24, 48]
+    }
+  },
+  "generic_inverter": {
+    "default_attributes": {
+      "capacity": 5000,
+      "efficiency": 0.95,
+      "input_voltage_range": [200, 600],
+      "output_voltage": 240,
+      "max_input_current": 25,
+      "topology": "string",
+      "grid_tie": true
+    },
+    "replacement_categories": ["inverter", "string_inverter", "power_optimizer", "microinverter"],
+    "sizing_rules": {
+      "min_capacity": 1000,
+      "max_capacity": 50000,
+      "oversizing_factor": 1.2,
+      "undersizing_factor": 0.8
+    },
+    "validation_rules": {
+      "required_attributes": ["capacity", "efficiency"],
+      "min_efficiency": 0.90,
+      "max_dc_ac_ratio": 1.35
+    }
+  },
+  "generic_mount": {
+    "default_attributes": {
+      "load_rating": 50,
+      "material": "aluminum",
+      "tilt_angle": 30,
+      "orientation": "south",
+      "installation_type": "roof_mounted"
+    },
+    "replacement_categories": ["mount", "racking", "mounting_system", "rail"],
+    "sizing_rules": {
+      "min_load_rating": 20,
+      "max_load_rating": 200,
+      "wind_load_factor": 1.5
+    },
+    "validation_rules": {
+      "required_attributes": ["load_rating", "material"],
+      "supported_materials": ["aluminum", "steel", "stainless_steel"]
+    }
+  },
+  "generic_cable": {
+    "default_attributes": {
+      "gauge": 12,
+      "voltage_rating": 600,
+      "current_rating": 30,
+      "insulation_type": "THWN",
+      "conductor_material": "copper"
+    },
+    "replacement_categories": ["cable", "wire", "conductor"],
+    "sizing_rules": {
+      "min_gauge": 20,
+      "max_gauge": 4,
+      "derating_factors": {
+        "temperature": 0.8,
+        "conduit_fill": 0.8
+      }
+    },
+    "validation_rules": {
+      "required_attributes": ["gauge", "voltage_rating", "current_rating"],
+      "supported_gauges": [20, 18, 16, 14, 12, 10, 8, 6, 4, 2, 1, "1/0", "2/0", "3/0", "4/0"]
+    }
+  },
+  "generic_fuse": {
+    "default_attributes": {
+      "rating": 15,
+      "voltage_rating": 600,
+      "interrupt_rating": 10000,
+      "type": "blade"
+    },
+    "replacement_categories": ["fuse", "overcurrent_protection", "dc_fuse"],
+    "sizing_rules": {
+      "min_rating": 1,
+      "max_rating": 600,
+      "safety_factor": 1.25
+    },
+    "validation_rules": {
+      "required_attributes": ["rating", "voltage_rating"],
+      "supported_types": ["blade", "cartridge", "midget"]
+    }
+  },
+  "generic_battery": {
+    "default_attributes": {
+      "capacity": 13.5,
+      "voltage": 48,
+      "chemistry": "lithium_ion",
+      "cycle_life": 6000,
+      "depth_of_discharge": 0.95
+    },
+    "replacement_categories": ["battery", "energy_storage", "battery_pack"],
+    "sizing_rules": {
+      "min_capacity": 1.0,
+      "max_capacity": 200.0,
+      "parallel_limit": 10,
+      "series_limit": 4
+    },
+    "validation_rules": {
+      "required_attributes": ["capacity", "voltage", "chemistry"],
+      "supported_chemistries": ["lithium_ion", "lead_acid", "lifepo4"]
+    }
+  },
+  "generic_monitoring": {
+    "default_attributes": {
+      "communication_type": "wifi",
+      "data_logging": true,
+      "remote_monitoring": true,
+      "update_interval": 15
+    },
+    "replacement_categories": ["monitoring", "data_logger", "communication_gateway"],
+    "sizing_rules": {
+      "max_channels": 50,
+      "min_update_interval": 1,
+      "max_update_interval": 300
+    },
+    "validation_rules": {
+      "required_attributes": ["communication_type"],
+      "supported_comm_types": ["wifi", "ethernet", "cellular", "zigbee"]
+    }
+  },
+  "generic_mcb": {
+    "default_attributes": {
+      "rating": 20,
+      "poles": 2,
+      "voltage_rating": 240,
+      "interrupt_rating": 10000,
+      "curve_type": "C"
+    },
+    "replacement_categories": ["mcb", "circuit_breaker", "miniature_circuit_breaker"],
+    "sizing_rules": {
+      "min_rating": 6,
+      "max_rating": 63,
+      "standard_ratings": [6, 10, 16, 20, 25, 32, 40, 50, 63]
+    },
+    "validation_rules": {
+      "required_attributes": ["rating", "poles", "voltage_rating"],
+      "supported_poles": [1, 2, 3, 4],
+      "supported_curves": ["B", "C", "D"]
+    }
+  },
+  "generic_rccb": {
+    "default_attributes": {
+      "rating": 25,
+      "residual_current": 30,
+      "poles": 2,
+      "voltage_rating": 240,
+      "type": "AC"
+    },
+    "replacement_categories": ["rccb", "rcd", "residual_current_device", "gfci"],
+    "sizing_rules": {
+      "min_rating": 16,
+      "max_rating": 125,
+      "standard_residual_currents": [10, 30, 100, 300]
+    },
+    "validation_rules": {
+      "required_attributes": ["rating", "residual_current", "poles"],
+      "supported_types": ["AC", "A", "F", "B"]
+    }
+  },
+  "generic_surge_protector": {
+    "default_attributes": {
+      "max_continuous_voltage": 275,
+      "voltage_protection_level": 1200,
+      "nominal_discharge_current": 20000,
+      "response_time": 25,
+      "type": "MOV"
+    },
+    "replacement_categories": ["surge_protector", "spd", "surge_protection_device"],
+    "sizing_rules": {
+      "min_voltage_rating": 120,
+      "max_voltage_rating": 600,
+      "min_discharge_current": 5000,
+      "max_discharge_current": 100000
+    },
+    "validation_rules": {
+      "required_attributes": ["max_continuous_voltage", "voltage_protection_level"],
+      "supported_types": ["MOV", "GDT", "TVS"]
+    }
+  },
+  "generic_ac_isolator": {
+    "default_attributes": {
+      "rating": 25,
+      "poles": 3,
+      "voltage_rating": 400,
+      "breaking_capacity": 6000,
+      "installation_type": "panel_mount"
+    },
+    "replacement_categories": ["ac_isolator", "ac_disconnect", "isolator_switch"],
+    "sizing_rules": {
+      "min_rating": 16,
+      "max_rating": 125,
+      "standard_ratings": [16, 20, 25, 32, 40, 50, 63, 80, 100, 125]
+    },
+    "validation_rules": {
+      "required_attributes": ["rating", "poles", "voltage_rating"],
+      "supported_poles": [1, 2, 3, 4],
+      "supported_installations": ["panel_mount", "din_rail", "wall_mount"]
+    }
+  },
+  "generic_dc_combiner": {
+    "default_attributes": {
+      "input_circuits": 8,
+      "voltage_rating": 1000,
+      "current_rating": 15,
+      "protection_type": "fused",
+      "enclosure_rating": "NEMA_4X"
+    },
+    "replacement_categories": ["dc_combiner", "combiner_box", "dc_junction_box"],
+    "sizing_rules": {
+      "min_circuits": 2,
+      "max_circuits": 16,
+      "min_voltage_rating": 600,
+      "max_voltage_rating": 1500
+    },
+    "validation_rules": {
+      "required_attributes": ["input_circuits", "voltage_rating", "current_rating"],
+      "supported_protection": ["fused", "breaker", "none"],
+      "supported_enclosures": ["NEMA_3R", "NEMA_4", "NEMA_4X", "IP65", "IP66"]
+    }
+  },
+  "generic_structural": {
+    "default_attributes": {
+      "load_capacity": 100,
+      "material": "galvanized_steel",
+      "finish": "hot_dip_galvanized",
+      "wind_rating": 150,
+      "seismic_rating": "Zone_4"
+    },
+    "replacement_categories": ["structural", "support_structure", "foundation", "ballast"],
+    "sizing_rules": {
+      "min_load_capacity": 50,
+      "max_load_capacity": 500,
+      "safety_factor": 2.0
+    },
+    "validation_rules": {
+      "required_attributes": ["load_capacity", "material"],
+      "supported_materials": ["galvanized_steel", "aluminum", "concrete", "composite"],
+      "supported_finishes": ["hot_dip_galvanized", "powder_coated", "anodized", "painted"]
+    }
+  }
+}

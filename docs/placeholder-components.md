@@ -17,11 +17,13 @@ These changes are reflected in the `CanvasComponent` and `PositionPayload` schem
 
 ### Core Components
 
-1. **PlaceholderComponentService** (`backend/services/placeholder_components.py`)
-   - Manages placeholder component definitions
-   - Validates placeholder attributes
+1. **CentralizedPlaceholderService** (`backend/services/placeholder_component_service.py`)
+   - Loads placeholder definitions from JSON configuration (`backend/resources/placeholder_definitions.json`)
+   - Manages placeholder component definitions dynamically
+   - Validates placeholder attributes against configurable rules
    - Creates placeholder nodes for ODL graphs
    - Provides component sizing estimates
+   - Enables non-technical updates to placeholder definitions
 
 2. **ComponentSelectorAgent** (`backend/agents/component_selector_agent.py`)
    - Finds real components to replace placeholders
@@ -308,18 +310,56 @@ All placeholder replacements are tracked with timestamps and reasoning for audit
 - `409`: Version conflict (concurrent modifications)
 - `500`: Server error during replacement
 
+## Configuration Management
+
+### JSON-Based Placeholder Definitions
+
+The system now uses a centralized JSON configuration file for all placeholder definitions:
+
+**Location**: `backend/resources/placeholder_definitions.json`
+
+**Structure**:
+```json
+{
+  "generic_panel": {
+    "default_attributes": {
+      "power": 400,
+      "voltage": 24,
+      "efficiency": 0.2
+    },
+    "replacement_categories": ["panel", "pv_module", "solar_panel"],
+    "sizing_rules": {
+      "min_power": 100,
+      "max_power": 800,
+      "preferred_power_range": [300, 500]
+    },
+    "validation_rules": {
+      "required_attributes": ["power", "voltage"],
+      "power_tolerance": 0.1
+    }
+  }
+}
+```
+
+### Benefits of JSON Configuration
+
+- **Non-technical updates**: Business users can modify definitions without code changes
+- **Hot reloading**: Definitions can be updated without application restart
+- **Version control**: Configuration changes are tracked separately from code
+- **Environment-specific**: Different definitions for dev/staging/production
+
 ## Extension Points
 
 ### Adding New Placeholder Types
 
-1. Define in `PLACEHOLDER_COMPONENT_TYPES`
-2. Add validation rules
-3. Update replacement categories
-4. Test with real components
+1. Add definition to `backend/resources/placeholder_definitions.json`
+2. Include all required fields: `default_attributes`, `replacement_categories`
+3. Add optional `sizing_rules` and `validation_rules`
+4. Test with the service: `get_placeholder_service().get_placeholder_type('your_type')`
 
 ### Custom Sizing Logic
 
-Override sizing methods in `PlaceholderComponentService`:
+Override sizing methods in `CentralizedPlaceholderService`:
 
 ```python
 def estimate_sizing(self, component_type: str, requirements: Dict[str, Any]) -> Dict[str, Any]:
