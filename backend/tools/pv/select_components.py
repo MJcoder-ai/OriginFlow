@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Any, Dict, Tuple
-from backend.odl.schemas import ODLPatch
+from backend.tools.patch_builder import PatchBuilder
 from backend.utils.adpf import card_from_text
 
 async def run(*, store, session_id: str, args: Dict[str, Any]) -> Tuple[dict, dict, list[str]]:
@@ -11,7 +11,7 @@ async def run(*, store, session_id: str, args: Dict[str, Any]) -> Tuple[dict, di
     layer = args.get("layer", "single-line")
     mlpe = args.get("mlpe", "none")  # none | optimizer | microinverter
     # Build a simple ODLPatch that adds one inverter node and N panel nodes (placeholder attributes kept)
-    patch = ODLPatch()
+    patch = PatchBuilder(f"{session_id}:select_components")
     inv_attrs = {"mppts": 2, "vdc_max": 600, "mppt_vmin":200, "mppt_vmax":550, **args.get("inverter_hint", {})}
     patch.add_node(kind="inverter", attrs=inv_attrs, layer=layer)
     for _ in range(count):

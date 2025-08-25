@@ -216,6 +216,7 @@ async def run_task(
     request_id: str,
     layer_nodes: list[ODLNode],
     args: ActArgs,
+    db: Optional[object] = None,
 ) -> Optional[ODLPatch]:
     """Build tool input for `task`, invoke, and return an ODLPatch (or None)."""
     if task == "generate_wiring":
@@ -296,4 +297,76 @@ async def run_task(
         inp = ReplaceInput(session_id=session_id, request_id=request_id, replacements=repls)
         return apply_replacements(inp)
 
+    # Handle PV tools - these use a different calling convention
+    tool_func = get_tool(task)
+    if tool_func:
+        # PV tools expect different arguments - adapt them here
+        if task.startswith("pv_"):
+            from backend.odl.store import ODLStore
+            
+            # PV tools expect: store, session_id, args dict  
+            store = ODLStore()
+            # Add compatibility methods for PV tools that expect different APIs
+            if not hasattr(store, 'get_odl'):
+                # Create a wrapper that provides the database session
+                async def get_odl_wrapper(session_id_param):
+                    if db:
+                        return await store.get_graph(db, session_id_param)
+                    else:
+                        # Fallback - try to get a temporary db session
+                        from backend.database.session import get_session
+                        async for temp_db in get_session():
+                            return await store.get_graph(temp_db, session_id_param)
+                store.get_odl = get_odl_wrapper
+                
+            # Add get_meta compatibility wrapper
+            if not hasattr(store, 'get_meta'):
+                async def get_meta_wrapper(session_id_param):
+                    if db:
+                        graph = await store.get_graph(db, session_id_param)
+                        return graph.meta if graph else {}
+                    else:
+                        from backend.database.session import get_session
+                        async for temp_db in get_session():
+                            graph = await store.get_graph(temp_db, session_id_param)
+                            return graph.meta if graph else {}
+                store.get_meta = get_meta_wrapper
+            pv_args = {
+                "layer": args.layer,
+                **(args.attrs or {})
+            }
+            
+            # Add command if provided (for tools that parse NL requirements)
+            if hasattr(args, 'command') and args.command:
+                pv_args["command"] = args.command
+            
+            try:
+                # Call the PV tool function with expected signature: store, session_id, args
+                if asyncio.iscoroutinefunction(tool_func):
+                    result = await tool_func(store=store, session_id=session_id, args=pv_args)
+                else:
+                    result = tool_func(store=store, session_id=session_id, args=pv_args)
+                
+                # PV tools return (patch_dict, card_dict, warnings) tuple
+                if isinstance(result, tuple) and len(result) >= 1:
+                    patch_dict = result[0]
+                    if isinstance(patch_dict, dict) and "operations" in patch_dict:
+                        from backend.tools.schemas import make_patch
+                        return make_patch(request_id, ops=patch_dict["operations"])
+                    elif patch_dict:
+                        # Convert patch dict to ODLPatch
+                        from backend.odl.schemas import ODLPatch
+                        return ODLPatch.model_validate(patch_dict)
+                
+                # Fallback - create empty patch
+                from backend.tools.schemas import make_patch
+                return make_patch(request_id, ops=[])
+                    
+            except Exception as e:
+                logger = logging.getLogger(__name__)
+                logger.warning(f"PV tool {task} failed: {e}")
+                import traceback
+                logger.warning(f"PV tool traceback: {traceback.format_exc()}")
+                return None
+    
     return None

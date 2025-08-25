@@ -227,7 +227,14 @@ try:  # pragma: no cover - optional AI routes
     from backend.api.routes import ai_act, ai_tools, files, ai_apply  # Intent Firewall
     _AI_ROUTES_AVAILABLE = True
 except Exception:  # pragma: no cover - deps missing
-    _AI_ROUTES_AVAILABLE = False
+    # Fall back to minimal AI routes for core functionality
+    try:
+        from backend.api.routes import ai_act_minimal as ai_act
+        _AI_ROUTES_AVAILABLE = True
+        _AI_MINIMAL_MODE = True
+    except Exception:
+        _AI_ROUTES_AVAILABLE = False
+        _AI_MINIMAL_MODE = False
 
 # Import authentication components (optional in test environments)
 try:  # pragma: no cover - auth is optional
@@ -284,10 +291,15 @@ app.include_router(planner_router, prefix=settings.api_prefix)
 app.include_router(components.router, prefix=settings.api_prefix)
 app.include_router(links.router, prefix=settings.api_prefix)
 if _AI_ROUTES_AVAILABLE:
-    app.include_router(files.router, prefix=settings.api_prefix)
-    app.include_router(ai_act.router, prefix=settings.api_prefix)
-    app.include_router(ai_apply.router, prefix=settings.api_prefix)  # Intent Firewall
-    app.include_router(ai_tools.router, prefix=settings.api_prefix)
+    if '_AI_MINIMAL_MODE' in globals() and _AI_MINIMAL_MODE:
+        # Minimal mode - only include ai_act for core functionality
+        app.include_router(ai_act.router, prefix=settings.api_prefix)
+    else:
+        # Full AI routes
+        app.include_router(files.router, prefix=settings.api_prefix)
+        app.include_router(ai_act.router, prefix=settings.api_prefix)
+        app.include_router(ai_apply.router, prefix=settings.api_prefix)  # Intent Firewall
+        app.include_router(ai_tools.router, prefix=settings.api_prefix)
 app.include_router(datasheet_parse.router, prefix=settings.api_prefix)
 app.include_router(compatibility.router, prefix=settings.api_prefix)
 

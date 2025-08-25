@@ -126,6 +126,7 @@ class Orchestrator:
                 request_id=request_id,
                 layer_nodes=view_nodes,
                 args=rep_args,
+                db=db,
             )
         else:
             # Route to a tool
@@ -135,6 +136,7 @@ class Orchestrator:
                 request_id=request_id,
                 layer_nodes=view_nodes,
                 args=args,
+                db=db,
             )
         if patch is None:
             return wrap_response(

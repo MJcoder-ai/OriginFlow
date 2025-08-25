@@ -29,6 +29,17 @@ TASK_RISK: dict[str, Risk] = {
     "delete_nodes": "low",
     # replacement mutates existing nodes → review by default (tunable in Phase 6)
     "replace_placeholders": "medium",
+    # PV tools are safe for automatic execution
+    "pv_set_assumptions": "low",
+    "pv_select_components": "low",
+    "pv_stringing_plan": "low",
+    "pv_apply_stringing": "low",
+    "pv_add_disconnects": "low",
+    "pv_size_protection": "low",
+    "pv_size_conductors": "low",
+    "pv_generate_wiring": "low",
+    "pv_compliance_check": "low",
+    "pv_compute_bom": "low",
 }
 
 
