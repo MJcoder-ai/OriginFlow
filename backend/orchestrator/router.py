@@ -27,6 +27,12 @@ from backend.tools import explain_design_v2
 from backend.tools import routing, mechanical
 from backend.tools import labels as labels_tool
 from backend.tools import select_equipment, stringing, ocp_dc, materialize, bom as bom_tool
+from backend.tools.pv import (
+    assumptions, select_components, stringing as pv_stringing, 
+    apply_stringing, disconnects, protection, conductors, 
+    wiring as pv_wiring, compliance, bom as pv_bom, explain
+)
+from backend.tools.mech import surface, racking
 from backend.orchestrator.plan_spec import PlanSpec
 from backend.orchestrator.auto_designer import run_auto_design, auto_design_from_nl
 from backend.tools.standards_profiles import load_profile
@@ -83,6 +89,22 @@ def get_tool(task_id: str):
         "auto_design_from_nl": auto_design_from_nl,
         # protective devices
         "add_protective_device": protective_devices.add_protective_device,
+        # PV tools
+        "pv_set_assumptions": assumptions.set_assumptions,
+        "pv_select_components": select_components.run,
+        "pv_stringing_plan": pv_stringing.plan,
+        "pv_apply_stringing": apply_stringing.apply_stringing,
+        "pv_add_disconnects": disconnects.add_disconnects,
+        "pv_size_protection": protection.size_protection,
+        "pv_size_conductors": conductors.size_conductors,
+        "pv_generate_wiring": pv_wiring.generate_wiring,
+        "pv_compliance_check": compliance.compliance_check,
+        "pv_compute_bom": pv_bom.compute_bom,
+        "pv_explain": explain.run,
+        # Mechanical tools
+        "mech_surface": surface.run,
+        "mech_racking_layout": racking.layout,
+        "mech_attachment_check": racking.attachments_check,
     }
     return mapping.get(task_id)
 

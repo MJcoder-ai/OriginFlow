@@ -219,6 +219,7 @@ from backend.api.routes import (
     versioning,
     metrics_json,
     layout,
+    export,
 )
 
 # Optional routes that depend on heavier libraries (e.g., openai)
@@ -304,6 +305,7 @@ app.include_router(snapshots.router, prefix=settings.api_prefix)
 app.include_router(versioning.router, prefix=settings.api_prefix)
 app.include_router(metrics_json.router, prefix=settings.api_prefix)
 app.include_router(layout.router, prefix=settings.api_prefix)
+app.include_router(export.router, prefix=settings.api_prefix)
 
 # Include authentication routes only if dependencies are available
 if _AUTH_AVAILABLE:  # pragma: no branch - simple runtime flag

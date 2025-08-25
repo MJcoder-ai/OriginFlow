@@ -32,57 +32,119 @@ class LongPlanner:
             "Use 1x string inverter, then perform stringing and protection sizing."
         )
 
-        tasks = [
+        # MLPE mode inference from text (microinverters / optimizers / none)
+        mlpe = "none"
+        t = (text or "").lower()
+        if "micro" in t: mlpe = "microinverter"
+        elif "optimizer" in t or "mlpe" in t: mlpe = "optimizer"
+
+        tasks: list[PlanTask] = [
             PlanTask(
-                id="select_equipment",
-                title="Select inverter + module",
-                args={"target_kw_stc": kw, "preferred_module_W": module_w},
+                id="pv_set_assumptions",
+                title="Set environment, service, and targets",
+                args={"env": {"tmin_C": -10.0, "tmax_C": 45.0, "utility": "120/240V"},
+                      "targets": {"dc_vdrop_pct": 2.0, "ac_vdrop_pct": 3.0},
+                      "service": {"bus_A": 200, "main_A": 200, "interconnection": "load_side"},
+                      "profile": "NEC_2023",
+                      "layer": layer},
                 layer=layer,
+                can_auto=True,
+                rationale="Safe defaults; edit later in Assumptions panel."
+            ),
+            PlanTask(
+                id="pv_select_components",
+                title="Select inverter + module placeholders",
+                args={
+                    "inverter_hint": {"topology": "string", "ac_kw": max(kw, 3.0), "mppt": 2, "vdc_max": 600,
+                                      "mppt_vmin": 200, "mppt_vmax": 550},
+                    "module_hint": {"p_mp": module_w, "voc": 49.5, "vmp": 41.5, "isc": 11.2, "imp": 10.7, "temp_coeff_voc_pct_per_c": -0.28},
+                    "panel_count": panel_count,
+                    "mlpe": mlpe,
+                    "layer": layer,
+                },
+                layer=layer,
+                can_auto=True,
                 rationale=rationale,
             ),
+            # Mechanical layer planning (surface → racking → attachment check)
             PlanTask(
-                id="select_dc_stringing",
-                title="Compute stringing plan",
-                args={"target_kw_stc": kw},
+                id="mech_surface",
+                title="Define roof surface (single plane)",
+                args={"name":"R1","tilt_deg":25,"az_deg":180,"size_m":[11.0,6.0],"setbacks_m":0.5},
+                depends_on=["pv_select_components"], layer=layer),
+            PlanTask(
+                id="mech_racking_layout",
+                title="Place modules on surface",
+                args={"surface":"R1","module_size_m":[1.14,1.72],"row_spacing_m":0.02},
+                depends_on=["mech_surface"], layer=layer),
+            PlanTask(
+                id="mech_attachment_check",
+                title="Check attachment spans & counts",
+                args={"surface":"R1","max_span_m":1.8,"edge_clear_m":0.3},
+                depends_on=["mech_racking_layout"], layer=layer),
+            PlanTask(
+                id="pv_stringing_plan",
+                title="Compute stringing across MPPTs (series/parallel)",
+                args={"layer": layer, "target_kw": kw},
+                depends_on=["pv_select_components","mech_racking_layout"],
                 layer=layer,
-                depends_on=["select_equipment"],
             ),
             PlanTask(
-                id="make_placeholders",
-                title="Add placeholders",
-                args={"component_type": "panel", "count": panel_count, "layer": layer},
+                id="pv_apply_stringing",
+                title="Apply stringing (create DC links to MPPT terminals)",
+                args={"layer": layer},
+                depends_on=["pv_stringing_plan"],
                 layer=layer,
-                depends_on=["select_dc_stringing"],
             ),
             PlanTask(
-                id="select_ocp_dc",
-                title="Size DC protection",
-                args={"layer": layer},
-                depends_on=["make_placeholders"],
+                id="pv_add_disconnects",
+                title="Add required DC/AC disconnects",
+                args={"layer": layer, "jurisdiction_profile": "NEC_2023"},
+                depends_on=["pv_apply_stringing"],
+                layer=layer,
             ),
             PlanTask(
-                id="select_conductors_v2",
-                title="Size conductors",
-                args={"layer": layer},
-                depends_on=["select_ocp_dc"],
+                id="pv_size_protection",
+                title="Size OCPD/fusing per NEC 690",
+                args={"layer": layer, "profile": "NEC_2023"},
+                depends_on=["pv_add_disconnects"],
+                layer=layer,
             ),
             PlanTask(
-                id="generate_wiring",
-                title="Generate wiring",
-                args={"layer": layer},
-                depends_on=["select_conductors_v2"],
+                id="pv_size_conductors",
+                title="Size DC/AC conductors with derates and voltage-drop budgets",
+                args={"layer": layer, "dc_vdrop_pct": 2.0, "ac_vdrop_pct": 3.0},
+                depends_on=["pv_size_protection"],
+                layer=layer,
             ),
             PlanTask(
-                id="check_compliance_v2",
-                title="Compliance check",
+                id="pv_generate_wiring",
+                title="Auto-route links & create bundles/routes",
                 args={"layer": layer},
-                depends_on=["generate_wiring"],
+                depends_on=["pv_size_conductors"],
+                layer=layer,
             ),
             PlanTask(
-                id="generate_bom",
-                title="Compute BOM",
+                id="pv_compliance_check",
+                title="Compliance check (blocking if non-conforming)",
+                args={"layer": layer, "profile": "NEC_2023"},
+                depends_on=["pv_generate_wiring"],
+                layer=layer,
+                risk="medium",
+            ),
+            PlanTask(
+                id="pv_compute_bom",
+                title="Compute BOM and cost summary",
                 args={"layer": layer},
-                depends_on=["check_compliance_v2"],
+                depends_on=["pv_compliance_check"],
+                layer=layer,
+            ),
+            PlanTask(
+                id="pv_explain",
+                title="Explain the design (homeowner + engineer views)",
+                args={"layer": layer},
+                depends_on=["pv_compute_bom"],
+                layer=layer,
             ),
         ]
 

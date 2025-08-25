@@ -703,3 +703,13 @@ export async function planAndRun(sessionId: string, command: string): Promise<vo
   const { runPlan } = await import('./runner');
   await runPlan(sessionId, plan as any);
 }
+
+export function downloadBOM(sessionId: string) {
+  window.location.href = `${API_BASE_URL}/export/${sessionId}/bom.csv`;
+}
+export function downloadSchedules(sessionId: string) {
+  window.location.href = `${API_BASE_URL}/export/${sessionId}/schedules.csv`;
+}
+export function downloadPackage(sessionId: string) {
+  window.location.href = `${API_BASE_URL}/export/${sessionId}/package.zip`;
+}

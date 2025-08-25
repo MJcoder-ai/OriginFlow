@@ -68,3 +68,11 @@ def wrap_response(
         env["warnings"] = warnings
     return env
 
+
+def card_from_text(text: str, title: str = "Result") -> Dict[str, str]:
+    """Create a simple card from text."""
+    return {
+        "title": title,
+        "body": text
+    }
+
