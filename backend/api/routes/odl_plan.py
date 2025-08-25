@@ -17,7 +17,6 @@ import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.session import get_session
-from backend.planner.pv_planner import plan_pv_single_line
 from backend.planner.schemas import AiPlan, AiPlanTask
 from backend.odl.store import ODLStore
 from backend.odl.views import layer_view
@@ -169,7 +168,7 @@ async def get_plan_for_session(
     
     # Early return for high-confidence protective device intent
     if intent_info["intent"] == "add_protective_device" and intent_info["confidence"] > 0.9:
-        layer_name = chosen_layer or "single-line"
+        layer_name = layer or "single-line"
         context = intent_info["context"]
         
         # Determine device type from command
@@ -499,34 +498,80 @@ async def get_plan_for_session(
             },
         )
 
-    # Fallback to PV planner if no specific intent matched
-    logger.info("Falling back to PV planner: session=%s", session_id)
-    pv_plan = plan_pv_single_line(command)
+    # Use modern auto-designer for comprehensive system planning
+    logger.info("Using modern auto-designer for comprehensive planning: session=%s", session_id)
+    chosen_layer = layer if layer in {"single-line", "electrical"} else None
     layer_name = chosen_layer or "single-line"
-    inv_task = next(t for t in pv_plan["tasks"] if t["args"].get("component_type") == "inverter")
-    pan_task = next(t for t in pv_plan["tasks"] if t["args"].get("component_type") == "panel")
-    inv_count = inv_task["args"]["count"]
-    pan_count = pan_task["args"]["count"]
-
+    
+    # Generate comprehensive multi-step plan using the modern state-aware planner
     tasks: List[AiPlanTask] = [
         AiPlanTask(
-            id="make_placeholders",
-            title="Create inverter" if inv_count == 1 else f"Create {inv_count} inverters",
-            description=f"Add {inv_count} inverter placeholder{'s' if inv_count != 1 else ''} on the {layer_name} layer",
+            id="pv_set_assumptions",
+            title="Set design assumptions",
+            description="Configure environmental and code assumptions for the design",
             status="pending",
-            args={"component_type": "inverter", "count": inv_count, "layer": layer_name},
+            args={"layer": layer_name, "command": command},
         ),
         AiPlanTask(
-            id="make_placeholders",
-            title=f"Create {pan_count} panels",
-            description=f"Add {pan_count} panel placeholders on the {layer_name} layer",
+            id="pv_select_components",
+            title="Select components",
+            description="Choose appropriate modules and inverters based on system requirements",
             status="pending",
-            args={"component_type": "panel", "count": pan_count, "layer": layer_name},
+            args={"layer": layer_name, "command": command},
         ),
         AiPlanTask(
-            id="generate_wiring",
-            title="Generate wiring",
-            description=f"Auto-generate connections on {layer_name}",
+            id="pv_stringing_plan",
+            title="Plan DC stringing",
+            description="Calculate optimal string configuration for voltage and current limits",
+            status="pending",
+            args={"layer": layer_name},
+        ),
+        AiPlanTask(
+            id="pv_apply_stringing",
+            title="Apply stringing layout",
+            description="Create series strings and parallel groupings based on the calculated plan",
+            status="pending",
+            args={"layer": layer_name},
+        ),
+        AiPlanTask(
+            id="pv_add_disconnects",
+            title="Add DC disconnects",
+            description="Insert required DC isolation switches per code requirements",
+            status="pending",
+            args={"layer": layer_name},
+        ),
+        AiPlanTask(
+            id="pv_size_protection",
+            title="Size overcurrent protection",
+            description="Calculate and add appropriate DC and AC overcurrent protective devices",
+            status="pending",
+            args={"layer": layer_name},
+        ),
+        AiPlanTask(
+            id="pv_size_conductors",
+            title="Size conductors",
+            description="Calculate wire sizes for DC strings and AC output circuits",
+            status="pending",
+            args={"layer": layer_name},
+        ),
+        AiPlanTask(
+            id="pv_generate_wiring",
+            title="Generate wiring diagram",
+            description="Create complete electrical connections with advanced routing",
+            status="pending",
+            args={"layer": layer_name},
+        ),
+        AiPlanTask(
+            id="pv_compliance_check",
+            title="Verify code compliance",
+            description="Check design against NEC requirements and generate compliance report",
+            status="pending",
+            args={"layer": layer_name},
+        ),
+        AiPlanTask(
+            id="pv_compute_bom",
+            title="Generate bill of materials",
+            description="Create detailed parts list with quantities and specifications",
             status="pending",
             args={"layer": layer_name},
         ),
@@ -537,6 +582,10 @@ async def get_plan_for_session(
         metadata={
             "session_id": session_id,
             "layer": layer_name,
-            "warnings": pv_plan.get("warnings", []),
+            "planner": "modern_state_aware",
+            "intent": "comprehensive_design",
+            "classification": intent_info,
+            "design_context": intent_info.get("context", {}),
+            "raw": command,
         },
     )

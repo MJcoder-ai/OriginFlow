@@ -135,42 +135,7 @@ export async function act(
   return res.json();
 }
 
-// --- Minimal client-side fallback planner ------------------------------------
-function fallbackPlanFromPrompt(command: string, layer: string = 'single-line'): AiPlan {
-  layer = canonicalLayer(layer);
-  const lower = (command || '').toLowerCase();
-  const kwMatch = /(\d+(?:\.\d+)?)\s*kw\b/.exec(lower);
-  const targetKW = kwMatch ? parseFloat(kwMatch[1]) : 5;
-  const wattsMatch = /(panel|module)[^0-9]*?(\d{3,4})\s*w\b/.exec(lower);
-  const panelW = wattsMatch ? Math.min(700, Math.max(250, parseInt(wattsMatch[2], 10))) : 400;
-  const count = Math.max(1, Math.ceil((targetKW * 1000) / panelW));
-  return {
-    tasks: [
-      {
-        id: 'make_placeholders',
-        title: 'Create inverter',
-        description: `Add one inverter on the ${layer} layer`,
-        status: 'pending',
-        args: { component_type: 'inverter', count: 1, layer },
-      },
-      {
-        id: 'make_placeholders',
-        title: `Create ${count} panels`,
-        description: `Add ${count} x ~${panelW}W panels on the ${layer} layer`,
-        status: 'pending',
-        args: { component_type: 'panel', count, layer },
-      },
-      {
-        id: 'generate_wiring',
-        title: 'Generate wiring',
-        description: `Auto-connect inverter and panels on ${layer} layer`,
-        status: 'pending',
-        args: { layer },
-      },
-    ],
-    metadata: { fallback: true, targetKW, panelW, count, layer },
-  };
-}
+// Removed legacy client-side fallback planner - forces use of server-side planner
 
 export const api = {
   async getComponents(sessionId?: string): Promise<CanvasComponent[]> {
@@ -251,30 +216,7 @@ export const api = {
     if (!response.ok) throw new Error('Failed to delete component');
   },
 
-  /** Get a high-level plan (optionally for a specific ODL session). */
-  async getPlan(
-    command: string,
-    options?: { sessionId?: string }
-  ): Promise<PlanResponse> {
-    let res: Response;
-    if (options?.sessionId) {
-      const url = `${API_BASE_URL}/odl/sessions/${encodeURIComponent(
-        options.sessionId
-      )}/plan?command=${encodeURIComponent(command)}`;
-      res = await fetch(url);
-    } else {
-      res = await fetch(`${API_BASE_URL}/ai/plan`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ command }),
-      });
-    }
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Plan endpoint error ${res.status}: ${text.slice(0, 120)}`);
-    }
-    return res.json();
-  },
+  // Removed legacy getPlan method - always use getPlanForSession with a session ID
 
   act,
 
@@ -296,10 +238,10 @@ export const api = {
   },
 
   /**
-   * Get a plan tailored to a specific ODL session.  Uses
+   * Get a plan tailored to a specific ODL session. Uses
    * `/odl/sessions/{session_id}/plan` to return tasks and quick actions
-   * appropriate for the current graph. Falls back to a tiny client-side
-   * planner if the server route is unavailable.
+   * appropriate for the current graph. Throws on failure to force
+   * fixing server-side issues instead of hiding them with fallbacks.
    */
   async getPlanForSession(
     sessionId: string,
@@ -307,26 +249,19 @@ export const api = {
     layer: string = 'single-line',
   ): Promise<{ tasks: any[]; quick_actions?: any[]; metadata?: Record<string, any> }> {
     layer = canonicalLayer(layer);
-    try {
-      const params = new URLSearchParams({ command, layer });
-      const res = await fetch(
-        `${API_BASE_URL}/odl/sessions/${encodeURIComponent(sessionId)}/plan?${params.toString()}`
-      );
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          return { tasks: data } as any;
-        }
-        return data;
-      }
-      if (res.status === 404 || res.status === 410) {
-        return fallbackPlanFromPrompt(command, layer) as any;
-      }
-      const text = await res.text();
-      throw new Error(`Plan session error ${res.status}: ${text.slice(0, 200)}`);
-    } catch {
-      return fallbackPlanFromPrompt(command, layer) as any;
+    const params = new URLSearchParams({ command, layer });
+    const res = await fetch(
+      `${API_BASE_URL}/odl/sessions/${encodeURIComponent(sessionId)}/plan?${params.toString()}`
+    );
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`Planner error ${res.status}: ${text}`);
     }
+    const data = await res.json();
+    if (Array.isArray(data)) {
+      return { tasks: data } as any;
+    }
+    return data;
   },
 
   async resetSession(sessionId: string): Promise<{ session_id: string; version: number }> {

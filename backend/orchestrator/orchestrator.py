@@ -120,7 +120,7 @@ class Orchestrator:
             ]
             # Build replacement patch via router
             rep_args = ActArgs(layer=args.layer, attrs={"repl_items": repl_items})
-            patch = run_task(
+            patch = await run_task(
                 task=task,
                 session_id=session_id,
                 request_id=request_id,
@@ -129,7 +129,7 @@ class Orchestrator:
             )
         else:
             # Route to a tool
-            patch = run_task(
+            patch = await run_task(
                 task=task,
                 session_id=session_id,
                 request_id=request_id,

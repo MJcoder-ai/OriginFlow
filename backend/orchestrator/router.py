@@ -113,7 +113,7 @@ def get_standards_profile(profile_id: str = "NEC_2023"):
     return load_profile(profile_id).id
 
 
-def _bridge_advanced_wiring(inp: GenerateWiringInput) -> Optional[ODLPatch]:
+async def _bridge_advanced_wiring(inp: GenerateWiringInput) -> Optional[ODLPatch]:
     """Bridge function to call async advanced wiring and return ODLPatch"""
     try:
         # Create ODLGraph from the input
@@ -135,8 +135,8 @@ def _bridge_advanced_wiring(inp: GenerateWiringInput) -> Optional[ODLPatch]:
                 protection_level="standard"
             )
         
-        # Run the async function
-        result = asyncio.run(_run_advanced_wiring())
+        # Run the async function inside the current event loop
+        result = await _run_advanced_wiring()
         
         if not result.get("success"):
             # Fall back to simple wiring if advanced fails
@@ -209,7 +209,7 @@ class ActArgs(BaseModel):
     voltage_rating_V: float | None = None
 
 
-def run_task(
+async def run_task(
     *,
     task: str,
     session_id: str,
@@ -225,7 +225,8 @@ def run_task(
             view_nodes=layer_nodes,
             edge_kind=args.edge_kind or "electrical",
         )
-        return _bridge_advanced_wiring(inp)
+        # prefer advanced wiring; fall back handled inside the bridge
+        return await _bridge_advanced_wiring(inp)
 
     if task == "generate_mounts":
         inp = GenerateMountsInput(
