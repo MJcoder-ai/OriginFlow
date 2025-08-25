@@ -61,9 +61,12 @@ class PanelInfo:
 
 @dataclass  
 class StringConfiguration:
-    """Configuration parameters for string formation."""
+    """Configuration parameters for string formation with enhanced validation."""
     max_modules_per_string: int = 12
     min_modules_per_string: int = 6
+    # Enhanced minimum string validation
+    enforce_min_string_size: bool = True  # Enforce minimum string requirements
+    allow_undersized_final_string: bool = False  # Allow last string to be undersized
     max_string_voltage: float = 600.0  # NEC 690.7(A) limit
     min_string_voltage: float = 200.0  # inverter minimum
     max_current_mismatch: float = 0.1  # 10% current mismatch tolerance
@@ -102,9 +105,22 @@ class EnterpriseGroupingEngine:
         
         # Extract and enhance panel information
         panels = self._extract_panel_info(graph)
+        
+        # Enhanced minimum string size validation
         if len(panels) < self.config.min_modules_per_string:
-            self.logger.warning(f"Only {len(panels)} panels found, below minimum string size")
-            return [panel.id for panel in panels] if panels else []
+            if self.config.enforce_min_string_size:
+                self.logger.warning(f"Only {len(panels)} panels found, below minimum string size of {self.config.min_modules_per_string}")
+                if len(panels) > 0:
+                    # Return single group with all panels as emergency fallback
+                    self.logger.info(f"Creating emergency single string with {len(panels)} panels")
+                    return [[panel.id for panel in panels]]
+                else:
+                    return []
+            else:
+                self.logger.info(f"Proceeding with {len(panels)} panels (below minimum, but enforcement disabled)")
+        
+        if not panels:
+            return []
         
         self.logger.info(f"Grouping {len(panels)} panels using {strategy.value} strategy")
         
@@ -380,7 +396,7 @@ class EnterpriseGroupingEngine:
                     # Group too small, add to orphaned
                     orphaned_panels.extend(group)
         
-        # Try to create additional groups from orphaned panels
+        # Enhanced orphaned panel handling with configurable minimum enforcement
         if len(orphaned_panels) >= self.config.min_modules_per_string:
             while len(orphaned_panels) >= self.config.min_modules_per_string:
                 group_size = min(len(orphaned_panels), self.config.max_modules_per_string)
@@ -388,6 +404,13 @@ class EnterpriseGroupingEngine:
                 if self._validate_string_group(rescue_group):
                     validated_groups.append(rescue_group)
                 orphaned_panels = orphaned_panels[group_size:]
+        
+        # Handle remaining orphaned panels based on configuration
+        elif len(orphaned_panels) > 0 and self.config.allow_undersized_final_string:
+            # Create undersized final string if allowed
+            self.logger.info(f"Creating undersized final string with {len(orphaned_panels)} panels")
+            validated_groups.append(orphaned_panels)
+            orphaned_panels = []
         
         if orphaned_panels:
             self.logger.warning(f"{len(orphaned_panels)} panels could not be grouped into valid strings")

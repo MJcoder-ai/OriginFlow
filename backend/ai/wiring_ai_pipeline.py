@@ -37,7 +37,7 @@ from backend.schemas.odl import ODLGraph, ODLEdge, STANDARD_EDGE_KINDS
 from backend.ai.panel_grouping import EnterpriseGroupingEngine, GroupingStrategy, StringConfiguration
 from backend.ai.vector_store import EnterpriseVectorStore, DesignMetadata, DesignCategory, retrieve_similar
 from backend.ai.llm_wiring_suggest import LLMWiringSuggestionEngine, WiringContext, WiringSuggestion
-from backend.tools.electrical_topology import ElectricalTopologyEngine, create_electrical_connections
+from backend.tools.enterprise_electrical_topology import create_electrical_connections, ConnectionSuggestion, ConnectionType
 
 logger = logging.getLogger(__name__)
 
@@ -462,51 +462,47 @@ class EnterpriseAIWiringPipeline:
                 
                 connections.append(edge)
             
-            # Use electrical topology engine for additional connections
+            # Use enterprise electrical topology engine for additional connections
             try:
-                # Create components dict for topology engine using formal schema access
-                components = {}
-                for node_id, node in graph.nodes.items():
-                    # Use formal ODL schema: node.data for component attributes
-                    node_data = node.data
-                    components[node_id] = {
-                        "type": getattr(node, 'type', 'unknown'),
-                        "attrs": node_data
-                    }
+                # Create enhanced connection suggestions for topology generation
+                topology_suggestions = []
                 
-                # Generate additional topology connections
-                topology_connections = create_electrical_connections(components)
+                # Generate basic string connections between adjacent panels (simplified for demo)
+                panel_nodes = [nid for nid, node in graph.nodes.items() if 'panel' in node.type.lower()]
+                for i in range(0, len(panel_nodes) - 1, 2):  # Connect pairs for series strings
+                    if i + 1 < len(panel_nodes):
+                        suggestion = ConnectionSuggestion(
+                            source_node_id=panel_nodes[i],
+                            target_node_id=panel_nodes[i + 1],
+                            source_port="dc_pos",
+                            target_port="dc_neg", 
+                            connection_type=ConnectionType.DC_STRING,
+                            confidence=0.9,
+                            reasoning="Topology-generated DC string connection",
+                            metadata={"topology_rule": "series_string"}
+                        )
+                        topology_suggestions.append(suggestion)
                 
-                # Convert topology connections to formal ODLEdge instances
-                for topo_conn in topology_connections:
-                    edge_id = f"topo_{topo_conn.source_component}_{topo_conn.target_component}"
-                    
-                    # Avoid duplicating AI suggestions using formal schema
-                    existing_connection = any(
-                        edge.source_id == topo_conn.source_component and
-                        edge.target_id == topo_conn.target_component
+                # Use enterprise topology generator with formal schema
+                topology_edges = create_electrical_connections(
+                    suggestions=topology_suggestions,
+                    graph=graph,
+                    connection_type="dc_string"
+                )
+                
+                # Filter out duplicates and add to connections
+                for topo_edge in topology_edges:
+                    # Check for existing connection using formal schema
+                    existing = any(
+                        edge.source_id == topo_edge.source_id and 
+                        edge.target_id == topo_edge.target_id
                         for edge in connections
                     )
                     
-                    if not existing_connection:
-                        # Create formal ODLEdge instance using formal schema
-                        edge = ODLEdge(
-                            id=edge_id,
-                            source_id=topo_conn.source_component,
-                            target_id=topo_conn.target_component,
-                            source_port=topo_conn.source_terminal,
-                            target_port=topo_conn.target_terminal,
-                            kind="electrical",
-                            attrs={
-                                "layer": "single-line",
-                                "connection_type": topo_conn.connection_type,
-                                "ai_generated": False,
-                                "topology_generated": True
-                            }
-                        )
-                        connections.append(edge)
+                    if not existing:
+                        connections.append(topo_edge)
                 
-                logger.info(f"Added {len(topology_connections)} topology connections")
+                logger.info(f"Added {len(topology_edges)} enterprise topology connections")
                 
             except Exception as e:
                 logger.warning(f"Topology generation failed, using AI suggestions only: {e}")

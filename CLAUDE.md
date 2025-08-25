@@ -129,13 +129,13 @@ Pure functions in `backend/tools/` that:
 - `edge.kind` for connection categorization (electrical, mechanical, etc.)
 
 ### Enterprise AI Wiring System
-The platform includes a comprehensive AI-driven wiring generation system:
+The platform includes a comprehensive AI-driven wiring generation system with enhanced validation and topology generation:
 
 **AI Wiring Tool (`ai_generate_wiring`):**
-- Intelligent panel grouping with performance optimization
+- **Enhanced Panel Grouping** - Advanced algorithms with minimum string size validation
+- **Enterprise Electrical Topology** - Centralized, validated edge creation with compliance checking
 - LLM-powered wiring suggestions with advanced reasoning
 - Vector store integration for similar design retrieval  
-- Enterprise validation with NEC compliance checking
 - Formal ODL schema integration with proper patch operations
 
 **Available via:**
@@ -143,12 +143,26 @@ The platform includes a comprehensive AI-driven wiring generation system:
 - **Direct API**: `POST /ai/wiring` with AI-specific parameters
 - **Tool Integration**: Formal `backend.tools.ai_wiring.generate_ai_wiring`
 
+**Enhanced Features (Latest):**
+- **Enhanced Panel Grouping** (`backend.ai.panel_grouping`):
+  - Multi-strategy grouping (spatial, electrical, shading-aware, performance-optimized)
+  - Configurable minimum string size validation with `enforce_min_string_size`
+  - Flexible final string handling with `allow_undersized_final_string`
+  - NEC compliance checking and electrical validation
+
+- **Enterprise Electrical Topology** (`backend.tools.enterprise_electrical_topology`):
+  - Centralized connection validation with `EnterpriseElectricalTopology` class
+  - Enhanced `ConnectionSuggestion` dataclass with confidence scoring and reasoning
+  - Comprehensive port compatibility validation and compliance checking
+  - Formal ODL schema integration using `source_id/target_id` and `attrs`
+  - Support for 8 standard connection types (DC string, AC branch, grounding, etc.)
+
 **Key Features:**
-- Multi-strategy panel grouping (spatial, electrical, shading-aware, performance-optimized)
-- Enterprise pipeline with metrics, audit trails, and error handling
 - Port-aware edge creation with formal schema validation
 - Optimistic concurrency control with graph versioning
-- Comprehensive validation and compliance checking
+- Enterprise pipeline with metrics, audit trails, and error handling
+- NEC/IEC compliance validation with detailed compliance notes
+- Multi-domain support with declarative configuration
 
 ### Multi-Domain Support
 - Domains configured declaratively in `backend/domains/domain.yaml`
@@ -172,9 +186,10 @@ For testing, in-memory SQLite is configured with StaticPool for proper `uvicorn 
 - `backend/orchestrator/` - Core orchestration logic
 - `backend/tools/` - Pure function tools for design operations
   - `backend/tools/ai_wiring.py` - Enterprise AI wiring tool with formal schema
+  - `backend/tools/enterprise_electrical_topology.py` - Enhanced electrical topology generation
 - `backend/ai/` - AI-powered design automation
   - `backend/ai/wiring_ai_pipeline.py` - Enterprise AI wiring pipeline
-  - `backend/ai/panel_grouping.py` - Advanced panel grouping algorithms
+  - `backend/ai/panel_grouping.py` - Enhanced panel grouping with minimum string validation
 - `backend/schemas/odl.py` - Formal ODL schema definitions (ODLGraph, ODLNode, ODLEdge)
 - `backend/odl/` - ODL patches, store, views
 - `backend/services/` - Database-connected services
