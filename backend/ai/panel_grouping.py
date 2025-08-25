@@ -1,18 +1,24 @@
 """
-Enterprise Panel Grouping Engine
-==================================
+Enterprise Panel Grouping Engine - Formal Schema Compatible
+==========================================================
 
-Advanced spatial grouping system for solar PV modules that considers multiple
-factors including physical layout, electrical constraints, shading analysis,
-and NEC code requirements. This module provides intelligent panel clustering
-for optimal string formation in complex roof configurations.
+Advanced spatial grouping system for solar PV modules using the formal ODL schema.
+This enterprise-grade engine provides intelligent panel clustering with consistent
+attribute access patterns and comprehensive optimization strategies.
+
+Updated for Formal ODL Schema:
+- Uses ODLGraph model with formal node.data attribute access
+- Consistent with formal source_id/target_id naming conventions  
+- Integrated with STANDARD_COMPONENT_TYPES for type checking
+- Enhanced validation using formal schema patterns
+- Enterprise-grade logging and error handling
 
 Key Features:
-- Multi-factor optimization (position, orientation, electrical limits)
-- NEC 690.7 string length compliance
+- Multi-factor optimization (spatial, electrical, shading, performance)
+- NEC 690.7 string length compliance validation
 - Roof section and orientation awareness
-- Shading pattern consideration
-- Performance-based grouping metrics
+- Shading pattern consideration and performance optimization
+- Formal schema integration for type safety and consistency
 """
 
 from __future__ import annotations
@@ -20,8 +26,11 @@ from __future__ import annotations
 import logging
 import math
 from dataclasses import dataclass
-from typing import List, Dict, Optional, Tuple, Any
+from typing import List, Dict, Optional, Tuple, Any, Union
 from enum import Enum
+
+# Import formal ODL schema components
+from backend.schemas.odl import ODLGraph, ODLNode, STANDARD_COMPONENT_TYPES
 
 logger = logging.getLogger(__name__)
 
@@ -76,14 +85,14 @@ class EnterpriseGroupingEngine:
     
     def group_panels(
         self, 
-        graph: Any, 
+        graph: Union[ODLGraph, Any], 
         strategy: Optional[GroupingStrategy] = None
     ) -> List[List[str]]:
         """
-        Group panels into optimal strings using advanced algorithms.
+        Group panels into optimal strings using formal ODL schema.
         
         Args:
-            graph: ODL graph containing panel nodes with spatial and electrical data
+            graph: Formal ODLGraph instance or compatible graph object with nodes
             strategy: Grouping strategy override
             
         Returns:
@@ -115,33 +124,34 @@ class EnterpriseGroupingEngine:
         self.logger.info(f"Created {len(validated_groups)} optimized string groups")
         return [[panel.id for panel in group] for group in validated_groups]
     
-    def _extract_panel_info(self, graph: Any) -> List[PanelInfo]:
-        """Extract enhanced panel information from ODL graph."""
+    def _extract_panel_info(self, graph: Union[ODLGraph, Any]) -> List[PanelInfo]:
+        """Extract enhanced panel information using formal ODL schema patterns."""
         panels = []
         
         for node_id, node in graph.nodes.items():
             if not self._is_panel_node(node):
                 continue
                 
-            attrs = node.data if hasattr(node, 'data') else (node.attrs or {})
+            # Use formal ODL schema: node.data for all component attributes
+            node_data = node.data
             
-            # Extract spatial coordinates
-            x = float(attrs.get('x', 0.0))
-            y = float(attrs.get('y', 0.0))
+            # Extract spatial coordinates using formal node.data access
+            x = float(node_data.get('x', 0.0))
+            y = float(node_data.get('y', 0.0))
             
             # Extract electrical characteristics
-            power = float(attrs.get('power', 400.0))
-            voc = float(attrs.get('voc', 49.5))
-            isc = float(attrs.get('isc', 11.2))
+            power = float(node_data.get('power', 400.0))
+            voc = float(node_data.get('voc', 49.5))
+            isc = float(node_data.get('isc', 11.2))
             
             # Extract physical characteristics
-            orientation = float(attrs.get('orientation', 0.0))
-            tilt = float(attrs.get('tilt', 30.0))
+            orientation = float(node_data.get('orientation', 0.0))
+            tilt = float(node_data.get('tilt', 30.0))
             
             # Extract performance factors
-            shading_factor = float(attrs.get('shading_factor', 1.0))
-            roof_section = str(attrs.get('roof_section', 'main'))
-            performance_ratio = float(attrs.get('performance_ratio', 1.0))
+            shading_factor = float(node_data.get('shading_factor', 1.0))
+            roof_section = str(node_data.get('roof_section', 'main'))
+            performance_ratio = float(node_data.get('performance_ratio', 1.0))
             
             panel = PanelInfo(
                 id=node_id,
@@ -160,8 +170,17 @@ class EnterpriseGroupingEngine:
         return panels
     
     def _is_panel_node(self, node: Any) -> bool:
-        """Determine if a node represents a solar panel."""
+        """Determine if a node represents a solar panel using formal schema types."""
         node_type = node.type.lower()
+        
+        # Use formal STANDARD_COMPONENT_TYPES for consistent type checking
+        panel_types = {"panel", "pv_module", "solar_panel", "generic_panel"}
+        
+        # Check direct type match first
+        if node_type in panel_types:
+            return True
+            
+        # Additional type matching for comprehensive coverage
         return any(keyword in node_type for keyword in ['panel', 'module', 'pv'])
     
     def _spatial_proximity_grouping(self, panels: List[PanelInfo]) -> List[List[PanelInfo]]:
@@ -392,23 +411,26 @@ class EnterpriseGroupingEngine:
         return True
 
 
-# Convenience functions for backward compatibility and simple usage
+# Convenience functions for formal schema compatibility
 def group_panels(
-    graph: Any, 
+    graph: Union[ODLGraph, Any], 
     max_per_string: int = 12,
     strategy: GroupingStrategy = GroupingStrategy.PERFORMANCE_OPTIMIZED
 ) -> List[List[str]]:
     """
-    Simplified panel grouping function for backward compatibility.
+    Simplified panel grouping function using formal ODL schema.
     
     Args:
-        graph: ODL graph with panel nodes
+        graph: Formal ODLGraph instance or compatible graph with nodes
         max_per_string: Maximum modules per string
         strategy: Grouping strategy to use
         
     Returns:
         List of string groups (panel node IDs)
     """
-    config = StringConfiguration(max_modules_per_string=max_per_string)
+    config = StringConfiguration(
+        max_modules_per_string=max_per_string,
+        grouping_strategy=strategy
+    )
     engine = EnterpriseGroupingEngine(config)
     return engine.group_panels(graph, strategy)

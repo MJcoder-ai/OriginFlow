@@ -1,16 +1,27 @@
-"""Schemas for ODL graph operations.
+"""Formal ODL Schema Definition - Enterprise Data Models
 
-This module defines the core data models for the Open Design Language (ODL).
-The models here form the single source of truth for design sessions. They have
-been extended to support port-level connections so that tools can operate on
-individual terminals rather than whole devices.
+This module defines the comprehensive, formal data models for the Open Design Language (ODL).
+These models form the authoritative single source of truth for all design operations,
+with enterprise-grade validation, type safety, and architectural consistency.
+
+Key architectural principles:
+- Unified ODLGraph model with formal versioning and session management
+- Consistent attribute access: node.data for component attributes, edge.attrs for connection metadata
+- Port-aware architecture with terminal-level connection granularity
+- Enhanced type safety with comprehensive Pydantic validation
+- Standardized field naming: source_id/target_id with optional port specifications
+- Enterprise features: requirements tracking, placeholder management, audit trails
+
+This schema eliminates legacy inconsistencies and provides a robust foundation
+for the entire electrical design automation platform.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Literal
+from typing import Any, Dict, List, Optional, Literal, Union
 from datetime import datetime
+import time
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, validator
 
 
 class ODLNode(BaseModel):
@@ -41,24 +52,83 @@ class ODLNode(BaseModel):
 
 
 class ODLEdge(BaseModel):
-    """A typed connection between two nodes.
+    """A formal typed connection between two nodes in the design graph.
 
-    Edges now reference specific ports on the source and target nodes. If
-    unspecified, the connection is assumed to be at the device level (for
-    backwards compatibility). The ``connection_type`` can be used to denote
-    whether this is a DC string, AC branch, data communication, etc.
+    This model defines connections using standardized source_id/target_id fields with
+    optional port-level granularity. All edge metadata is stored in the attrs dictionary
+    for consistency. The kind field categorizes connection types (electrical, mechanical, etc.).
+    
+    Key features:
+    - Formal source_id/target_id naming (with backwards-compatible aliases)
+    - Port-aware connections via source_port/target_port
+    - Structured metadata in attrs dictionary
+    - Connection categorization via kind field
+    - Provisional marking for temporary connections
     """
 
     id: str
-    source: str
-    target: str
-    source_port: Optional[str] = None  # stable port identifier on source node
-    target_port: Optional[str] = None  # stable port identifier on target node
-    data: Dict[str, Any] = Field(default_factory=dict)
-    connection_type: Optional[str] = None
+    # Primary fields using formal naming convention
+    source_id: str = Field(..., alias="source")
+    target_id: str = Field(..., alias="target") 
+    # Port-level connection granularity
+    source_port: Optional[str] = None
+    target_port: Optional[str] = None
+    # Structured edge metadata (replaces legacy 'data' field)
+    attrs: Dict[str, Any] = Field(default_factory=dict)
+    # Connection category for semantic understanding
+    kind: Optional[str] = None  # e.g., "electrical", "mechanical", "data", "protection"
+    # Provisional flag for temporary or suggested connections
     provisional: bool = False
 
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+
+class ODLGraph(BaseModel):
+    """Formal unified graph model representing a complete electrical design.
+
+    This is the authoritative data structure for all design operations, providing:
+    - Session management with unique session_id
+    - Optimistic concurrency control via version tracking
+    - Structured node storage (Dict[str, ODLNode] keyed by node ID)
+    - Ordered edge storage (List[ODLEdge] for connection sequences)
+    - Embedded design requirements for holistic design context
+    - Enterprise audit and metadata tracking
+
+    The ODLGraph eliminates previous inconsistencies and provides a single,
+    well-defined interface for all design manipulation operations.
+    """
+
+    session_id: str = Field(..., description="Unique session identifier")
+    version: int = Field(default=1, ge=1, description="Graph version for optimistic concurrency")
+    nodes: Dict[str, ODLNode] = Field(default_factory=dict, description="Component nodes keyed by ID")
+    edges: List[ODLEdge] = Field(default_factory=list, description="Connection edges in sequence")
+    requirements: Optional[DesignRequirements] = Field(None, description="Embedded design requirements")
+    
+    # Enterprise metadata
+    created_at: Optional[float] = Field(default_factory=time.time, description="Creation timestamp")
+    updated_at: Optional[float] = Field(default_factory=time.time, description="Last update timestamp")
+    design_stage: str = Field(default="draft", description="Design stage: draft, review, approved, archived")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional graph metadata")
+
     model_config = ConfigDict(extra="forbid")
+
+    def get_nodes_by_type(self, node_type: str) -> List[ODLNode]:
+        """Get all nodes of a specific type."""
+        return [node for node in self.nodes.values() if node.type == node_type]
+    
+    def get_edges_by_kind(self, kind: str) -> List[ODLEdge]:
+        """Get all edges of a specific kind."""
+        return [edge for edge in self.edges if edge.kind == kind]
+    
+    def get_node_connections(self, node_id: str) -> List[ODLEdge]:
+        """Get all edges connected to a specific node."""
+        return [edge for edge in self.edges 
+                if edge.source_id == node_id or edge.target_id == node_id]
+    
+    def update_version(self) -> None:
+        """Increment version and update timestamp for optimistic concurrency."""
+        self.version += 1
+        self.updated_at = time.time()
 
 
 class DesignRequirements(BaseModel):
@@ -253,3 +323,103 @@ class PlaceholderAnalysisResponse(BaseModel):
     available_replacements: Dict[str, List[ComponentCandidate]]
     completion_percentage: float
     blocking_issues: List[str]
+
+    model_config = ConfigDict(extra="forbid")
+
+
+# ============================================================================
+# FORMAL GUIDANCE CONSTANTS AND ENUMERATIONS
+# ============================================================================
+# 
+# These constants provide standardized values for the formal ODL schema.
+# They are advisory for tools but enforce consistency across the platform.
+
+# Standard port types for electrical connections
+STANDARD_PORT_TYPES = {
+    # DC electrical ports
+    "dc_pos", "dc_neg", "dc+", "dc-",
+    # AC electrical ports  
+    "ac_l1", "ac_l2", "ac_l3", "ac_n", "ac_pe",
+    # Grounding and safety
+    "equipment_ground", "gnd", "earth", "pe",
+    # Control and communication
+    "comm_rx", "comm_tx", "rs485_a", "rs485_b",
+    "can_h", "can_l", "modbus", "ethernet",
+    # Monitoring and sensing
+    "voltage_sense", "current_sense", "temp_sense",
+    # Power optimizer and microinverter
+    "pv_in", "ac_out", "data", "shutdown"
+}
+
+# Standard edge kinds for connection categorization
+STANDARD_EDGE_KINDS = {
+    # Electrical connections
+    "electrical",           # Generic electrical connection
+    "dc_string",           # DC string series connection
+    "dc_parallel",         # DC parallel connection
+    "ac_branch",           # AC branch circuit
+    "ac_main",             # AC main panel connection
+    "grounding",           # Equipment grounding connection
+    "bonding",             # Electrical bonding connection
+    
+    # Protection and control
+    "protection",          # Protection device integration
+    "disconnect",          # Disconnect switch connection
+    "monitoring",          # Monitoring system connection
+    "control",             # Control signal connection
+    
+    # Communication and data
+    "communication",       # Data/communication connection
+    "rs485",              # RS485 communication bus
+    "ethernet",           # Ethernet data connection
+    "can_bus",            # CAN bus connection
+    
+    # Physical and mechanical
+    "mechanical",         # Mechanical attachment/mounting
+    "structural",         # Structural support connection
+    "conduit",            # Conduit/raceway routing
+    
+    # Logical and planning
+    "provisional",        # Temporary/planned connection
+    "annotation",         # Annotation or documentation link
+    "grouping"            # Logical grouping relationship
+}
+
+# Standard component types for node categorization
+STANDARD_COMPONENT_TYPES = {
+    # PV system components
+    "panel", "pv_module", "solar_panel",
+    "inverter", "string_inverter", "central_inverter", "microinverter",
+    "power_optimizer", "optimizer", "mlpe",
+    
+    # Energy storage
+    "battery", "battery_bank", "energy_storage",
+    "charge_controller", "battery_inverter",
+    
+    # Electrical infrastructure  
+    "main_panel", "load_center", "distribution_panel",
+    "breaker", "fuse", "protection_device",
+    "disconnect", "switch", "combiner_box",
+    "transformer", "meter", "production_meter",
+    
+    # Monitoring and control
+    "monitoring_device", "gateway", "data_logger",
+    "rapid_shutdown", "safety_device",
+    
+    # Physical infrastructure
+    "mounting_rail", "mounting_system", "racking",
+    "conduit", "wire", "cable", "conductor",
+    
+    # Generic placeholders
+    "generic_panel", "generic_inverter", "generic_battery",
+    "generic_protection", "generic_disconnect", "generic_monitoring"
+}
+
+# Node layer classifications for UI rendering
+STANDARD_NODE_LAYERS = {
+    "single-line",        # Single-line electrical diagram
+    "schematic",          # Detailed schematic view  
+    "physical",           # Physical layout view
+    "installation",       # Installation diagram
+    "as-built"            # As-built documentation
+}

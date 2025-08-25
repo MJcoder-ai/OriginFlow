@@ -88,13 +88,24 @@ PORT=8001 ./scripts/smoke.sh
 
 ## Architecture and Key Concepts
 
-### ODL (OriginFlow Design Language)
-ODL is the core data model - a versioned graph format that serves as the single source of truth. All canvases and UI layers are projections of ODL state.
+### ODL (OriginFlow Design Language) - Formal Schema
+ODL is the core data model - a versioned graph format with formal Pydantic schemas that serves as the single source of truth. The formal ODL schema provides enterprise-grade validation, type safety, and consistent attribute access patterns.
 
-Key ODL endpoints:
+**Formal ODL Components:**
+- **ODLGraph** - Unified graph model with session management and versioning
+- **ODLNode** - Component nodes with formal `node.data` attribute access
+- **ODLEdge** - Connections with `source_id/target_id` naming and port awareness
+- **Standard Types** - 45+ component types, 21+ edge kinds, and 5 node layers
+
+**Key ODL endpoints:**
 - `POST /api/v1/odl/sessions?session_id=...` - Create/get session
-- `GET /api/v1/odl/{id}/view?layer=...` - Get layer projection
+- `GET /api/v1/odl/{id}/view?layer=...` - Get layer projection  
 - `POST /api/v1/ai/act` - Execute AI actions with optimistic concurrency
+
+**Attribute Access Patterns:**
+- Component attributes: `node.data["power"]` (formal schema)
+- Connection metadata: `edge.attrs["layer"]` (formal schema)
+- Port-level connections: `edge.source_port`, `edge.target_port`
 
 ### Orchestrator Pattern
 The system uses a single orchestrator (`/ai/act`) that:
@@ -103,12 +114,18 @@ The system uses a single orchestrator (`/ai/act`) that:
 3. Enforces risk/governance policies
 4. Applies patches with optimistic concurrency (If-Match headers)
 
-### Typed Tools Architecture
+### Typed Tools Architecture  
 Pure functions in `backend/tools/` that:
-- Take ODL state + parameters as input
-- Return `ODLPatch` objects
-- Have no database dependencies
-- Are easily testable
+- Take formal ODL state + parameters as input
+- Return `ODLPatch` objects with formal schema compliance
+- Have no database dependencies  
+- Are easily testable with formal validation
+
+**Important:** All tools now use the formal ODL schema. Legacy dict-based nodes/edges are not supported. Use:
+- `ODLGraph` instances for graph data
+- `node.data` for component attributes (not `node.attrs`)
+- `edge.source_id/target_id` for connections (with backwards-compatible aliases)
+- `edge.attrs` for connection metadata (not `edge.data`)
 
 ### Multi-Domain Support
 - Domains configured declaratively in `backend/domains/domain.yaml`
