@@ -442,7 +442,7 @@ class EnterpriseAIWiringPipeline:
                     elif tgt_node and getattr(tgt_node, "layer", None):
                         layer = tgt_node.layer
                 
-                # Create formal ODLEdge instance using new schema
+                # Create formal ODLEdge instance using formal schema
                 edge = ODLEdge(
                     id=edge_id,
                     source_id=suggestion.source_node_id,
@@ -489,7 +489,7 @@ class EnterpriseAIWiringPipeline:
                     )
                     
                     if not existing_connection:
-                        # Create formal ODLEdge instance
+                        # Create formal ODLEdge instance using formal schema
                         edge = ODLEdge(
                             id=edge_id,
                             source_id=topo_conn.source_component,

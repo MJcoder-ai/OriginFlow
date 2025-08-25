@@ -1,27 +1,17 @@
-"""Formal ODL Schema Definition - Enterprise Data Models
+"""Schemas for ODL graph operations.
 
-This module defines the comprehensive, formal data models for the Open Design Language (ODL).
-These models form the authoritative single source of truth for all design operations,
-with enterprise-grade validation, type safety, and architectural consistency.
-
-Key architectural principles:
-- Unified ODLGraph model with formal versioning and session management
-- Consistent attribute access: node.data for component attributes, edge.attrs for connection metadata
-- Port-aware architecture with terminal-level connection granularity
-- Enhanced type safety with comprehensive Pydantic validation
-- Standardized field naming: source_id/target_id with optional port specifications
-- Enterprise features: requirements tracking, placeholder management, audit trails
-
-This schema eliminates legacy inconsistencies and provides a robust foundation
-for the entire electrical design automation platform.
+This module defines the core data models for the Open Design Language (ODL).
+The models here form the single source of truth for design sessions. They have
+been extended to support port-level connections so that tools can operate on
+individual terminals rather than whole devices.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Literal, Union
+from typing import Any, Dict, List, Optional, Literal
 from datetime import datetime
 import time
 
-from pydantic import BaseModel, Field, ConfigDict, validator
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class ODLNode(BaseModel):
@@ -54,33 +44,26 @@ class ODLNode(BaseModel):
 class ODLEdge(BaseModel):
     """A formal typed connection between two nodes in the design graph.
 
-    This model defines connections using standardized source_id/target_id fields with
-    optional port-level granularity. All edge metadata is stored in the attrs dictionary
-    for consistency. The kind field categorizes connection types (electrical, mechanical, etc.).
-    
-    Key features:
-    - Formal source_id/target_id naming (with backwards-compatible aliases)
-    - Port-aware connections via source_port/target_port
-    - Structured metadata in attrs dictionary
-    - Connection categorization via kind field
-    - Provisional marking for temporary connections
+    This model defines connections using formal source_id/target_id fields with
+    port-level granularity. Edge metadata is stored in the attrs dictionary
+    for consistency with the formal schema architecture.
     """
 
     id: str
-    # Primary fields using formal naming convention
-    source_id: str = Field(..., alias="source")
-    target_id: str = Field(..., alias="target") 
+    # Formal node identifiers using explicit naming
+    source_id: str
+    target_id: str
     # Port-level connection granularity
     source_port: Optional[str] = None
     target_port: Optional[str] = None
-    # Structured edge metadata (replaces legacy 'data' field)
+    # Structured edge metadata (consistent with formal schema)
     attrs: Dict[str, Any] = Field(default_factory=dict)
     # Connection category for semantic understanding
-    kind: Optional[str] = None  # e.g., "electrical", "mechanical", "data", "protection"
-    # Provisional flag for temporary or suggested connections
+    kind: Optional[str] = None  # e.g., "electrical", "mechanical", "data"
+    # Mark edge as provisional; provisional edges may be removed later
     provisional: bool = False
 
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    model_config = ConfigDict(extra="forbid")
 
 
 class ODLGraph(BaseModel):

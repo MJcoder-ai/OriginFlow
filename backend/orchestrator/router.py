@@ -37,6 +37,7 @@ from backend.orchestrator.plan_spec import PlanSpec
 from backend.orchestrator.auto_designer import run_auto_design, auto_design_from_nl
 from backend.tools.standards_profiles import load_profile
 from backend.ai.tools.generate_wiring_advanced import generate_wiring_advanced
+from backend.tools.ai_wiring import generate_ai_wiring
 from backend.odl.schemas import ODLGraph, ODLEdge, PatchOp
 import asyncio
 import logging
@@ -47,7 +48,7 @@ TOOL_COUNTERS: Dict[str, int] = {}
 # Phase gating: what categories are allowed in each workflow phase
 PHASE_ALLOW = {
     "setup": {"compute_design_state", "select_equipment", "select_dc_stringing", "check_compliance_v2", "explain_design_v2"},
-    "proposal": {"select_equipment", "select_dc_stringing", "check_compliance_v2", "select_ocp_dc", "select_ocp_ac_v2", "select_conductors_v2"},
+    "proposal": {"select_equipment", "select_dc_stringing", "check_compliance_v2", "select_ocp_dc", "select_ocp_ac_v2", "select_conductors_v2", "ai_generate_wiring"},
     "materialize": "ANY",
 }
 
@@ -98,6 +99,7 @@ def get_tool(task_id: str):
         "pv_size_protection": protection.size_protection,
         "pv_size_conductors": conductors.size_conductors,
         "pv_generate_wiring": pv_wiring.generate_wiring,
+        "ai_generate_wiring": generate_ai_wiring,  # Enterprise AI-driven wiring
         "pv_compliance_check": compliance.compliance_check,
         "pv_compute_bom": pv_bom.compute_bom,
         "pv_explain": explain.run,

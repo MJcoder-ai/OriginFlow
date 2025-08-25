@@ -123,9 +123,32 @@ Pure functions in `backend/tools/` that:
 
 **Important:** All tools now use the formal ODL schema. Legacy dict-based nodes/edges are not supported. Use:
 - `ODLGraph` instances for graph data
-- `node.data` for component attributes (not `node.attrs`)
-- `edge.source_id/target_id` for connections (with backwards-compatible aliases)
-- `edge.attrs` for connection metadata (not `edge.data`)
+- `node.data` for component attributes
+- `edge.source_id/target_id` for connections (formal naming)
+- `edge.attrs` for connection metadata (formal schema)
+- `edge.kind` for connection categorization (electrical, mechanical, etc.)
+
+### Enterprise AI Wiring System
+The platform includes a comprehensive AI-driven wiring generation system:
+
+**AI Wiring Tool (`ai_generate_wiring`):**
+- Intelligent panel grouping with performance optimization
+- LLM-powered wiring suggestions with advanced reasoning
+- Vector store integration for similar design retrieval  
+- Enterprise validation with NEC compliance checking
+- Formal ODL schema integration with proper patch operations
+
+**Available via:**
+- **Orchestrator**: `POST /ai/act` with `task: "ai_generate_wiring"`
+- **Direct API**: `POST /ai/wiring` with AI-specific parameters
+- **Tool Integration**: Formal `backend.tools.ai_wiring.generate_ai_wiring`
+
+**Key Features:**
+- Multi-strategy panel grouping (spatial, electrical, shading-aware, performance-optimized)
+- Enterprise pipeline with metrics, audit trails, and error handling
+- Port-aware edge creation with formal schema validation
+- Optimistic concurrency control with graph versioning
+- Comprehensive validation and compliance checking
 
 ### Multi-Domain Support
 - Domains configured declaratively in `backend/domains/domain.yaml`
@@ -148,9 +171,15 @@ For testing, in-memory SQLite is configured with StaticPool for proper `uvicorn 
 - `backend/main.py` - FastAPI application entry point
 - `backend/orchestrator/` - Core orchestration logic
 - `backend/tools/` - Pure function tools for design operations
-- `backend/odl/` - ODL schemas, patches, store, views
+  - `backend/tools/ai_wiring.py` - Enterprise AI wiring tool with formal schema
+- `backend/ai/` - AI-powered design automation
+  - `backend/ai/wiring_ai_pipeline.py` - Enterprise AI wiring pipeline
+  - `backend/ai/panel_grouping.py` - Advanced panel grouping algorithms
+- `backend/schemas/odl.py` - Formal ODL schema definitions (ODLGraph, ODLNode, ODLEdge)
+- `backend/odl/` - ODL patches, store, views
 - `backend/services/` - Database-connected services
 - `backend/api/routes/` - REST API endpoints
+  - `backend/api/routes/ai_act.py` - AI orchestration and wiring endpoints
 - `backend/governance/` - Approval workflows and audit trails
 - `backend/domains/` - Multi-domain configuration
 

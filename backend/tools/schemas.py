@@ -11,7 +11,8 @@ from __future__ import annotations
 from typing import Dict, List, Optional, Literal
 from pydantic import BaseModel, Field, ConfigDict
 
-from backend.odl.schemas import ODLNode, ODLEdge, ODLGraph, ODLPatch, PatchOp
+from backend.schemas.odl import ODLNode, ODLEdge, ODLGraph
+from backend.odl.schemas import ODLPatch, PatchOp
 
 
 # ---------- Shared ----------
@@ -65,6 +66,17 @@ class GenerateWiringInput(ToolBase):
         default_factory=list, description="Nodes visible in the current layer/view"
     )
     edge_kind: str = Field("electrical")
+
+
+class AIWiringInput(ToolBase):
+    """Input for AI-driven wiring generation with enterprise features."""
+    view_nodes: List[ODLNode] = Field(
+        default_factory=list, description="Component nodes for wiring analysis"
+    )
+    max_modules_per_string: int = Field(12, description="Maximum modules per string", ge=1, le=20)
+    use_llm: bool = Field(False, description="Enable LLM-powered suggestions")
+    grouping_strategy: str = Field("performance_optimized", description="Panel grouping strategy")
+    context: Dict[str, str] = Field(default_factory=dict, description="Additional wiring context")
 
 
 # ---------- Structural ----------
