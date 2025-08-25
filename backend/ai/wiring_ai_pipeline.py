@@ -38,6 +38,14 @@ from backend.ai.panel_grouping import EnterpriseGroupingEngine, GroupingStrategy
 from backend.ai.vector_store import EnterpriseVectorStore, DesignMetadata, DesignCategory, retrieve_similar
 from backend.ai.llm_wiring_suggest import LLMWiringSuggestionEngine, WiringContext, WiringSuggestion
 from backend.tools.enterprise_electrical_topology import create_electrical_connections, ConnectionSuggestion, ConnectionType
+from backend.schemas.pipeline import (
+    PipelineLog, 
+    PipelineStage as LogPipelineStage, 
+    LogLevel, 
+    ComplianceIssue, 
+    ComplianceIssueType,
+    PerformanceMetric
+)
 
 logger = logging.getLogger(__name__)
 
@@ -154,9 +162,9 @@ class EnterpriseAIWiringPipeline:
         graph: Any,
         session_id: str,
         context: Optional[Dict[str, Any]] = None
-    ) -> PipelineResult:
+    ) -> Tuple[PipelineResult, PipelineLog]:
         """
-        Execute complete AI wiring generation pipeline.
+        Execute complete AI wiring generation pipeline with enterprise logging.
         
         Args:
             graph: ODL graph containing electrical components
@@ -164,17 +172,34 @@ class EnterpriseAIWiringPipeline:
             context: Additional context for optimization
             
         Returns:
-            Comprehensive pipeline result with connections and metadata
+            Tuple of (pipeline result, enterprise pipeline log)
         """
         start_time = time.time()
         current_stage = PipelineStage.INITIALIZATION
         
+        # Initialize enterprise logging
+        pipeline_log = PipelineLog(
+            session_id=session_id,
+            configuration={
+                "max_modules_per_string": self.config.max_modules_per_string,
+                "min_modules_per_string": self.config.min_modules_per_string,
+                "grouping_strategy": self.config.grouping_strategy.value,
+                "use_llm_suggestions": self.config.use_llm_suggestions,
+                "use_vector_store": self.config.use_vector_store
+            },
+            requesting_user=context.get("user_id") if context else None
+        )
+        
         try:
             # Initialize pipeline
+            pipeline_log.add_entry(LogPipelineStage.INITIALIZATION, "Starting AI wiring pipeline", LogLevel.INFO)
             self._audit_log("pipeline_start", {"session_id": session_id, "config": asdict(self.config)})
-            result = self._initialize_pipeline(graph, session_id, context)
+            
+            result = self._initialize_pipeline(graph, session_id, context, pipeline_log)
             if not result["success"]:
-                return self._create_error_result("Initialization failed", result.get("message", ""))
+                pipeline_log.add_entry(LogPipelineStage.INITIALIZATION, f"Initialization failed: {result.get('message', '')}", LogLevel.ERROR)
+                pipeline_log.complete_execution()
+                return self._create_error_result("Initialization failed", result.get("message", "")), pipeline_log
             
             # Stage 1: Panel Grouping
             current_stage = PipelineStage.PANEL_GROUPING

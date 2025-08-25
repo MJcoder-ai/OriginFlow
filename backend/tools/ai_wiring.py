@@ -7,10 +7,11 @@ Returns proper ODLPatch operations for orchestrator integration.
 """
 from __future__ import annotations
 
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 import logging
 
 from backend.schemas.odl import ODLNode, ODLEdge, ODLGraph
+from backend.schemas.pipeline import PipelineLog
 from backend.odl.schemas import ODLPatch, PatchOp
 from backend.tools.schemas import AIWiringInput
 from backend.ai.wiring_ai_pipeline import EnterpriseAIWiringPipeline, PipelineConfiguration
