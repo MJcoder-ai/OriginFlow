@@ -8,5 +8,6 @@ non-installed test environments.
 # minimal to avoid heavy side effects during test discovery.
 from . import odl_graph_service  # noqa: F401
 from . import ai as ai  # noqa: F401
+from . import attribute_catalog_service  # noqa: F401
 
-__all__ = ["odl_graph_service", "ai"]
+__all__ = ["odl_graph_service", "ai", "attribute_catalog_service"]
